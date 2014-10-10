@@ -46,15 +46,17 @@ public class PrepareFilterAlnCmd {
 				String outFn = conf.getAlignFilteredFileName();
 				String dp = conf.aligner.equals("bowtie") ? " --1DP " : " ";
 				String silent = conf.isPaired ? " --silent " : " ";
-				String cmd = "java -jar " + progFile + " run filter --min-insert " + conf.minInsert +
+				String prog = !conf.isPaired ? "filterSE" : "filterPE";
+				String cmd = "java -jar " + progFile + " run " + prog + " --min-insert " + conf.minInsert +
 						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis +
 						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent +
+						" --max-div " + conf.maxDiv + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
 						" -in " + inFn + " -out " + outFn;
 
 				if(!(new File(outFn)).exists())
 					out.write(cmd + newLine);
 				else {
-					System.err.println("Trimmed output file already exists, won't override");
+					System.err.println("Filtered SAM/BAM file already exists, won't override");
 					cmd = cmd.replace("\n", "\n#");
 					out.write("#" + cmd + newLine);
 				}
