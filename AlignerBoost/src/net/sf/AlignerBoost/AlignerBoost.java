@@ -89,9 +89,9 @@ public class AlignerBoost {
 		case "filter":
 			PrepareFilterAlnCmd.main(opts);
 			break;
-		case "stratum":
+/*		case "stratum":
 			PrepareBestStratumCmd.main(opts);
-			break;
+			break;*/
 		default:
 			System.err.println("Unknown prepare command '" + cmd + "'");
 			printUsage();
@@ -173,15 +173,18 @@ public class AlignerBoost {
 		case "NR":
 			Fastq2NR.main(opts);
 			break;
-		case "filter":
-			FilterFixSamAlign.main(opts);
+		case "filterSE":
+			FilterSAMAlignSE.main(opts);
 			break;
-		case "stratumSE":
+		case "filterPE":
+			FilterSAMAlignPE.main(opts);
+			break;
+/*		case "stratumSE":
 			FilterSamBestStratumAlignSE.main(opts);
 			break;
 		case "stratumPE":
 			FilterSamBestStratumAlignPE.main(opts);
-			break;
+			break;*/
 		default:
 			System.err.println("Unknown prepare command '" + cmd + "'");
 			printUsage();
@@ -212,23 +215,24 @@ public class AlignerBoost {
 				"                  prepare  trim          prepare NGS read trimming commands" + newLine +
 				"                  prepare  NR            prepare NGS read Non-redundant collapsing commands" + newLine +
 				"                  prepare  align         prepare NGS read aligning (mapping) commands" + newLine +
-				"                  prepare  filter        prepare NGS alignment filtering commands" + newLine +
-				"                  prepare  stratum       prepare NGS alignment \"best-stratum\" filtering commands" + newLine +
+				"                  prepare  filter        prepare NGS alignment filtering & best-stratum commands" + newLine +
+//				"                  prepare  stratum       prepare NGS alignment \"best-stratum\" filtering commands" + newLine +
 				"                  stats    total         init total read stats of a project" + newLine +
 				"                  stats    trimmed       add/update trimmed read stats" + newLine +
 				"                  stats    NR            add/update NR tag stats" + newLine +
 				"                  stats    mapped        add/update final mapped unique reads that passed all the filters" + newLine +
-//				"                  utils    sam2Loc     convert SAM/BAM files to AlignBoost tab-delimited alignment files" + newLine +
-				"                  utils    sam2Cover   convert SAM/BAM files to AlignBoost tab-delimited read-coverage files" + newLine +
+//				"                  utils    sam2Loc       convert SAM/BAM files to AlignBoost tab-delimited alignment files" + newLine +
+				"                  utils    sam2Cover     convert SAM/BAM files to AlignBoost tab-delimited read-coverage files" + newLine +
 				"                  utils    sam2Wig       convert SAM/BAM files to UCSC Wiggle files" +
-//				"                  utils    bed2Loc     convert UCSC bed files to AlignBoost tab-delimited alignment files" + newLine +
-//				"                  utils    bed2Cover   convert UCSC bed files to AlignBoost tab-delimited read-coverage files" + newLine +
+//				"                  utils    bed2Loc       convert UCSC bed files to AlignBoost tab-delimited alignment files" + newLine +
+//				"                  utils    bed2Cover     convert UCSC bed files to AlignBoost tab-delimited read-coverage files" + newLine +
 //				"                  utils    bed2Wig       convert UCSC bed files to UCSC Wiggle files" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
 				"                  run      fastq2NR      collapse NGS FASTQ reads/pairs to NR-tags" + newLine +
-				"                  run      filter        re-calibarate and filter NGS alignments with various criterial" + newLine +
-				"                  run      stratumSE     boost NGS alignment accuracy by picking only \"best-stratum\" hits" + newLine +
-				"                  run      stratumPE     boost pair-end NGS alignment accuracy by picking only \"best-stratum\" pairs"
+				"                  run      filterSE      boost NGS alignment accuracy by post-filtering and picking \"best-stratum\" hits for single-end alignments" + newLine +
+				"                  run      filterPE      boost NGS alignment accuracy by post-filtering and picking \"best-stratum\" hits for paired-end alignments"
+//				"                  run      stratumSE     boost NGS alignment accuracy by picking only \"best-stratum\" hits" + newLine +
+//				"                  run      stratumPE     boost pair-end NGS alignment accuracy by picking only \"best-stratum\" pairs"
 				);
 	}
 }
