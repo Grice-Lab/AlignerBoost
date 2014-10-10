@@ -561,7 +561,7 @@ public class NGSExpDesign {
 	}
 
 	/**
-	 * get filtered & fixed alignment bam file name for this library
+	 * get filtered & best-stratum selected alignment bam file name for this library
 	 * @return  BAM filename
 	 */
 	public String getAlignFilteredFileName() {
@@ -569,15 +569,7 @@ public class NGSExpDesign {
 		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
 	}
 	
-	/**
-	 * get best-stratum alignment bam file name for this library
-	 * @return  BAM filename
-	 */
-	public String getAlignBestStratumFileName() {
-		String fn = libName + "_" + refGenome + "_best.bam"; // always bam output
-		return PROJECT_DIR.equals(".") ? fn : PROJECT_DIR + "/" + fn;
-	}
-	
+
 	// global options
 	static int MAX_PROC = 6; // maximum processors to use
 	static String INIT_MEM = "4G";

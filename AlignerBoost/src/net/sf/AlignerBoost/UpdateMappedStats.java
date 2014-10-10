@@ -82,7 +82,7 @@ public class UpdateMappedStats {
 				// check trimmed FASTQ file
 				int totalMapped = 0;
 				SamReaderFactory readerFac = SamReaderFactory.makeDefault();
-				samIn = readerFac.open(new File(conf.getAlignBestStratumFileName()));
+				samIn = readerFac.open(new File(conf.getAlignFilteredFileName()));
 				for(SAMRecord record : samIn) {
 					Matcher match = nrPat.matcher(record.getReadName());
 					if(match.find()) // is a NR id
