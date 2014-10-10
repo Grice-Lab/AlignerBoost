@@ -46,7 +46,7 @@ public class FilterSAMAlignSE {
 			// fix alignment, ignore if failed (unmapped or empty)
 			if(!SAMAlignFixer.fixSAMRecord(record, DO_1DP))
 				continue;
-			
+
 			String ID = record.getReadName();
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
 				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
@@ -76,6 +76,41 @@ public class FilterSAMAlignSE {
 		catch(IOException e) {
 			System.err.println(e.getMessage());
 		}
+	}
+
+	// a nested class for sorting SAMRecord using identity, ties are broken by the insert length
+	static class SAMRecordIdentityComparator implements Comparator<SAMRecord> {
+		public int compare(SAMRecord r1, SAMRecord r2) {
+			float iden1 = getSAMRecordIdentity(r1);
+			float iden2 = getSAMRecordIdentity(r2);
+			if(iden1 < iden2)
+				return -1;
+			else if(iden1 > iden2)
+				return 1;
+			else
+				return getSAMRecordInsertLen(r1) - getSAMRecordInsertLen(r2);
+		}
+	}
+
+	private static void printUsage() { 
+		System.err.println("Usage:   java -jar " + progFile + " run filterSE " +
+				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" + newLine +
+				"Options:    --min-insert  minimum insert length (excluding adapters) of a read to allow amabiguous alignment, default 15" + newLine +
+				"            --seed-len seed length for Burrows-Wheeler algorithm dependent aligners, default 25" + newLine +
+				"            --seed-mis %mismatches allowed in seed region, default 4" + newLine +
+				"            --all-mis %mismatches allowed in the entire insert region (excluding masked regions and Ns), default 6" + newLine +
+				"            --all-indel %in-dels allowed in the entire insert region, default 2" + newLine +
+				"            --1DP enable 1-dimentional dymamic programming (1DP) re-aligning, useful for non-local aligners, i.e. bowtie" + newLine +
+				"            --match-score match score for 1DP, default 1" + newLine +
+				"            --mis-score mismatch score for 1DP, default -2" + newLine +
+				"            --gap-open-penalty gap open penalty for 1DP, default 4" + newLine +
+				"            --gap-ext-penalty gap extension penalty, default 1" + newLine +
+				"            --out-SAM write SAM text output instead of BAM binary output" + newLine +
+				"            --silent ignore certain SAM format errors such as empty reads" + newLine +
+				"            --max-div max %divergent allowed for best stratum hits comparing to the top hit as for the identity%, default 4" + newLine +
+				"            --max-best max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0" + newLine +
+				"            --max-report max report hits for all valid best stratum hits determined by --max-div and --max-best, set to 0 for no limit, default 10, default 6"
+				);
 	}
 
 	private static void parseOptions(String[] args) throws IllegalArgumentException {
@@ -141,61 +176,6 @@ public class FilterSAMAlignSE {
 			throw new IllegalArgumentException("--max-report must be non negative integer");
 	}
 
-	// a nested class for sorting SAMRecord using identity, ties are broken by the insert length
-	static class SAMRecordIdentityComparator implements Comparator<SAMRecord> {
-		public int compare(SAMRecord r1, SAMRecord r2) {
-			float iden1 = getSAMRecordIdentity(r1);
-			float iden2 = getSAMRecordIdentity(r2);
-			if(iden1 < iden2)
-				return -1;
-			else if(iden1 > iden2)
-				return 1;
-			else
-				return getSAMRecordInsertLen(r1) - getSAMRecordInsertLen(r2);
-		}
-	}
-
-	
-	private static String inFile;
-	private static String outFile;
-	// filter options
-	private static int MIN_INSERT = 15;
-	private static double MAX_SEED_MIS = 4; // max % seed mismatch
-	private static final double MAX_SEED_INDEL = 0; // seed indel is always not allowed
-	private static final float MIN_IDENTITY = 0;
-	private static double MAX_ALL_MIS = 6; // max % all mismatch
-	private static double MAX_ALL_INDEL = 0; // max % all indel
-	private static boolean DO_1DP;
-	private static boolean isSilent; // ignore SAM warnings?
-	// best stratum options
-	private static float MAX_DIV = 4; // max divergent
-	private static int MAX_BEST = 0; // no limits
-	private static int MAX_REPORT = 10;
-	private static SAMRecordIdentityComparator recordComp = new SAMRecordIdentityComparator();
-	// general options
-	private static boolean OUT_IS_SAM; // outFile is SAM format?
-
-	private static void printUsage() { 
-		System.err.println("Usage:   java -jar " + progFile + " run filterSE " +
-				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" + newLine +
-				"Options:    --min-insert  minimum insert length (excluding adapters) of a read to allow amabiguous alignment, default 15" + newLine +
-				"            --seed-len seed length for Burrows-Wheeler algorithm dependent aligners, default 25" + newLine +
-				"            --seed-mis %mismatches allowed in seed region, default 4" + newLine +
-				"            --all-mis %mismatches allowed in the entire insert region (excluding masked regions and Ns), default 6" + newLine +
-				"            --all-indel %in-dels allowed in the entire insert region, default 2" + newLine +
-				"            --1DP enable 1-dimentional dymamic programming (1DP) re-aligning, useful for non-local aligners, i.e. bowtie" + newLine +
-				"            --match-score match score for 1DP, default 1" + newLine +
-				"            --mis-score mismatch score for 1DP, default -2" + newLine +
-				"            --gap-open-penalty gap open penalty for 1DP, default 4" + newLine +
-				"            --gap-ext-penalty gap extension penalty, default 1" + newLine +
-				"            --out-SAM write SAM text output instead of BAM binary output" + newLine +
-				"            --silent ignore certain SAM format errors such as empty reads" + newLine +
-				"            --max-div max %divergent allowed for best stratum hits comparing to the top hit as for the identity%, default 4" + newLine +
-				"            --max-best max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0" + newLine +
-				"            --max-report max report hits for all valid best stratum hits determined by --max-div and --max-best, set to 0 for no limit, default 10, default 6"
-		);
-	}
-
 	/** get align insert length from AlignerBoost internal tag
 	 * @return the identity if tag "XL" exists
 	 * throws {@RuntimeException} if tag "XL" not exists
@@ -203,7 +183,7 @@ public class FilterSAMAlignSE {
 	static int getSAMRecordInsertLen(SAMRecord record) throws RuntimeException {
 		return record.getIntegerAttribute("XL");
 	}
-	
+
 	/** get align identity from AlignerBoost internal tag
 	 * @return the identity if tag "XI" exists
 	 * throws {@RuntimeException} if tag "XI" not exists
@@ -211,7 +191,7 @@ public class FilterSAMAlignSE {
 	static float getSAMRecordIdentity(SAMRecord record) throws RuntimeException {
 		return record.getFloatAttribute("XI");
 	}
-	
+
 	/** get align %seed mismatch from AlignerBoost internal tag
 	 * @return the %seed mismatch if tags "YX" and "YL" exist
 	 * throws {@RuntimeException} if tags "YX" and "YL" not exist
@@ -227,7 +207,7 @@ public class FilterSAMAlignSE {
 	static float getSAMRecordPercentSeedIndel(SAMRecord record) throws RuntimeException {
 		return 100f * record.getIntegerAttribute("YG") / record.getIntegerAttribute("YL");
 	}
-	
+
 	/** get align %seed mismatch from AlignerBoost internal tag
 	 * @return the %seed mismatch if tags "ZX" and "XL" exist
 	 * throws {@RuntimeException} if tags "ZX" and "XL" not exist
@@ -243,7 +223,7 @@ public class FilterSAMAlignSE {
 	static float getSAMRecordPercentAllIndel(SAMRecord record) throws RuntimeException {
 		return 100f * record.getIntegerAttribute("ZG") / record.getIntegerAttribute("XL");
 	}
-	
+
 	/**
 	 * Filter hits by removing hits not satisfying the user-specified criteria
 	 * @param recordList
@@ -262,8 +242,8 @@ public class FilterSAMAlignSE {
 			if(!(getSAMRecordIdentity(record) >= MIN_IDENTITY && getSAMRecordInsertLen(record) >= minInsert
 					&& getSAMRecordPercentSeedMis(record) <= maxSeedMis && getSAMRecordPercentSeedIndel(record) <= maxSeedIndel
 					&& getSAMRecordPercentAllMis(record) <= maxAllMis && getSAMRecordPercentAllIndel(record) <= maxAllIndel)) {
-					recordList.remove(i);
-					removed++;
+				recordList.remove(i);
+				removed++;
 			}
 		}
 		return removed;
@@ -285,4 +265,23 @@ public class FilterSAMAlignSE {
 		}
 		return removed;
 	}
+
+	private static String inFile;
+	private static String outFile;
+	// filter options
+	private static int MIN_INSERT = 15;
+	private static double MAX_SEED_MIS = 4; // max % seed mismatch
+	private static final double MAX_SEED_INDEL = 0; // seed indel is always not allowed
+	private static final float MIN_IDENTITY = 0;
+	private static double MAX_ALL_MIS = 6; // max % all mismatch
+	private static double MAX_ALL_INDEL = 0; // max % all indel
+	private static boolean DO_1DP;
+	private static boolean isSilent; // ignore SAM warnings?
+	// best stratum options
+	private static float MAX_DIV = 4; // max divergent
+	private static int MAX_BEST = 0; // no limits
+	private static int MAX_REPORT = 10;
+	private static SAMRecordIdentityComparator recordComp = new SAMRecordIdentityComparator();
+	// general options
+	private static boolean OUT_IS_SAM; // outFile is SAM format?
 }
