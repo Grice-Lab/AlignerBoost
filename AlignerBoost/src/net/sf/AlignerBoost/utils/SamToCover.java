@@ -33,6 +33,7 @@ public class SamToCover {
 		SamReaderFactory factory = SamReaderFactory.makeDefault();
 		SamReader samIn = null;
 		BufferedWriter out = null;
+		BufferedReader bedIn = null;
 		try {
 			samIn = factory.open(new File(samInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
@@ -56,7 +57,30 @@ public class SamToCover {
 
 			// Scan SAM/BAM file
 			System.err.println("Scan SAM/BAM file ...");
-			for(SAMRecord record : samIn) {
+			SAMRecordIterator results = null;
+			if(bedFile == null) // no -R specified
+				results = samIn.iterator();
+			else {
+				bedIn = new BufferedReader(new FileReader(bedFile));
+				String line = null;
+				while((line = bedIn.readLine()) != null) {
+					String[] fields = line.split("\t");
+					if(fields.length < 3)
+						continue;
+					int chr = samIn.getFileHeader().getSequenceIndex(fields[0]);
+					int start = Integer.parseInt(fields[1]);
+					int end = Integer.parseInt(fields[2]);
+					if(chr != -1) // this Region is in the aligned chromosomes
+						bedRegions.add(new QueryInterval(chr, start, end));
+				}
+				System.err.println("Read in " + bedRegions.size() + " regions from BED file");
+				bedIn.close();
+				QueryInterval[] intervals = new QueryInterval[bedRegions.size()];
+				results = samIn.query(bedRegions.toArray(intervals), false);
+			}
+			
+			while(results.hasNext()) {
+				SAMRecord record = results.next();
 				statusTask.updateStatus(); // Update status
 				int readLen = record.getReadLength();
 				if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
@@ -115,7 +139,7 @@ public class SamToCover {
 				int[] idx = entry.getValue();
 				// Find all non-zero positions and output
 				for(int i = 1; i < idx.length; i++) {  // Position 0 is dummy
-					if(idx[i] != 0) {
+					if(idx[i] != 0) { // position is covered
 						int val = idx[i];
 						if(!normRPM) // raw count
 							out.write(chr + "\t" + i + "\t" + val + "\n");
@@ -137,6 +161,8 @@ public class SamToCover {
 					samIn.close();
 				if(out != null)
 					out.close();
+				if(bedIn != null)
+					bedIn.close();
 			}
 			catch(IOException e) {
 				e.printStackTrace();
@@ -149,7 +175,8 @@ public class SamToCover {
 				"<-i SAM|BAM-INFILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s strand to look at, 1 for plus, 2 for minus and 3 for both, default: 3" + newLine +
 				"            --norm-rpm normalize the coverage with RPM values of total mapped read number" + newLine +
-				"            --count-soft including soft-masked regions as covered region, excluding by default");
+				"            --count-soft including soft-masked regions as covered region, excluding by default" + newLine +
+				"            -R genome regions to search provided as a BED file, the -i file must be a sorted BAM file with index pre-built");
 	}
 	
 	private static void parseOptions(String[] args) throws IllegalArgumentException {
@@ -160,6 +187,8 @@ public class SamToCover {
 				outFile = args[++i];
 			else if(args[i].equals("-s"))
 				myStrand = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-R"))
+				bedFile = args[++i];
 			else if(args[i].equals("--norm-rpm"))
 				normRPM = true;
 			else if(args[i].equals("--count-soft"))
@@ -179,9 +208,11 @@ public class SamToCover {
 
 	private static String samInFile;
 	private static String outFile;
+	private static String bedFile;
 	private static int myStrand = 3;
 	private static boolean normRPM;
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 
 	private static long totalNum;
 	private static Map<String, int[]> chrIdx;

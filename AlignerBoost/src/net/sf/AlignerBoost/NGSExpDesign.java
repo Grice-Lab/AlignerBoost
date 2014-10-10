@@ -1,14 +1,21 @@
 /**
  * A class to represent the NGS experimental design file information for a given library
  */
-package net.sf.AlignerBoost.utils;
-import java.io.*;
-import java.util.*;
-import java.util.regex.*;
+package net.sf.AlignerBoost;
+import static net.sf.AlignerBoost.EnvConstants.newLine;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author Qi Zheng
- * @version 1.1.2
+ * @version 1.1
  * @since 1.1
  */
 public class NGSExpDesign {
@@ -19,7 +26,8 @@ public class NGSExpDesign {
 	 * @throws IOException
 	 * @throws IllegalArgumentException
 	 */
-	public static List<NGSExpDesign> createNGSExpDesignsFromFile(String designFileName) throws IOException, IllegalArgumentException {
+	public static List<NGSExpDesign> createNGSExpDesignsFromFile(String designFileName)
+			throws IOException, IllegalArgumentException {
 		// initiate lists
 		List<NGSExpDesign> designLs = new ArrayList<NGSExpDesign>();
 		optNames = new ArrayList<String>();
@@ -31,11 +39,29 @@ public class NGSExpDesign {
 			if(line.startsWith("#")) { // a header line
 				Matcher match = globalPat.matcher(line);
 				if(match.find()) { // a global opt line
-					switch(match.group(1)) {
+					String name = match.group(1);
+					switch(name) {
 					case "MAX_PROC":
 						MAX_PROC = Integer.parseInt(match.group(2));
+						break;
+					case "INIT_MEM":
+						INIT_MEM = match.group(2);
+						break;
+					case "MAX_MEM":
+						MAX_MEM = match.group(2);
+						break;
+					case "SH_PATH":
+						SH_PATH = match.group(2);
+						break;
+					case "PROJECT_DIR":
+						PROJECT_DIR = match.group(2).replace("/$", "");
+						break;
+					case "WORK_DIR":
+						WORK_DIR = match.group(2).replace("/$", "");
+						break;
 					default:
-							throw new IllegalArgumentException("Uknown global option '" + match.group(1) + "' found at\n" + line);
+						in.close();
+						throw new IllegalArgumentException("Uknown global option '" + match.group(1) + "' found at\n" + line);
 					}
 				}
 				match = localPat.matcher(line); // try local opts
@@ -44,12 +70,14 @@ public class NGSExpDesign {
 			}
 			else { // a opt-value line
 				String[] optValues = line.split("\t");
-				if(optNames.size() != optValues.length)
-					throw new IllegalArgumentException("Incorrect number of value fields found at\n$line\nExpect " +
+				if(optNames.size() < optValues.length) {
+					in.close();
+					throw new IllegalArgumentException("Incorrect number of value fields found at" + newLine + line + newLine + "Expect at most " +
 							optNames.size() + " fields but found " + optValues.length);
+				}
 				NGSExpDesign design = new NGSExpDesign();
 				// construct NGSExpDesign objects with paired opt names and values
-				for(int i = 0; i < optNames.size(); i++) {
+				for(int i = 0; i < optValues.length; i++) {
 					String name = optNames.get(i);
 					String value = optValues[i];
 					switch(name) {
@@ -64,6 +92,8 @@ public class NGSExpDesign {
 						break;
 					case "ascii_offset":
 						design.asciiOffset = Integer.parseInt(value);
+						if(!(design.asciiOffset == 33 || design.asciiOffset == 64))
+							throw new IllegalArgumentException("option 'ascii_offset' must be 33 or 64");
 						break;
 					case "is_paired":
 						design.isPaired = value.toUpperCase().equals("YES");
@@ -154,8 +184,8 @@ public class NGSExpDesign {
 				design.setDefaultOptValues();
 				designLs.add(design);
 			} // end of each value line (design)
-			in.close();
 		}
+		in.close();
 		return designLs;
 	}
 	
@@ -174,6 +204,76 @@ public class NGSExpDesign {
 	}
 
 	/**
+	 * @return the iNIT_MEM
+	 */
+	public static String getINIT_MEM() {
+		return INIT_MEM;
+	}
+
+	/**
+	 * @param iNIT_MEM the iNIT_MEM to set
+	 */
+	public static void setINIT_MEM(String iNIT_MEM) {
+		INIT_MEM = iNIT_MEM;
+	}
+
+	/**
+	 * @return the mAX_MEM
+	 */
+	public static String getMAX_MEM() {
+		return MAX_MEM;
+	}
+
+	/**
+	 * @param mAX_MEM the mAX_MEM to set
+	 */
+	public static void setMAX_MEM(String maxMEM) {
+		MAX_MEM = maxMEM;
+	}
+
+	/**
+	 * @return the sH_PATH
+	 */
+	public static String getSH_PATH() {
+		return SH_PATH;
+	}
+
+	/**
+	 * @param sH_PATH the sH_PATH to set
+	 */
+	public static void setSH_PATH(String path) {
+		SH_PATH = path;
+	}
+
+	/**
+	 * @return the PROJECT_DIR
+	 */
+	public static String getPROJECT_DIR() {
+		return PROJECT_DIR;
+	}
+
+	/**
+	 * @param dir the PROJECT_DIR to set
+	 */
+	public static void setPROJECT_DIR(String dir) {
+		PROJECT_DIR = dir;
+	}
+
+	/**
+	 * @return the WORK_DIR
+	 */
+	public static String getWORK_DIR() {
+		return WORK_DIR;
+	}
+
+	/**
+	 * @param dir the WORK_DIR to set
+	 */
+	public static void setWORK_DIR(String dir) {
+		WORK_DIR = dir;
+	}
+
+	/**
 	 * @return the libName
 	 */
 	public String getLibName() {
@@ -184,7 +284,10 @@ public class NGSExpDesign {
 	 * @return the readFile
 	 */
 	public String getReadFile() {
-		return readFile;
+		if( (new File(readFile)).isAbsolute())
+			return readFile;
+		else
+			return PROJECT_DIR.equals(".") ? readFile : PROJECT_DIR + "/" + readFile;
 	}
 
 	/**
@@ -212,8 +315,12 @@ public class NGSExpDesign {
 	 * @return the mateFile
 	 */
 	public String getMateFile() {
-		return mateFile;
+		if( (new File(mateFile)).isAbsolute())
+			return mateFile;
+		else
+			return PROJECT_DIR.equals(".") ? mateFile : PROJECT_DIR + "/" + mateFile;
 	}
+	
 
 	/**
 	 * @return the strandType
@@ -408,52 +515,119 @@ public class NGSExpDesign {
 			minInsert = readLen;
 	}
 
+	/**
+	 * get trimmed read file name
+	 * @return  trimmed read filename
+	 */
+	public String getTrimmedReadFileName() {
+		String fn = !doTrim ? readFile : !isPaired ? libName + "_trimmed.fastq" : libName + "_trimmed_1.fastq";
+		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
+	}
+
+	/**
+	 * get trimmed mate file name
+	 * @return  trimmed mate filename
+	 */
+	public String getTrimmedMateFileName() {
+		String fn = !doTrim ? mateFile : !isPaired ? libName + "" : libName + "_trimmed_2.fastq";
+		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
+	}
+	
+	/**
+	 * get NR read file name
+	 * @return  NR read filename
+	 */
+	public String getNRReadFileName() {
+		String fn = !doNR ? getTrimmedReadFileName() : !isPaired ? libName + "_NR.fas" : libName + "_NR_1.fas";
+		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
+	}
+	
+	/**
+	 * get NR mate file name
+	 * @return  NR mate filename
+	 */
+	public String getNRMateFileName() {
+		String fn = !doNR ? getTrimmedMateFileName() : !isPaired ? "" : libName + "_NR_2.fastq";
+		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
+	}
+	
+	/**
+	 * get raw alignment bam file name for this library
+	 * @return  BAM filename
+	 */
+	public String getAlignRawFileName() {
+		String fn = libName + "_" + refGenome + "_raw.bam"; // always bam output
+		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
+	}
+
+	/**
+	 * get filtered & fixed alignment bam file name for this library
+	 * @return  BAM filename
+	 */
+	public String getAlignFilteredFileName() {
+		String fn = libName + "_" + refGenome + "_filtered.bam"; // always bam output
+		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
+	}
+	
+	/**
+	 * get best-stratum alignment bam file name for this library
+	 * @return  BAM filename
+	 */
+	public String getAlignBestStratumFileName() {
+		String fn = libName + "_" + refGenome + "_best.bam"; // always bam output
+		return PROJECT_DIR.equals(".") ? fn : PROJECT_DIR + "/" + fn;
+	}
 	
 	// global options
-	public static int MAX_PROC = 6; // maximum processors to use
+	static int MAX_PROC = 6; // maximum processors to use
+	static String INIT_MEM = "4G";
+	static String MAX_MEM = "16G";
+	static String SH_PATH = "/bin/sh";
+	static String PROJECT_DIR = ".";
+	static String WORK_DIR = ".";
 	
 	// basic library options
-	private String libName;
-	private String readFile;
-	private int readLen;
-	private int asciiOffset = 33;
-	private boolean isPaired;
-	private String mateFile;
-	private int strandType;
-	private boolean hasSpliced;
+	String libName;
+	String readFile;
+	int readLen;
+	int asciiOffset = 33;
+	boolean isPaired;
+	String mateFile;
+	int strandType;
+	boolean hasSpliced;
 	// trimming options
-	private boolean doTrim;
-	private String adapterSeq3;
-	private String adapterSeq5;
-	private float trimMis = 0.1f;
-	private int minTrim = 10;
+	boolean doTrim;
+	String adapterSeq3;
+	String adapterSeq5;
+	float trimMis = 0.1f;
+	int minTrim = 10;
 	// NR options
-	private boolean doNR = true;
+	boolean doNR = true;
 	// mapping options
-	private String aligner;
-	private int seedLen = 25;
-	private float seedMis = 0.04f;
-	private float allMis = 0.06f;
-	private float allIndel = 0;
-	private int minInsert = 15;
-	private int maxHit = 10;
+	String aligner;
+	int seedLen = 25;
+	float seedMis = 0.04f;
+	float allMis = 0.06f;
+	float allIndel = 0;
+	int minInsert = 15;
+	int maxHit = 10;
 	// mate options
-	private int minFragLen = 0;
-	private int maxFragLen = 500;
+	int minFragLen = 0;
+	int maxFragLen = 600;
 	// user-specified options
-	private String otherAlignerOpts = "";
+	String otherAlignerOpts = "";
 	// best-stratum options
-	private float maxDiv = 0.04f;
-	private int maxBest = 0;
-	private int maxReport = 0;
+	float maxDiv = 0.04f;
+	int maxBest = 0;
+	int maxReport = 0;
 	// reference genome options
-	private String refGenome;
-	private String refIndex;
+	String refGenome;
+	String refIndex;
 	// transcriptome options
-	private String transcriptomeGFF;
-	private String transcriptomeIndex;
+	String transcriptomeGFF;
+	String transcriptomeIndex;
 	
 	private static List<String> optNames;
-	private static Pattern globalPat = Pattern.compile("^## (\\w+)=(.*):");
-	private static Pattern localPat = Pattern.compile("^### (\\w+):");
+	private static Pattern globalPat = Pattern.compile("^### (\\w+)=(.*):");
+	private static Pattern localPat = Pattern.compile("^## (\\w+):");
 }

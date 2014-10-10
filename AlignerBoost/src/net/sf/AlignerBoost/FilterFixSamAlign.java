@@ -22,6 +22,10 @@ import static net.sf.AlignerBoost.EnvConstants.progFile;
  */
 public class FilterFixSamAlign {
 	public static void main(String[] args) {
+		if(args.length == 0) {
+			printUsage();
+			return;
+		}
 		try {
 			parseOptions(args);
 		}
@@ -99,8 +103,8 @@ public class FilterFixSamAlign {
 				record.setAttribute("XA", nAllMis);
 				record.setAttribute("XG", nAllIndel);
 				record.setAttribute("XI", identity);
-				record.setAttribute("XS", calcAlnScore(status));
-				record.setAttribute("XQ", calcAlnScore(status, record.getBaseQualities()));
+				//record.setAttribute("XS", calcAlnScore(status));
+				//record.setAttribute("XQ", calcAlnScore(status, record.getBaseQualities()));
 				//System.out.println("strand: " + (record.getReadNegativeStrandFlag() ? "-" : "+") + " " + record.getCigarString() + "  " + record.getStringAttribute("MD") + " insertFrom: " + insertFrom + " insertLen: " + insertLen);
 				out.addAlignment(record);
 			}
@@ -114,8 +118,30 @@ public class FilterFixSamAlign {
 		}
 	}
 
+	private static String inFile;
+	private static String outFile;
+	private static int MIN_INSERT = 15;
+	private static int SEED_LEN = 25;
+	private static double MAX_SEED_MIS = 4;
+	private static final double MAX_SEED_INDEL = 0; // seed indel is always not allowed
+	private static double MAX_ALL_MIS = 6;
+	private static double MAX_ALL_INDEL = 0;
+	private static boolean DO_1DP;
+	private static int MATCH_SCORE = 1;
+	private static int MIS_SCORE = -2;
+	private static int GAP_OPEN_PENALTY = 4;
+	private static int GAP_EXT_PENALTY = 1;
+	private static int REF_QUAL = 40; // reference quality for deletions
+	private static boolean NO_FIX; // do not fix the SAM file if 1DP requested ?
+	private static boolean OUT_IS_SAM; // outFile is SAM format?
+	private static boolean isSilent; // ignore SAM warnings?
+
+	private static Pattern misPat1 = Pattern.compile("(\\d+)(.*)");
+	private static Pattern misPat2 = Pattern.compile("([A-Z]|\\^[A-Z]+)(\\d+)");
+	private static Pattern misPat3 = Pattern.compile("\\d+|[A-Z]|\\^[A-Z]+");
+
 	private static void printUsage() { 
-		System.err.println("Usage:   java -jar " + progFile +
+		System.err.println("Usage:   java -jar " + progFile + " run filter " +
 				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" +
 				"Options:    --min-insert  minimum insert length (excluding adapters) of a read to allow amabiguous alignment, default 15" +
 				"            --seed-len seed length for Burrows-Wheeler algorithm dependent aligners, default 25" +
@@ -192,28 +218,6 @@ public class FilterFixSamAlign {
 		if(OUT_IS_SAM && outFile.endsWith(".bam"))
 			System.err.println("Warning: output file '" + outFile + "' might not be SAM format");
 	}
-
-	private static String inFile;
-	private static String outFile;
-	private static int MIN_INSERT = 15;
-	private static int SEED_LEN = 25;
-	private static double MAX_SEED_MIS = 4;
-	private static final double MAX_SEED_INDEL = 0; // seed indel is always not allowed
-	private static double MAX_ALL_MIS = 6;
-	private static double MAX_ALL_INDEL = 0;
-	private static boolean DO_1DP;
-	private static int MATCH_SCORE = 1;
-	private static int MIS_SCORE = -2;
-	private static int GAP_OPEN_PENALTY = 4;
-	private static int GAP_EXT_PENALTY = 1;
-	private static int REF_QUAL = 40; // reference quality for deletions
-	private static boolean NO_FIX; // do not fix the SAM file if 1DP requested ?
-	private static boolean OUT_IS_SAM; // outFile is SAM format?
-	private static boolean isSilent; // ignore SAM warnings?
-
-	private static Pattern misPat1 = Pattern.compile("(\\d+)(.*)");
-	private static Pattern misPat2 = Pattern.compile("([A-Z]|\\^[A-Z]+)(\\d+)");
-	private static Pattern misPat3 = Pattern.compile("\\d+|[A-Z]|\\^[A-Z]+");
 
 	/** Valid if a cigar length match the read length
 	 * @return true if cigar is valid for its length
@@ -345,76 +349,6 @@ public class FilterFixSamAlign {
 	}
 
 	
-	/** calculate un-weighted alignment score
-	 * @param status  status index
-	 * @return  alignment score
-	 */
-	private static float calcAlnScore(char[] status) {
-		if(status == null)
-			return 0;
-		double alnScore = 0;
-		for(int i = 0; i < status.length; i++) {
-			int score = 0;
-			switch(status[i]) {
-			case 'M': case '=':
-				score = MATCH_SCORE;
-				break;
-			case 'X':
-				score += MIS_SCORE;
-				break;
-			case 'S': case 'H': case 'P': case 'N':
-				break;
-			case 'I': case 'D':
-				score = (status[i-1] != 'I' && status[i-1] != 'D' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY); 
-			default: // S,H,P or N
-				break; // do nothing
-			}
-			alnScore += score;
-		}
-		return (float) alnScore;
-	}
-	
-	/** calculate quality weighted alignment score
-	 * @param status  status index
-	 * @param qual  quality scores in Phred scale
-	 * @return  alignment score
-	 */
-	private static float calcAlnScore(char[] status, byte[] qual) {
-		if(status == null)
-			return 0;
-		assert status.length >= qual.length;
-		double alnScore = 0;
-		double alnWeight = 0;
-		int pos = 0; // relative pos on read
-		for(int i = 0; i < status.length; i++) {
-			int score = 0;
-			int weight = 0;
-			switch(status[i]) {
-			case 'M': case '=':
-				score = MATCH_SCORE;
-				weight = qual[pos++];
-				break;
-			case 'X':
-				score += MIS_SCORE;
-				weight = qual[pos++];
-				break;
-			case 'S': case 'H': case 'P': case 'N':
-				break;
-			case 'I':
-				score = (status[i-1] != 'I' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY);
-				weight += qual[pos++];
-			case 'D':
-				score = (status[i-1] != 'D' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY);
-				weight += REF_QUAL;
-			default: // S,H,P or N
-				break; // do nothing
-			}
-			alnScore += score;
-			alnWeight += weight;
-		}
-		return (float) (alnScore / alnWeight);
-	}
-
 	/** reverse an char array
 	 */
 	private static void reverse(char[] arr) {
@@ -476,10 +410,19 @@ public class FilterFixSamAlign {
 				maxScore = dpScore[i + 1];  // Update maxScore
 			}
 		}
-		// fill status after the insertLen as 'S'
-		for(int i = insertLen; i < alnLen; i++)
-			status[i] = 'S';
 		return insertLen - insertFrom;
+	}
+
+	/** Calc refAlnLength
+	 * @param insertLen 
+	 * @param from 
+	 */
+	static int calcReferenceAlnLen(char[] status, int from, int alnLen) {
+		int refAlnLen = 0;
+		for(int i = from; i < status.length; i++)
+			if(status[i] != 'S' && status[i] == 'I')
+				refAlnLen++;
+		return refAlnLen;
 	}
 
 	/** Calc readInsertLength by subtracting deletions from the insertLen
@@ -494,16 +437,6 @@ public class FilterFixSamAlign {
 		return refInsertLen;
 	}
 
-	/** Calc refAlnLength
-	 */
-	static int calcReferenceAlnLen(char[] status) {
-		int refAlnLen = 0;
-		for(int i = 0; i < status.length; i++)
-			if(status[i] != 'S' && status[i] != 'I')
-				refAlnLen++;
-		return refAlnLen;
-	}
-
 	/** Fix SAMRecord Cigar and mismatch tag (MD:Z), given the insert from and insert length
 	 *
 	 */
@@ -512,13 +445,12 @@ public class FilterFixSamAlign {
 			return;
 		boolean isMinus = record.getReadNegativeStrandFlag();
 		int readLen = record.getReadLength();
-		int refAlnLen = calcReferenceAlnLen(status);
+		int refAlnLen = calcReferenceAlnLen(status, from, alnLen);
 		int refInsertLen = calcReferenceInsertLen(status, from, insertLen);
+		
 		int to = from + insertLen; // 1-based
 		int refClipLen = refAlnLen - refInsertLen; // clipped refInsertLen by 1DP
 		int clipLen = alnLen - to; // clipped insertLen by 1DP
-		System.err.printf("readLen:%d refAlnLen:%d refInsertLen:%d to:%d refClipLen:%d clipLen:%d", readLen, refAlnLen, refInsertLen, to, refClipLen, clipLen);
-		System.exit(0);
 		// calculate readClipLen, ignore deletion
 		int readClipLen = clipLen;
 		for(int i = to; i < status.length; i++)
@@ -662,7 +594,8 @@ public class FilterFixSamAlign {
 			 */
 			assert isMatchedCigarMisStr(newCig, newMisStr.toString());
 			record.setCigar(newCig); // update the cigar
-			record.setAttribute("MD", newMisStr.toString());
+			record.setAttribute("MD", newMisStr.toString()); // update misStr
+
 		} // end if
 	}
 
@@ -685,7 +618,9 @@ public class FilterFixSamAlign {
 		}
 
 		Matcher match1 = misPat1.matcher(misStr);
-		match1.find();
+		boolean found = match1.find();
+		if(!found && cigar.numCigarElements() != 0)
+			return false;
 		misRefAlnLen = Integer.parseInt(match1.group(1)); // starting pos in the MD:Z string, can be 0
 		String other = match1.group(2);
 		Matcher match2 = misPat2.matcher(other); // parse other part
@@ -718,5 +653,73 @@ public class FilterFixSamAlign {
 				return false;
 		}
 		return true;
+	}
+
+	/** calculate un-weighted alignment score
+	 * @param status  status index
+	 * @return  alignment score
+	 */
+	private static int calcAlnScore(char[] status) {
+		if(status == null)
+			return 0;
+		int alnScore = 0;
+		for(int i = 0; i < status.length; i++) {
+			int score = 0;
+			switch(status[i]) {
+			case 'M': case '=':
+				score = MATCH_SCORE;
+				break;
+			case 'X':
+				score += MIS_SCORE;
+				break;
+			case 'S': case 'H': case 'P': case 'N':
+				break;
+			case 'I': case 'D':
+				score = (status[i-1] != 'I' && status[i-1] != 'D' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY); 
+			default: // S,H,P or N
+				break; // do nothing
+			}
+			alnScore += score;
+		}
+		return alnScore;
+	}
+
+	/** calculate quality weighted alignment score
+	 * @param status  status index
+	 * @param qual  quality scores in Phred scale
+	 * @return  alignment score
+	 */
+	private static int calcAlnScore(char[] status, byte[] qual) {
+		if(status == null)
+			return 0;
+		assert status.length >= qual.length;
+		int alnScore = 0;
+		int pos = 0; // relative pos on read
+		for(int i = 0; i < status.length; i++) {
+			int score = 0;
+			int weight = 0;
+			switch(status[i]) {
+			case 'M': case '=':
+				score = MATCH_SCORE;
+				weight = qual[pos++];
+				break;
+			case 'X':
+				score += MIS_SCORE;
+				weight = qual[pos++];
+				break;
+			case 'S': case 'H': case 'P': case 'N':
+				break;
+			case 'I':
+				score = (status[i-1] != 'I' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY);
+				weight += qual[pos++];
+			case 'D':
+				score = (status[i-1] != 'D' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY);
+				weight += REF_QUAL;
+			default: // S,H,P or N
+				break; // do nothing
+			}
+			alnScore += score * weight;
+		}
+		return alnScore;
 	}
 }

@@ -33,6 +33,7 @@ public class SamToWig {
 		SamReaderFactory factory = SamReaderFactory.makeDefault();
 		SamReader samIn = null;
 		BufferedWriter out = null;
+		BufferedReader bedIn = null;
 		try {
 			samIn = factory.open(new File(samInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
@@ -56,7 +57,30 @@ public class SamToWig {
 
 			// Scan SAM/BAM file
 			System.err.println("Scan SAM/BAM file ...");
-			for(SAMRecord record : samIn) {
+			SAMRecordIterator results = null;
+			if(bedFile == null) // no -R specified
+				results = samIn.iterator();
+			else {
+				bedIn = new BufferedReader(new FileReader(bedFile));
+				String line = null;
+				while((line = bedIn.readLine()) != null) {
+					String[] fields = line.split("\t");
+					if(fields.length < 3)
+						continue;
+					int chr = samIn.getFileHeader().getSequenceIndex(fields[0]);
+					int start = Integer.parseInt(fields[1]);
+					int end = Integer.parseInt(fields[2]);
+					if(chr != -1) // this Region is in the aligned chromosomes
+						bedRegions.add(new QueryInterval(chr, start, end));
+				}
+				System.err.println("Read in " + bedRegions.size() + " regions from BED file");
+				bedIn.close();
+				QueryInterval[] intervals = new QueryInterval[bedRegions.size()];
+				results = samIn.query(bedRegions.toArray(intervals), false);
+			}
+			
+			while(results.hasNext()) {
+				SAMRecord record = results.next();
 				statusTask.updateStatus(); // Update status
 				int readLen = record.getReadLength();
 				if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
@@ -140,6 +164,8 @@ public class SamToWig {
 					samIn.close();
 				if(out != null)
 					out.close();
+				if(bedIn != null)
+					bedIn.close();
 			}
 			catch(IOException e) {
 				e.printStackTrace();
@@ -155,7 +181,8 @@ public class SamToWig {
 				"            --count-soft including soft-masked regions as covered region, excluding by default" + newLine +
 				"            --no-track do not include the 'track-line' as the first line of the Wiggle file as the UCSC required" + newLine + 
 				"            -name the track name used to display in UCSC Genome Browser, default is to use the OUTFILE name" + newLine +
-				"            -desc the description of the track used to display in UCSC Genome Browser, default to use the track name"
+				"            -desc the description of the track used to display in UCSC Genome Browser, default to use the track name" + newLine +
+				"            -R genome regions to search provided as a BED file, the -i file must be a sorted BAM file with index pre-built"
 				);
 	}
 	
@@ -167,6 +194,8 @@ public class SamToWig {
 				outFile = args[++i];
 			else if(args[i].equals("-s"))
 				myStrand = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-R"))
+				bedFile = args[++i];
 			else if(args[i].equals("--norm-rpm"))
 				normRPM = true;
 			else if(args[i].equals("--no-track"))
@@ -199,6 +228,7 @@ public class SamToWig {
 
 	private static String samInFile;
 	private static String outFile;
+	private static String bedFile;
 	private static int myStrand = 3;
 	private static boolean normRPM;
 //	private static boolean isLog;
@@ -207,6 +237,7 @@ public class SamToWig {
 	private static String trackDesc;
 	private static String trackHeader = "track type=wiggle_0";
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 
 	private static long totalNum;
 	private static Map<String, int[]> chrIdx;
