@@ -1,0 +1,9 @@
+lib_name	read_len	total_num	total_trimmed	total_NR	total_mapped
+human_test1	101	100000	99601	95413	27007
+human_test2	101	100000	99601	NA	153025
+human_test3	101	100000	99601	NA	46981
+human_test4	101	100000	99601	NA	58675
+human_test5	101	100000	99601	NA	27080
+human_test6	101	100000	99601	NA	29908
+human_test7	101	100000	99601	NA	29013
+human_test8	101	100000	99601	NA	50925
