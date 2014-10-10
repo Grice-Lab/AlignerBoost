@@ -132,13 +132,13 @@ public class NGSExpDesign {
 						design.seedLen = Integer.parseInt(value);
 						break;
 					case "seed_mis":
-						design.seedMis = Float.parseFloat(value) / 100;
+						design.seedMis = Float.parseFloat(value);
 						break;
 					case "all_mis":
-						design.allMis = Float.parseFloat(value) / 100;
+						design.allMis = Float.parseFloat(value);
 						break;
 					case "all_indel":
-						design.allIndel = Float.parseFloat(value) / 100;
+						design.allIndel = Float.parseFloat(value);
 						break;
 					case "min_insert":
 						design.minInsert = Integer.parseInt(value);
@@ -153,7 +153,7 @@ public class NGSExpDesign {
 						design.maxFragLen = Integer.parseInt(value);
 						break;
 					case "max_div":
-						design.maxDiv = Float.parseFloat(value) / 100;
+						design.maxDiv = Float.parseFloat(value);
 						break;
 					case "max_best":
 						design.maxBest = Integer.parseInt(value);
@@ -606,8 +606,8 @@ public class NGSExpDesign {
 	// mapping options
 	String aligner;
 	int seedLen = 25;
-	float seedMis = 0.04f;
-	float allMis = 0.06f;
+	float seedMis = 4;
+	float allMis = 6;
 	float allIndel = 0;
 	int minInsert = 15;
 	int maxHit = 10;
@@ -617,7 +617,7 @@ public class NGSExpDesign {
 	// user-specified options
 	String otherAlignerOpts = "";
 	// best-stratum options
-	float maxDiv = 0.04f;
+	float maxDiv = 4;
 	int maxBest = 0;
 	int maxReport = 0;
 	// reference genome options
