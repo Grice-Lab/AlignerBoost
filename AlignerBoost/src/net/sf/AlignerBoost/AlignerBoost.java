@@ -223,7 +223,7 @@ public class AlignerBoost {
 				"                  stats    mapped        add/update final mapped unique reads that passed all the filters" + newLine +
 //				"                  utils    sam2Loc       convert SAM/BAM files to AlignBoost tab-delimited alignment files" + newLine +
 				"                  utils    sam2Cover     convert SAM/BAM files to AlignBoost tab-delimited read-coverage files" + newLine +
-				"                  utils    sam2Wig       convert SAM/BAM files to UCSC Wiggle files" +
+				"                  utils    sam2Wig       convert SAM/BAM files to UCSC Wiggle files" + newLine +
 //				"                  utils    bed2Loc       convert UCSC bed files to AlignBoost tab-delimited alignment files" + newLine +
 //				"                  utils    bed2Cover     convert UCSC bed files to AlignBoost tab-delimited read-coverage files" + newLine +
 //				"                  utils    bed2Wig       convert UCSC bed files to UCSC Wiggle files" + newLine +
