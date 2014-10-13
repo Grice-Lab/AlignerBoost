@@ -38,10 +38,39 @@ public class SamToCover {
 			samIn = factory.open(new File(samInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
 
+			// Scan SAM/BAM file
+			System.err.println("Scan SAM/BAM file ...");
+			SAMRecordIterator results = null;
+			Set<Integer> chrSeen = new HashSet<Integer>(); // chromosome seen so far
+			if(bedFile == null) // no -R specified
+				results = samIn.iterator();
+			else {
+				bedIn = new BufferedReader(new FileReader(bedFile));
+				String line = null;
+				while((line = bedIn.readLine()) != null) {
+					String[] fields = line.split("\t");
+					if(fields.length < 3)
+						continue;
+					int chrI = samIn.getFileHeader().getSequenceIndex(fields[0]);
+					int start = Integer.parseInt(fields[1]);
+					int end = Integer.parseInt(fields[2]);
+					if(chrI != -1) { // this Region is in the aligned chromosomes
+						bedRegions.add(new QueryInterval(chrI, start, end));
+						chrSeen.add(chrI);
+					}
+				}
+				System.err.println("Read in " + bedRegions.size() + " regions from BED file");
+				bedIn.close();
+				QueryInterval[] intervals = new QueryInterval[bedRegions.size()];
+				results = samIn.query(bedRegions.toArray(intervals), false);
+			}
+			
 			// Initialize chrom-index
 			System.err.println("Initialize chrom-index ...");
 			for(SAMSequenceRecord headSeq : samIn.getFileHeader().getSequenceDictionary().getSequences()) {
 				String chr = headSeq.getSequenceName();
+				if(bedFile != null && !chrSeen.contains(headSeq.getSequenceIndex())) // bed file specified and not in the regions
+					continue;
 				int len = headSeq.getSequenceLength();
 				System.err.println("  " + chr + ": " + len);
 				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
@@ -54,30 +83,6 @@ public class SamToCover {
 
 			// Schedule to show the status every 1 second
 			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
-
-			// Scan SAM/BAM file
-			System.err.println("Scan SAM/BAM file ...");
-			SAMRecordIterator results = null;
-			if(bedFile == null) // no -R specified
-				results = samIn.iterator();
-			else {
-				bedIn = new BufferedReader(new FileReader(bedFile));
-				String line = null;
-				while((line = bedIn.readLine()) != null) {
-					String[] fields = line.split("\t");
-					if(fields.length < 3)
-						continue;
-					int chr = samIn.getFileHeader().getSequenceIndex(fields[0]);
-					int start = Integer.parseInt(fields[1]);
-					int end = Integer.parseInt(fields[2]);
-					if(chr != -1) // this Region is in the aligned chromosomes
-						bedRegions.add(new QueryInterval(chr, start, end));
-				}
-				System.err.println("Read in " + bedRegions.size() + " regions from BED file");
-				bedIn.close();
-				QueryInterval[] intervals = new QueryInterval[bedRegions.size()];
-				results = samIn.query(bedRegions.toArray(intervals), false);
-			}
 			
 			while(results.hasNext()) {
 				SAMRecord record = results.next();
