@@ -52,4 +52,11 @@ public class ProcessStatusTask extends TimerTask {
 
 	private volatile long status;
 
+	/**
+	 * Show terminal status up-on finish this task
+	 */
+	public void finish() {
+		System.err.println("Total " + status + " processed successfully");
+	}
+
 }

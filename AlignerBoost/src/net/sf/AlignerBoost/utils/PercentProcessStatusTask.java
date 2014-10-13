@@ -48,6 +48,13 @@ public class PercentProcessStatusTask extends TimerTask {
 		System.err.printf("%.1f%% processed%n", processed / (double) total * 100);
 	}
 
+	/**
+	 * Show terminal status up-on finish this task
+	 */
+	public void finish() {
+		System.err.printf("%.1f%% processed%n", processed / (double) total * 100);
+	}
+	
 	private volatile long processed;
 	private long total;
 

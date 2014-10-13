@@ -46,6 +46,7 @@ public class SamToWig {
 				results = samIn.iterator();
 			else {
 				bedIn = new BufferedReader(new FileReader(bedFile));
+				bedRegions = new ArrayList<QueryInterval>();
 				String line = null;
 				while((line = bedIn.readLine()) != null) {
 					String[] fields = line.split("\t");
@@ -133,6 +134,7 @@ public class SamToWig {
 			// Terminate the monitor task and monitor
 			statusTask.cancel();
 			processMonitor.cancel();
+			statusTask.finish();
 
 			// Output
 			System.err.println("Output ...");
@@ -185,7 +187,8 @@ public class SamToWig {
 				"            --no-track do not include the 'track-line' as the first line of the Wiggle file as the UCSC required" + newLine + 
 				"            -name the track name used to display in UCSC Genome Browser, default is to use the OUTFILE name" + newLine +
 				"            -desc the description of the track used to display in UCSC Genome Browser, default to use the track name" + newLine +
-				"            -R genome regions to search provided as a BED file, the -i file must be a sorted BAM file with index pre-built"
+				"            -R genome regions to search provided as a BED file, the -i file must be a sorted BAM file with index pre-built by samtoos index;" +
+				"               The BED file also has to be sorted by chrom and start"
 				);
 	}
 	

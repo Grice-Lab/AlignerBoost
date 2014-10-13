@@ -46,6 +46,7 @@ public class SamToCover {
 				results = samIn.iterator();
 			else {
 				bedIn = new BufferedReader(new FileReader(bedFile));
+				bedRegions = new ArrayList<QueryInterval>();
 				String line = null;
 				while((line = bedIn.readLine()) != null) {
 					String[] fields = line.split("\t");
@@ -134,6 +135,7 @@ public class SamToCover {
 
 			// Terminate the monitor task and monitor
 			statusTask.cancel();
+			statusTask.finish();
 			processMonitor.cancel();
 
 			// Output
