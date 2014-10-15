@@ -5,6 +5,8 @@ import static net.sf.AlignerBoost.EnvConstants.progFile;
 
 import java.io.*;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import htsjdk.samtools.*;
 
@@ -41,7 +43,7 @@ public class SamToWig {
 			// Scan SAM/BAM file
 			System.err.println("Scan SAM/BAM file ...");
 			SAMRecordIterator results = null;
-			Set<Integer> chrSeen = new HashSet<Integer>(); // chromosome seen so far
+			Map<String, List<QueryInterval>> chrSeen = new HashMap<String, List<QueryInterval>>(); // chromosomes seen so far
 			if(bedFile == null) // no -R specified
 				results = samIn.iterator();
 			else {
@@ -52,23 +54,31 @@ public class SamToWig {
 					String[] fields = line.split("\t");
 					if(fields.length < 3)
 						continue;
+					String chr = fields[0];
 					int chrI = samIn.getFileHeader().getSequenceIndex(fields[0]);
 					int start = Integer.parseInt(fields[1]);
 					int end = Integer.parseInt(fields[2]);
-					if(chrI != -1) // this Region is in the aligned chromosomes
-						bedRegions.add(new QueryInterval(chrI, start, end));
+					if(chrI != -1) { // this Region is in the aligned chromosomes
+						QueryInterval interval = new QueryInterval(chrI, start, end);
+						bedRegions.add(interval);
+						if(!chrSeen.containsKey(chr))
+							chrSeen.put(chr, new ArrayList<QueryInterval>());
+						chrSeen.get(chr).add(interval);
+					}
 				}
 				System.err.println("Read in " + bedRegions.size() + " regions from BED file");
 				bedIn.close();
 				QueryInterval[] intervals = new QueryInterval[bedRegions.size()];
-				results = samIn.query(bedRegions.toArray(intervals), false);
+				intervals = bedRegions.toArray(intervals); // dump List to array[]
+				intervals = QueryInterval.optimizeIntervals(intervals); // optimize and sort the query intervals
+				results = samIn.query(intervals, false);
 			}
 			
 			// Initialize chrom-index
 			System.err.println("Initialize chrom-index ...");
 			for(SAMSequenceRecord headSeq : samIn.getFileHeader().getSequenceDictionary().getSequences()) {
 				String chr = headSeq.getSequenceName();
-				if(bedFile != null && !chrSeen.contains(headSeq.getSequenceIndex())) // bed file specified and not in the regions
+				if(bedFile != null && !chrSeen.containsKey(chr)) // bed file specified and not in the regions
 					continue;
 				int len = headSeq.getSequenceLength();
 				System.err.println("  " + chr + ": " + len);
@@ -94,7 +104,9 @@ public class SamToWig {
 				int strand = record.getReadNegativeStrandFlag() ? 2 : 1;
 				if((strand & myStrand) == 0)
 					continue;
-
+				Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
+				int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+				
 				int[] idx = chrIdx.get(chr);
 				int start = record.getUnclippedStart();
 				Cigar cigar = record.getCigar();
@@ -105,14 +117,14 @@ public class SamToWig {
 					switch(cigOp) {
 					case M: case EQ: case X: case D:
 						for(int i = 0; i < cigLen; i++) {
-							idx[start + pos]++;
+							idx[start + pos] += clone;
 							pos++;
 						}
 						break;
 					case S: // soft clip included by default
 						if(countSoft) {
 							for(int i = 0; i < cigLen; i++) {
-								idx[start + pos]++;
+								idx[start + pos] += clone;
 								pos++;
 							}
 						}
@@ -143,16 +155,39 @@ public class SamToWig {
 			for(Map.Entry<String, int[]> entry : chrIdx.entrySet()) {
 				String chr = entry.getKey();
 				int[] idx = entry.getValue();
-				// Find all non-zero positions
-				for(int i = 1; i < idx.length; i++) {  // Position 0 is dummy
-					if(idx[i] != 0) {  // Set position
-						if(idx[i-1] == 0)  // Dummy position 0 is helpful to find the first occurence
-							out.write("fixedStep chrom=" + chr + " start=" + i + " step=1\n");
-						int val = idx[i];
-						if(normRPM) // do RPM normalization, if specified
-							out.write((float) val / totalNum * 1e6f + "\n");
-						else
-							out.write(val + "\n");
+				if(bedFile == null) { // bedFile not specified
+					// Find all non-zero positions
+					for(int i = 1; i < idx.length; i++) {  // Position 0 is dummy
+						if(idx[i] != 0) {  // Set position
+							if(idx[i-1] == 0)  // Dummy position 0 is helpful to find the first occurence
+								out.write("fixedStep chrom=" + chr + " start=" + i + " step=1\n");
+							int val = idx[i];
+							if(normRPM) // do RPM normalization, if specified
+								out.write((float) val / totalNum * 1e6f + "\n");
+							else
+								out.write(val + "\n");
+						}
+					}
+				}
+				else { // bedFile provided, only output restricted regions
+					if(!chrSeen.containsKey(chr))
+						continue; // ignore this chr if not in bedFile regions
+					QueryInterval[] intervals = new QueryInterval[chrSeen.get(chr).size()];
+					intervals = chrSeen.get(chr).toArray(intervals); // dump List to array of QueryIntervals
+					intervals = QueryInterval.optimizeIntervals(intervals); // optimize intervals
+					// output coverage for each interval separately
+					for(QueryInterval interval : intervals) {
+						for(int i = interval.start; i <= interval.end && i < idx.length; i++) {
+							if(idx[i] != 0) { // position is covered
+								if(idx[i-1] == 0)  // Dummy position 0 is helpful to find the first occurence
+									out.write("fixedStep chrom=" + chr + " start=" + i + " step=1\n");
+								int val = idx[i];
+								if(normRPM) // do RPM normalization, if specified
+									out.write((float) val / totalNum * 1e6f + "\n");
+								else
+									out.write(val + "\n");
+							}
+						}
 					}
 				}
 			}
@@ -249,5 +284,5 @@ public class SamToWig {
 	private static Map<String, int[]> chrIdx;
 
 	private static Timer processMonitor;
-
+	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
 }
