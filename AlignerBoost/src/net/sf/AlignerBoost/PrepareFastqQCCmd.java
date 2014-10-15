@@ -48,7 +48,7 @@ public class PrepareFastqQCCmd {
 				String outFn = conf.libName + "_QC.txt";
 				if(!PROJECT_DIR.equals("."))
 					outFn = PROJECT_DIR + "/" + outFn;
-				String cmd = "java -jar " + progFile + " prepare readQC " + in + " -out " + outFn + " -readLen " + conf.readLen + newLine;
+				String cmd = "java -jar " + progFile + " run fastqQC " + in + " -out " + outFn + " -readLen " + conf.readLen + newLine;
 		
 				if(!(new File(outFn)).exists())
 					out.write(cmd);
