@@ -539,7 +539,7 @@ public class NGSExpDesign {
 	 */
 	public String getNRReadFileName() {
 		String fn = !doNR ? getTrimmedReadFileName() : !isPaired ? libName + "_NR.fas" : libName + "_NR_1.fas";
-		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
+		return doNR && !WORK_DIR.equals(".") ? WORK_DIR + "/" + fn : fn;
 	}
 	
 	/**
@@ -566,7 +566,7 @@ public class NGSExpDesign {
 	 */
 	public String getAlignFilteredFileName() {
 		String fn = libName + "_" + refGenome + "_filtered.bam"; // always bam output
-		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
+		return PROJECT_DIR.equals(".") ? fn : PROJECT_DIR + "/" + fn;
 	}
 	
 
