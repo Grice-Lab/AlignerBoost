@@ -13,8 +13,10 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -81,14 +83,17 @@ public class UpdateMappedStats {
 				}
 				// check trimmed FASTQ file
 				int totalMapped = 0;
+				Set<String> readSeen = new HashSet<String>();
 				SamReaderFactory readerFac = SamReaderFactory.makeDefault();
 				samIn = readerFac.open(new File(conf.getAlignFilteredFileName()));
 				for(SAMRecord record : samIn) {
-					Matcher match = nrPat.matcher(record.getReadName());
-					if(match.find()) // is a NR id
-						totalMapped += Integer.parseInt(match.group(1));
-					else
-						totalMapped++;
+					String id = record.getReadName();
+					Matcher match = nrPat.matcher(id);
+					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+					if(!readSeen.contains(id)) { // is a NR id
+						totalMapped += clone;
+						readSeen.add(id);
+					}
 				}
 				samIn.close();
 				out.write(libInfo.get(conf.libName) + "\t" + totalMapped + newLine);
