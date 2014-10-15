@@ -2,6 +2,7 @@
  * a class to provide static method to filter and fix SAM/BAM alignment
  */
 package net.sf.AlignerBoost;
+import java.util.List;
 import java.util.regex.*;
 
 import htsjdk.samtools.*;
@@ -35,7 +36,6 @@ public class SAMAlignFixer {
 		int readLen = record.getReadLength();
 		if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 			return false;
-		int cigarLen = record.getCigarLength();
 		Cigar cigar = record.getCigar();
 		// valid cigar first
 		assert isValidCigarLength(cigar, readLen);
@@ -44,24 +44,26 @@ public class SAMAlignFixer {
 		int alnLen = calcAlnLenByCigar(cigar);
 		// get align status index
 		char[] status = getAlnStatusBySAMRecord(record, alnLen);
-		// get insert from relative to read, ignore soft-clipped region
-		int insertFrom = calcInsertFromByCigar(cigarLen, cigar, record.getReadNegativeStrandFlag()); // 0-based
-		// calculate insert length, either as align length or by 1DP
-		int insertLen = 0;
-		if(!do1DP)
-			insertLen = calcInsertLenByCigar(cigar);
-		else {
-			insertLen = calcInsertLenBy1DP(status, insertFrom);
-			// alignment need to be fixed after 1DP
-			fixSAMRecordCigarTag(record, alnLen, status, insertFrom, insertLen);
+		// get InsertRegion from either Cigar or 1DP
+		InsertRegion oldInsReg = calcInsertRegionByAlnStatus(status);
+		int insertFrom = oldInsReg.from; // 0-based
+		int insertTo = oldInsReg.to; // 1-based
+		// alignment need to be fixed after 1DP
+		if(do1DP) {
+			InsertRegion newInsReg = calcInsertRegionBy1DP(status);
+			if(!(oldInsReg.from == newInsReg.from && oldInsReg.to == newInsReg.to)) { // if insertRegion changed
+				insertFrom = newInsReg.from;
+				insertTo = newInsReg.to;
+				fixSAMRecordCigarMisStr(record, alnLen, status, newInsReg, oldInsReg);
+			}
 		}
-
+		int insertLen = insertTo - insertFrom;
 		// calculate nmismatches and indels
 		int nSeedMis = 0;
 		int nSeedIndel = 0;
 		int nAllMis = 0;
 		int nAllIndel = 0;
-		for(int i = 0; i < insertLen; i++) {
+		for(int i = insertFrom; i < insertTo; i++) {
 			if(status[i] == 'X') { // mismatch
 				if(i < SEED_LEN)
 					nSeedMis++;
@@ -137,50 +139,14 @@ public class SAMAlignFixer {
 		return alnLen;
 	}
 
-	/** calculate insert length by alnLen and Cigar, ignore soft-clipped bases
-	 * @return insert length without soft-clip
-	 */
-	private static int calcInsertLenByCigar(Cigar cigar) {
-		if(cigar == null || cigar.numCigarElements() == 0)
-			return 0;
-		int insertLen = 0;
-		for(CigarElement cigEle : cigar.getCigarElements()) {
-			switch(cigEle.getOperator()) {
-			case M: case EQ: case X: case I: case D:
-				insertLen += cigEle.getLength();
-				break;
-			default: // S,H,P or N
-				break; // do nothing
-			}
-		}
-		return insertLen;
-	}
-
-	/** calculate relative read from position by Cigar
-	 * @return 0-based from excluding soft-clipped bases
-	 */
-	private static int calcInsertFromByCigar(int cigarLen, Cigar cigar, boolean isMinus) {
-		if(cigar == null || cigar.numCigarElements() == 0)
-			return 0;
-		CigarElement firstCig = cigar.getCigarElement(0);
-		CigarElement lastCig = cigar.getCigarElement(cigarLen - 1);
-		if(!isMinus && firstCig.getOperator() == CigarOperator.S)
-			return firstCig.getLength();
-		else if(isMinus && lastCig.getOperator() == CigarOperator.S)
-			return lastCig.getLength();
-		else
-			return 0;
-	}
-
 	/** get align status ('M', '=', 'X', 'I', 'S') given cigar and mismatch tag, if exists
-	 * @return a char array index with length = alnLen, with 0 as dummy position
+	 * @return a char array index with length = alnLen, and always in the reference orientation
 	 */
 	private static char[] getAlnStatusBySAMRecord(SAMRecord record, int alnLen) {
 		Cigar cigar = record.getCigar();
 		String misStr = record.getStringAttribute("MD");
-		boolean isMinus = record.getReadNegativeStrandFlag();
 
-		// init align status index
+		// Initiate align status index
 		char[] status = new char[alnLen];
 		int shift = 0;
 		// build status from cigar first
@@ -229,22 +195,12 @@ public class SAMAlignFixer {
 			}
 			assert pos <= alnLen;
 		}
-		// reverse status index, if on minus strand, so it is always in read orientation
+/*		// reverse status index, if on minus strand, so it is always in read orientation
 		if(isMinus)
-			reverse(status);
+			reverse(status);*/
 		return status;
 	}
-
-	/** reverse an char array
-	 */
-	private static void reverse(char[] arr) {
-		int len = arr.length;
-		for(int i = 0; i < len / 2; i++) {
-			char tmp = arr[i];
-			arr[i] = arr[len - 1 - i];
-			arr[len - 1 - i] = tmp;
-		}
-	}
+/*
 
 	/** private method to advance reference pos to a given step, ignore I (insertion) that is not present on reference
 	 */
@@ -264,19 +220,44 @@ public class SAMAlignFixer {
 		return advanceReferencePos(status, oldPos, 1);
 	}
 
-	/** calculate actual insert size by 1-D dynamic programming (1DP)
-	 * @param status align status index always in read orientation
-	 * @return actual insert length
+	/**
+	 * calculate insert region with given alnStatus
+	 * @param alnStatus  array of char index of insert status
+	 * @return insertRegion
 	 */
-	private static int calcInsertLenBy1DP(char[] status, int insertFrom) {
-		// do 1DP to determine insertLen
+	private static InsertRegion calcInsertRegionByAlnStatus(char[] status) {
+		if(status == null || status.length == 0)
+			return null;
 		int alnLen = status.length;
+		int from = 0;
+		int to = alnLen;
+		// determine from by searching alnStatus 5'
+		for(from = 0; from < alnLen && status[from] == 'S'; from++)
+			continue;
+		// determine to by searching alnStatus 3'
+		for(to = alnLen; to > 0 && status[to - 1] == 'S'; to--)
+			continue;
+		return new InsertRegion(from, to);
+	}
+	
+	/**
+	 * calculate insert region with given alnStatus, using original status or by 1DP
+	 * @param alnStatus  array of char index of insert status
+	 * @param do1DP  whether to do1DP
+	 * @return insertRegion
+	 */
+	private static InsertRegion calcInsertRegionBy1DP(char[] status) {
+		if(status == null || status.length == 0)
+			return null;
+		int alnLen = status.length;
+		int from = 0;
+		int to = alnLen;
+		// do 1DP to determine insert region
 		int[] dpScore = new int[alnLen + 1]; // Position 0 is dummy
 		int maxScore = Integer.MIN_VALUE;
-		int insertLen = 0;
-		// dynamic-programming to get dp-score, highest score and insert-length simultaneously
-		for(int i = insertFrom; i < alnLen; i++) {
-			int score = 0;
+		// dynamic-programming to get dp-score, highest score and insert region simultaneously
+		for(int i = 0; i < alnLen; i++) {
+			int score;
 			switch(status[i]) {
 			case 'M': case '=':
 				score = MATCH_SCORE;
@@ -285,195 +266,152 @@ public class SAMAlignFixer {
 				score = MIS_SCORE;
 				break;
 			case 'I': case 'D': // indel
-				score = i == 0 || status[i - 1] != 'I' && status[i - 1] != 'D' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY;
+				score = i == 0 || status[i - 1] != 'I' && status[i - 1] != 'D' ? -GAP_OPEN_PENALTY : -GAP_EXT_PENALTY;
+				break;
+			case 'S':
+				score = 0;
 				break;
 			default: // do nothing
+				score = 0;
 				break;
 			}
-			dpScore[i + 1] = dpScore[i] + score; // dpScore is 1-based
+			dpScore[i + 1] = dpScore[i] + score >= 0 ? dpScore[i] + score : 0; // dpScore is 1-based
 			if(dpScore[i + 1] > maxScore) {
-				insertLen = i + 1;   // Update insertLen
+				to = i + 1;   // update to 1-based
 				maxScore = dpScore[i + 1];  // Update maxScore
 			}
-		}
-		return insertLen - insertFrom;
+		} // end each status[]
+		// track back to get from
+		for(from = to; from >= 0 && dpScore[from] > 0; from--)
+			continue;
+		return new InsertRegion(from, to);
 	}
 
-	/** Calc refAlnLength
-	 * @param insertLen 
-	 * @param from 
+	/** Calculate refFrom from from
+	 * @param status  alignment status index array
+	 * @param from  align from
+	 * @return refFrom relative to the reference
 	 */
-	private static int calcReferenceAlnLen(char[] status, int from, int alnLen) {
-		int refAlnLen = 0;
-		for(int i = from; i < status.length; i++)
-			if(status[i] != 'S' && status[i] != 'I') // not S or I
-				refAlnLen++;
-		return refAlnLen;
+	private static int calcReferenceFrom(char[] status, int from) {
+		int refFrom = from;
+		for(int i = 0; i < from; i++)
+			if(status[i] == 'I') // I
+				refFrom--;
+		return refFrom;
 	}
 
-	/** Calc readInsertLength by subtracting deletions from the insertLen
+	/** Calculate refTo from to
+	 * @param status  alignment status index array
+	 * @param to  align to
+	 * @return refTo relative to the reference
 	 */
-	private static int calcReferenceInsertLen(char[] status, int insertFrom, int insertLen) {
-		assert insertFrom + insertLen <= status.length;
-		// status is in read orientation
-		int refInsertLen = insertLen;
-		for(int i = insertFrom; i < insertFrom + insertLen; i++)
-			if(status[i] == 'I')
-				refInsertLen--;
-		return refInsertLen;
+	private static int calcReferenceTo(char[] status, int to) {
+		int refTo = to;
+		for(int i = 0; i < to; i++)
+			if(status[i] == 'I') // I
+				refTo--;
+		return refTo;
 	}
 
 	/** Fix SAMRecord Cigar and mismatch tag (MD:Z), given the insert from and insert length
 	 *
 	 */
-	private static void fixSAMRecordCigarTag(SAMRecord record, int alnLen, char[] status, int from, int insertLen) {
-		if(from + insertLen == alnLen) // no fix needed
+	private static void fixSAMRecordCigarMisStr(SAMRecord record, int alnLen, char[] status,
+			InsertRegion newInsReg, InsertRegion oldInsReg) {
+		int from = newInsReg.from; // 0-based
+		int to = newInsReg.to; // 1-based
+		if(from == 0 && to == alnLen) // no fix needed
 			return;
-		boolean isMinus = record.getReadNegativeStrandFlag();
+		
 		int readLen = record.getReadLength();
-		int refAlnLen = calcReferenceAlnLen(status, from, alnLen);
-		int refInsertLen = calcReferenceInsertLen(status, from, insertLen);
-
-		int to = from + insertLen; // 1-based
-		int refClipLen = refAlnLen - refInsertLen; // clipped refInsertLen by 1DP
-		int clipLen = alnLen - to; // clipped insertLen by 1DP
-		// calculate readClipLen, ignore deletion
-		int readClipLen = clipLen;
-		for(int i = to; i < status.length; i++)
-			if(status[i] == 'D')
-				readClipLen--;
-
-		// fix Cigar
+		
+		// calculate readFrom and readTo
+/*		int readFrom = calcReadInsertFrom(status, from, alnLen);
+		int readTo = calcReadInsertTo(status, to, alnLen);*/
+		
+		// calculate refFrom and refTo
+		int refFrom = calcReferenceFrom(status, from);
+		int refTo = calcReferenceTo(status, to);
+		// fix Cigar string of the alignment
 		Cigar oldCig = record.getCigar();
 		Cigar newCig = new Cigar();
-		int pos = 0; // relative pos to reference
-		// note for Cigar soft-clip always happens at the end of the read
-		if(isMinus) // - strand, add clip at the begining
-			newCig.add(new CigarElement(readClipLen, CigarOperator.S));
+		if(from > 0) // soft-clip exists at 5'
+			newCig.add(new CigarElement(from, CigarOperator.S));
+		int pos = 0; // relative pos to alignment
 		for(CigarElement cigEle : oldCig.getCigarElements()) {
 			CigarOperator cigOp = cigEle.getOperator();
 			int cigLen = cigEle.getLength();
-			if(isMinus) { // - strand, clip at the beginning
-				switch(cigOp) {
-				case M: case EQ: case X: case I: case D:
-					if(pos + cigLen <= clipLen) // competely in soft-clipped region
-						;
-					else if(pos < clipLen && pos + cigLen > clipLen) // partially inside
-						newCig.add(new CigarElement(pos + cigLen - clipLen, cigOp));
-					else // not in clipped region
-						newCig.add(new CigarElement(cigLen, cigOp)); // make a copy
-					pos += cigLen;
-					break;
-				case S:
-					if(pos + cigLen > clipLen) // not in clipped region
-						newCig.add(new CigarElement(cigLen, cigOp)); // make a copy
-					pos += cigLen; // count but doesn't record
-					break;
-				default: // ('N', 'H', 'P')
-					if(pos >= clipLen) // not clipped
-						newCig.add(new CigarElement(cigLen, cigOp));
-					break;
+			switch(cigOp) {
+			case M: case EQ: case X: case I: case D:
+				if(pos + cigLen <= from || pos >= to) // competely in soft-clipped region
+					; // do nothing
+				else if(pos < to && pos + cigLen > from) { // partially clipped
+					int clipFrom = pos > from ? pos : from;
+					int clipTo = pos + cigLen < to ? pos + cigLen : to;
+					newCig.add(new CigarElement(clipTo - clipFrom, cigOp));
 				}
-			} // end - strand
-			else { // + strand, clip at the end
-				switch(cigOp) {
-				case M: case EQ: case X: case I: case D:
-					if(pos + cigLen <= to) // not in clipped region
-						newCig.add(new CigarElement(cigLen, cigOp)); // make a copy
-					else if(pos < to && pos + cigLen > to) // partially inside
-						newCig.add(new CigarElement(to - pos, cigOp));
-					else // competely in soft-clipped region
-						;
-					pos += cigLen;
-					break;
-				case S:
-					if(pos + cigLen <= to) // not in clipped region
-						newCig.add(new CigarElement(cigLen, cigOp)); // make a copy
-					pos += cigLen; // count but doesn't record
-					break;
-				default: // 'N', 'H', 'P'
-					if(pos < to) // not in clipped region
-						newCig.add(new CigarElement(cigLen, cigOp));
-					break;
-				}
-			} // end + strand
+				else // not in clipped region
+					newCig.add(new CigarElement(cigLen, cigOp)); // make a copy
+				pos += cigLen;
+				break;
+			case S:
+				pos += cigLen; // count length but do nothing else
+				break;
+			default: // ('N', 'H', 'P')
+				if(pos >= from && pos + cigLen <= to) // not clipped
+					newCig.add(new CigarElement(cigLen, cigOp));
+				break;
+			}
 		} // end each cigEle
-		if(!isMinus) // + strand, add clip at the end
-			newCig.add(new CigarElement(readClipLen, CigarOperator.S));
-		/*if(!isValidCigarLength(newCig, record.getReadLength())) {
-			System.err.println(oldCig);
-			System.err.println(newCig);
-			System.err.println(isMinus + ":refAlnLen" + refAlnLen + " refInsertLen:" + refInsertLen + " refClipLen:" + refClipLen + " clipLen:" + clipLen + " readClipLen:" + readClipLen + " to:" + to + " readLen:" + record.getReadLength());
-			System.err.println(record.getStringAttribute("MD"));
+		if(to < alnLen) // soft-clip exists at 3'
+			newCig.add(new CigarElement(alnLen - to, CigarOperator.S));
+		//assert isValidCigarLength(newCig, readLen);
+/*		if(calcAlnLenByCigar(newCig) != calcAlnLenByCigar(oldCig)) {
+			System.err.println("Cigar length doesn't match at:\n" + oldCig + " <-> " + newCig);
+			System.err.printf("from:%d to:%d%n", from, to);
+			System.err.println(record.getSAMString());
 			System.exit(-1);
 		}*/
-		assert isValidCigarLength(newCig, readLen);
-
+		assert calcAlnLenByCigar(newCig) == calcAlnLenByCigar(oldCig);
+		
 		// fix mismatch string, if exists
 		String oldMisStr = record.getStringAttribute("MD");
-		// fix refClipLen by removing S
-		/*CigarElement firstCig = newCig.getCigarElement(0);
-		CigarElement lastCig = newCig.getCigarElement(newCig.numCigarElements() - 1);
-		if(isMinus && firstCig.getOperator() == CigarOperator.S)
-			refClipLen -= firstCig.getLength();
-		else if(!isMinus && lastCig.getOperator() == CigarOperator.S)
-			refClipLen -= lastCig.getLength();
-		else
-		;*/
-		if(oldMisStr != null && refClipLen > 0) {
+		if(oldMisStr != null) {
 			StringBuilder newMisStr = new StringBuilder(); // use StringBuilder for performance
 			Matcher match = misPat3.matcher(oldMisStr);
-			pos = 0;
+			int refPos = oldInsReg.from; // relative pos to the reference, excluding 'I'
 			while(match.find()) {
 				String s = match.group();
-				if(isMinus) { // - strand, clip at the beginning
-					if(isDecimal(s)) { // a span met
-						int span = Integer.parseInt(s);
-						if(pos >= refClipLen) // not in clipped region
-							newMisStr.append(span); // make a copy
-						else if(pos < refClipLen && pos + span > refClipLen) // partially inside
-							newMisStr.append(pos + span - refClipLen);
-						else // competely in soft-clipped region
-							; // do nothing
-						pos += span;
+				if(isDecimal(s)) { // a span met
+					int span = Integer.parseInt(s);
+					if(refPos + span <= refFrom || refPos >= refTo) // completely in soft-clipped region
+						; // do nothing
+					else if(refPos < refTo && refPos + span > refFrom) { // partially clipped
+						int clipFrom = refPos > refFrom ? refPos : refFrom;
+						int clipTo = refPos + span < refTo ? refPos + span : refTo;
+						newMisStr.append(clipTo - clipFrom);
 					}
-					else { // a mismatch or deletion
-						if(pos >= refClipLen) // not in clip region, note deletion won't partially in clipped region
-							newMisStr.append(s);
-						if(s.length() == 1) // a mismatch
-							pos++;
-						else // a deletion
-							pos += s.length() - 1;
-					}
+					else // not in clipped region
+						newMisStr.append(span);
+					refPos += span;
 				}
-				else { // + strand, clip at the end
-					if(isDecimal(s)) { // a span met
-						int span = Integer.parseInt(s);
-						if(pos + span <= refInsertLen) // not in clipped region
-							newMisStr.append(span); // make a copy
-						else if(pos < refInsertLen && pos + span > refInsertLen) // partially inside
-							newMisStr.append(pos + span - refInsertLen);
-						else // competely in clipped region
-							; // do nothing
-						pos += span;
-					}
-					else { // a mismatch or deletion
-						if(pos < refInsertLen) // inside
-							newMisStr.append(s);
-						if(s.length() == 1) // a mismatch
-							pos++;
-						else // a deletion
-							pos += s.length() - 1;
-					}
+				else { // a mismatch or deletion tag
+					if(refPos >= refFrom && refPos < refTo) // not in clip region, note deletion won't partially in clipped region
+						newMisStr.append(s);
+					if(s.length() == 1) // a mismatch
+						refPos++;
+					else // a deletion
+						refPos += s.length() - 1;
 				}
 			} // end while find
-/*			System.err.println(isMinus + " refClipLen:" + refClipLen);
-			System.err.println(" refAlnLen:" + refAlnLen + " refInsertLen:" + refInsertLen + " insertLen:" + insertLen);
-			System.err.println("newCig:" + newCig);
-			System.err.println("newMisStr:" + newMisStr);
-			System.err.println(record.getSAMString());
-			System.exit(-1);*/
-			 
+			if(!Character.isDigit(newMisStr.charAt(newMisStr.length() - 1))) // if the new misStr deosn't end with number
+					newMisStr.append("0");
+/*			if(!isMatchedCigarMisStr(newCig, newMisStr.toString())) {
+				System.err.printf("oldCig:%s oldMisStr:%s%nnewCig:%s newMisStr:%s%n", oldCig, oldMisStr, newCig, newMisStr);
+				System.err.printf("from:%d to:%d%n", from, to);
+				System.err.printf("refFrom:%d refTo:%d%n", refFrom, refTo);
+				System.exit(-1);
+			}*/
 			assert isMatchedCigarMisStr(newCig, newMisStr.toString());
 			record.setCigar(newCig); // update the cigar
 			record.setAttribute("MD", newMisStr.toString()); // update misStr
@@ -514,6 +452,8 @@ public class SAMAlignFixer {
 				misRefAlnLen += misSeq.length() - 1;
 			misRefAlnLen += followLen;
 		}
+/*		if(cigRefAlnLen != misRefAlnLen)
+			System.err.printf("cigRefAlnLen:%d misRefAlnLen:%d%n", cigRefAlnLen, misRefAlnLen);*/
 		return cigRefAlnLen == misRefAlnLen;
 	}
 
@@ -556,7 +496,7 @@ public class SAMAlignFixer {
 			case 'S': case 'H': case 'P': case 'N':
 				break;
 			case 'I': case 'D':
-				score = (status[i-1] != 'I' && status[i-1] != 'D' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY); 
+				score = (status[i-1] != 'I' && status[i-1] != 'D' ? -GAP_OPEN_PENALTY : -GAP_EXT_PENALTY); 
 			default: // S,H,P or N
 				break; // do nothing
 			}
@@ -591,10 +531,10 @@ public class SAMAlignFixer {
 			case 'S': case 'H': case 'P': case 'N':
 				break;
 			case 'I':
-				score = (status[i-1] != 'I' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY);
+				score = (status[i-1] != 'I' ? -GAP_OPEN_PENALTY : -GAP_EXT_PENALTY);
 				weight += qual[pos++];
 			case 'D':
-				score = (status[i-1] != 'D' ? GAP_OPEN_PENALTY : GAP_EXT_PENALTY);
+				score = (status[i-1] != 'D' ? -GAP_OPEN_PENALTY : -GAP_EXT_PENALTY);
 				weight += REF_QUAL;
 			default: // S,H,P or N
 				break; // do nothing
@@ -684,6 +624,25 @@ public class SAMAlignFixer {
 		GAP_EXT_PENALTY = gapExtPenalty;
 	}
 
+	/**
+	 * a nested static class member holding POD of a insertRegion
+	 * @author Qi Zheng
+	 */
+	public static class InsertRegion {
+		/**
+		 * construct a InsertRegion
+		 * @param from
+		 * @param to
+		 */
+		public InsertRegion(int from, int to) {
+			this.from = from;
+			this.to = to;
+		}
+		
+		int from;
+		int to;
+	}
+	
 	// default 1DP parameters
 	private static int SEED_LEN = 25;
 	private static int MATCH_SCORE = 1;
