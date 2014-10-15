@@ -13,8 +13,8 @@ import htsjdk.samtools.*;
  * X?: alignment tags, Y? seed tags, Z? total tags
  * Tag  Type  Description
  * XL   i     insert length, including M,=,X,I,D but not S,H,P,N, determined by Cigar or 1DP
- * XF   i     actual insert from (start) relative to read
- * XI   f     alignment identity 1 - (XA + XG) / XL
+ * XF   i     actual insert from (start) relative to reference
+ * XI   f     alignment identity 1 - (YX + YG) / XL
  * XS   f     alignment score from AlignerBoost
  * XQ   f     quality weighted alignment score from AlignerBoost
  * YL	i     seed length for calculating seed mismatches and indels
