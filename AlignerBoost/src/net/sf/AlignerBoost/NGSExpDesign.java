@@ -284,10 +284,7 @@ public class NGSExpDesign {
 	 * @return the readFile
 	 */
 	public String getReadFile() {
-		if( (new File(readFile)).isAbsolute())
-			return readFile;
-		else
-			return PROJECT_DIR.equals(".") ? readFile : PROJECT_DIR + "/" + readFile;
+		return readFile;
 	}
 
 	/**
@@ -315,10 +312,7 @@ public class NGSExpDesign {
 	 * @return the mateFile
 	 */
 	public String getMateFile() {
-		if( (new File(mateFile)).isAbsolute())
-			return mateFile;
-		else
-			return PROJECT_DIR.equals(".") ? mateFile : PROJECT_DIR + "/" + mateFile;
+		return mateFile;
 	}
 	
 

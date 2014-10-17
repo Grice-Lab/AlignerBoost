@@ -61,7 +61,10 @@ public class AlignerBoost {
 				dispatchRun(cmd, opts);
 				break;
 			default:
-				break;
+				printProgHeader();
+				System.err.println("Error! Unknown command-group '" + cmd + "'");
+				printUsage();
+				return;
 			}
 		}
 	}
@@ -134,7 +137,7 @@ public class AlignerBoost {
 	private static void dispatchUtils(String cmd, String[] opts) {
 		// Dispatch prepare commands by forwarding to corresponding class main method calls
 		switch(cmd) {
-/*		case "sam2ABLoc":
+/*		case "sam2Loc":
 			Sam2Loc.main(opts);
 			break;*/
 		case "sam2Cover":
@@ -179,12 +182,6 @@ public class AlignerBoost {
 		case "filterPE":
 			FilterSAMAlignPE.main(opts);
 			break;
-/*		case "stratumSE":
-			FilterSamBestStratumAlignSE.main(opts);
-			break;
-		case "stratumPE":
-			FilterSamBestStratumAlignPE.main(opts);
-			break;*/
 		default:
 			System.err.println("Unknown prepare command '" + cmd + "'");
 			printUsage();
@@ -216,7 +213,6 @@ public class AlignerBoost {
 				"                  prepare  NR            prepare NGS read Non-redundant collapsing commands" + newLine +
 				"                  prepare  align         prepare NGS read aligning (mapping) commands" + newLine +
 				"                  prepare  filter        prepare NGS alignment filtering & best-stratum commands" + newLine +
-//				"                  prepare  stratum       prepare NGS alignment \"best-stratum\" filtering commands" + newLine +
 				"                  stats    total         init total read stats of a project" + newLine +
 				"                  stats    trimmed       add/update trimmed read stats" + newLine +
 				"                  stats    NR            add/update NR tag stats" + newLine +
@@ -231,8 +227,6 @@ public class AlignerBoost {
 				"                  run      fastq2NR      collapse NGS FASTQ reads/pairs to NR-tags" + newLine +
 				"                  run      filterSE      boost NGS alignment accuracy by post-filtering and picking \"best-stratum\" hits for single-end alignments" + newLine +
 				"                  run      filterPE      boost NGS alignment accuracy by post-filtering and picking \"best-stratum\" hits for paired-end alignments"
-//				"                  run      stratumSE     boost NGS alignment accuracy by picking only \"best-stratum\" hits" + newLine +
-//				"                  run      stratumPE     boost pair-end NGS alignment accuracy by picking only \"best-stratum\" pairs"
 				);
 	}
 }
