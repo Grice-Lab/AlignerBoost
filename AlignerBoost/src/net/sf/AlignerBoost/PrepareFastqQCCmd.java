@@ -44,7 +44,7 @@ public class PrepareFastqQCCmd {
 			for(NGSExpDesign conf : configs) {
 				String in = "-in " + conf.readFile;
 				if(conf.isPaired)
-					in += "-mate" + conf.mateFile;
+					in += " -mate" + conf.mateFile;
 				String outFn = conf.libName + "_QC.txt";
 				if(!PROJECT_DIR.equals("."))
 					outFn = PROJECT_DIR + "/" + outFn;
