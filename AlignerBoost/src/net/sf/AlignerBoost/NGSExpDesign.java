@@ -514,7 +514,9 @@ public class NGSExpDesign {
 	 * @return  trimmed read filename
 	 */
 	public String getTrimmedReadFileName() {
-		String fn = !doTrim ? readFile : !isPaired ? libName + "_trimmed.fastq" : libName + "_trimmed_1.fastq";
+		if(!doTrim)
+			return getReadFile();
+		String fn = !isPaired ? libName + "_trimmed.fastq" : libName + "_trimmed_1.fastq";
 		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
 	}
 
@@ -523,7 +525,9 @@ public class NGSExpDesign {
 	 * @return  trimmed mate filename
 	 */
 	public String getTrimmedMateFileName() {
-		String fn = !doTrim ? mateFile : !isPaired ? libName + "" : libName + "_trimmed_2.fastq";
+		if(!doTrim)
+			return getMateFile();
+		String fn = !isPaired ? libName + "" : libName + "_trimmed_2.fastq";
 		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
 	}
 	
@@ -532,8 +536,10 @@ public class NGSExpDesign {
 	 * @return  NR read filename
 	 */
 	public String getNRReadFileName() {
-		String fn = !doNR ? getTrimmedReadFileName() : !isPaired ? libName + "_NR.fas" : libName + "_NR_1.fas";
-		return doNR && !WORK_DIR.equals(".") ? WORK_DIR + "/" + fn : fn;
+		if(!doNR)
+			return getTrimmedReadFileName();
+		String fn = !isPaired ? libName + "_NR.fas" : libName + "_NR_1.fas";
+		return !WORK_DIR.equals(".") ? WORK_DIR + "/" + fn : fn;
 	}
 	
 	/**
@@ -541,7 +547,9 @@ public class NGSExpDesign {
 	 * @return  NR mate filename
 	 */
 	public String getNRMateFileName() {
-		String fn = !doNR ? getTrimmedMateFileName() : !isPaired ? "" : libName + "_NR_2.fastq";
+		if(!doNR)
+			return getTrimmedMateFileName();
+		String fn = !isPaired ? "" : libName + "_NR_2.fastq";
 		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
 	}
 	
