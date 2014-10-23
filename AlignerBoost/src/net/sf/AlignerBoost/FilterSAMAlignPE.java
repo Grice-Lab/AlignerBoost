@@ -1,7 +1,9 @@
 package net.sf.AlignerBoost;
 import static net.sf.AlignerBoost.EnvConstants.*;
+
 import java.io.*;
 import java.util.*;
+
 import htsjdk.samtools.*;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
@@ -58,9 +60,9 @@ public class FilterSAMAlignPE {
 
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
 				Collections.sort(alnPEList, Collections.reverseOrder());
-				float bestIdentity = !alnPEList.isEmpty() ? alnPEList.get(0).getPEIdentity() : 0;
+				int bestScore = !alnPEList.isEmpty() ? alnPEList.get(0).getPEAlignScore() : 0;
 				// remove non-best hits
-				removePESecondaryHits(alnPEList, bestIdentity, MAX_DIV);
+				removePESecondaryHits(alnPEList, bestScore, MAX_DIV);
 				if(MAX_BEST > 0 && alnList.size() > MAX_BEST) // too much best hits, ignore this read
 					alnList.clear();
 				// report remaining secondary alignments, up-to MAX_REPORT
@@ -113,6 +115,18 @@ public class FilterSAMAlignPE {
 				PEIndel += getSAMRecordPercentAllIndel(revRecord);
 			}
 			return 1 - (PEMis + PEIndel) / (float) PEInsertLen;
+		}
+		
+		/** Get paired-end align score for a AlignmentPair
+		 * @return sum of the align score of the pair
+		 */
+		public int getPEAlignScore() {
+			int PEScore = 0;
+			if(fwdRecord != null)
+				PEScore += getSAMRecordAlignScore(fwdRecord);
+			if(revRecord != null)
+				PEScore += getSAMRecordAlignScore(revRecord);
+			return PEScore;
 		}
 
 		/** Get PE insert length
@@ -302,6 +316,15 @@ public class FilterSAMAlignPE {
 	static float getSAMRecordPercentAllIndel(SAMRecord record) throws RuntimeException {
 		return 100f * record.getIntegerAttribute("ZG") / record.getIntegerAttribute("XL");
 	}
+	
+	/**
+	 * get internal align score
+	 * @param record  SAMRecord to look at
+	 * @return  align score
+	 */
+	static int getSAMRecordAlignScore(SAMRecord record) {
+		return record.getIntegerAttribute("XQ");
+	}
 
 	/**
 	 * Filter hits by removing hits not satisfying the user-specified criteria
@@ -330,11 +353,11 @@ public class FilterSAMAlignPE {
 
 	/** Remove secondary hits from sorted List of records to allow only best-stratum hits
 	 */
-	private static int removePESecondaryHits(List<SAMRecordPair> alnPEList, float bestIden, float maxDiv) {
+	private static int removePESecondaryHits(List<SAMRecordPair> alnPEList, int bestScore, float maxDiv) {
 		int n = alnPEList.size();
 		int removed = 0;
 		for(int i = n - 1; i >= 0; i--) { // search backward
-			if(alnPEList.get(i).getPEIdentity() < bestIden - maxDiv / 100f) {
+			if(alnPEList.get(i).getPEAlignScore() / bestScore < 1 - maxDiv / 100) {
 				//System.err.printf("n:%d removed:%d bestIden:%f iden:%f maxDiv:%f%n", n, removed, bestIden, alnPEList.get(i).getPEIdentity(), maxDiv);
 				alnPEList.remove(i);
 				removed++;
@@ -358,7 +381,7 @@ public class FilterSAMAlignPE {
 	private static boolean isSilent; // ignore SAM warnings?
 	private static boolean noMix; // do not allow unpaired alignments for paired reads?
 	// best stratum options
-	private static float MAX_DIV = 4; // max divergent
+	private static float MAX_DIV = 1; // max divergent
 	private static int MAX_BEST = 0; // no limits
 	private static int MAX_REPORT = 10;
 	// general options

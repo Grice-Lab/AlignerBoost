@@ -46,16 +46,16 @@ public class PrepareMapCmd {
 				// set max_insert for trimmed and untrimmed reads separately
 				int maxInsertTR = conf.doTrim ? conf.readLen - conf.minTrim + 1 : conf.readLen;
 				int maxInsertUN = conf.readLen;
-				int seedNMis = (int) Math.floor(conf.seedLen * conf.seedMis);
+				int seedNMis = (int) Math.floor(conf.seedLen * conf.seedMis / 100);
 				// determine maximum #mismatches
 				int maxNMisTR, maxNMisUN;
 				if(conf.hasSpliced && conf.aligner.equals("bowtie")) { // has spliced reads and using the non-sw bowtie aligner
-					maxNMisTR = (int) Math.floor(conf.allMis * conf.minInsert) + maxInsertUN - conf.minInsert;
-					maxNMisUN = (int) Math.floor(conf.allMis * conf.minInsert) + maxInsertUN - conf.minInsert;
+					maxNMisTR = (int) Math.floor(conf.allMis * conf.minInsert / 100) + maxInsertUN - conf.minInsert;
+					maxNMisUN = (int) Math.floor(conf.allMis * conf.minInsert / 100) + maxInsertUN - conf.minInsert;
 				}
 				else { // no spliced reads or using SW aligner
-					maxNMisTR = (int) Math.floor(conf.allMis * maxInsertTR);
-					maxNMisUN = (int) Math.floor(conf.allMis * maxInsertUN);
+					maxNMisTR = (int) Math.floor(conf.allMis * maxInsertTR / 100);
+					maxNMisUN = (int) Math.floor(conf.allMis * maxInsertUN / 100);
 				}
 				// prepare mapping cmd
 				String cmd = "";
@@ -73,6 +73,7 @@ public class PrepareMapCmd {
 					String inType = conf.doNR ? " -f " : " -q ";
 					String qual = " --phred" + conf.asciiOffset + "-quals ";
 					int e = Math.max(maxNMisTR,  maxNMisUN) * avgQ;
+					String frag = conf.isPaired ? " --minins " + conf.minFragLen + " --maxins " + conf.maxFragLen + " " : " ";
 					String hit = " -k " + conf.maxHit;
 					if(conf.maxHit == 1)
 						hit += " --best";
@@ -80,7 +81,7 @@ public class PrepareMapCmd {
 						seedNMis = MAX_BOWTIE_SEED_NMIS;
 					String quiet = conf.doTrim && conf.isPaired ? " --quiet " : " ";
 					String inFn = !conf.isPaired ? " " + readIn : " -1 " + readIn + " -2 "+ mateIn;
-					cmd = prog + inType + qual + " -n " + seedNMis + " -e " + e + " -l " + conf.seedLen + " -y " + hit +
+					cmd = prog + inType + qual + " -n " + seedNMis + " -e " + e + " -l " + conf.seedLen + " -y " + hit + frag +
 							" --nomaqround -p " + MAX_PROC + " --sam" + quiet + conf.otherAlignerOpts +
 							" " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
 					break;
@@ -90,19 +91,20 @@ public class PrepareMapCmd {
 				    qual = " --phred" + conf.asciiOffset + " ";
 				    String mode = " --local ";
 				    hit = conf.maxHit > 1 ? " -k " + conf.maxHit : ""; // use default mode if max_hit == 1
+					frag = conf.isPaired ? " --minins " + conf.minFragLen + " --maxins " + conf.maxFragLen + " " : " ";
 				    if(seedNMis > MAX_BOWTIE2_SEED_NMIS)
 				    	seedNMis = MAX_BOWTIE2_SEED_NMIS;
 				    if(conf.seedLen > MAX_BOWTIE2_SEED_LEN)
 				    	conf.seedLen = MAX_BOWTIE2_SEED_LEN;
 				    quiet = conf.doTrim && conf.isPaired ? " --quiet " : " ";
 				    inFn = !conf.isPaired ? " -U " + readIn : " -1 " + readIn + " -2 " + mateIn;
-				    cmd = prog + inType + mode + qual + " -N " + seedNMis + " -L " + conf.seedLen + hit +
+				    cmd = prog + inType + mode + qual + " -N " + seedNMis + " -L " + conf.seedLen + hit + frag +
 				    		" -p " + MAX_PROC + quiet + conf.otherAlignerOpts +
 				    		" -x " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
 				    break;
 				case "bwa-mem": case "bwa":
 				    prog = "bwa mem";
-				    int minScore = conf.minInsert * BWA_MEM_MATCH_SCORE - (int) Math.floor(conf.minInsert * conf.allMis) * BWA_MEM_MISMATCH_PENALTY;
+				    int minScore = conf.minInsert * BWA_MEM_MATCH_SCORE - (int) Math.floor(conf.minInsert * conf.allMis / 100) * BWA_MEM_MISMATCH_PENALTY;
 				    if(minScore < 0)
 				    	minScore = 0;
 				    inFn = !conf.isPaired ? " " + readIn : " " + readIn + " " + mateIn;
@@ -111,7 +113,7 @@ public class PrepareMapCmd {
 				    break;
 				case "bwa-sw":
 				    prog = "bwa bwasw";
-				    minScore = conf.minInsert - (int) Math.floor(conf.minInsert * conf.allMis * BWA_SW_MISMATCH_PENALTY / BWA_SW_MATCH_SCORE);
+				    minScore = conf.minInsert - (int) Math.floor(conf.minInsert * conf.allMis / 100 * BWA_SW_MISMATCH_PENALTY / BWA_SW_MATCH_SCORE);
 				    int zBest = conf.maxHit > BWA_SW_MAX_Z_BEST ? BWA_SW_MAX_Z_BEST : conf.maxHit;
 				    inFn = !conf.isPaired ? " " + readIn : " " + readIn + " " + mateIn;
 				    cmd = prog + " -t " + MAX_PROC + " -T " + minScore + " -z " + zBest + " " + conf.otherAlignerOpts +
@@ -119,21 +121,27 @@ public class PrepareMapCmd {
 				    break;
 				case "bwa-aln":
 				    prog = "bwa aln";
-				    float maxEdit = conf.allMis + conf.allIndel;
+				    float maxEdit = conf.allMis / 100 + conf.allIndel / 100;
 				    String qualFormat = conf.asciiOffset == 33 ? " " : " -I ";
 				    inFn = readIn;
 				    if(!conf.isPaired) {
 				      String saiOut = conf.libName + "_" + conf.refGenome + ".sai";
+				      if(!NGSExpDesign.getWORK_DIR().equals("."))
+				    	  saiOut = NGSExpDesign.getWORK_DIR() + "/" + saiOut;
 				      cmd = prog + " -n " + maxEdit + " -l " + conf.seedLen + " -k " + seedNMis + " -t " + MAX_PROC +
 				    		  qualFormat + conf.otherAlignerOpts + " " +
 				    		  conf.refIndex + " " + inFn + " > " + saiOut + newLine;
 				      // format sai file to bam file
-				      cmd += "  bwa samse " + conf.refIndex + " " + saiOut + " " + inFn + " | samtools view -S -b -o " + outFn + " -";
+				      cmd += "  bwa samse " + " -n " + conf.maxHit + " " + conf.refIndex + " " + saiOut + " " + inFn + " | samtools view -S -b -o " + outFn + " -";
 				      break;
 				    }
 				    else {
 				      String saiOut1 = conf.libName + "_" + conf.refGenome + ".1.sai";
 				      String saiOut2 = conf.libName + "_" + conf.refGenome + ".2.sai";
+				      if(!NGSExpDesign.getWORK_DIR().equals(".")) {
+				    	  saiOut1 = NGSExpDesign.getWORK_DIR() + "/" + saiOut1;
+				    	  saiOut2 = NGSExpDesign.getWORK_DIR() + "/" + saiOut2;
+				      }
 				      cmd = prog + " -n " + maxEdit + " -l " + conf.seedLen + " -k " + seedNMis + " -t " + MAX_PROC +
 				    		  qualFormat + " " + conf.otherAlignerOpts + " " +
 				    		  conf.refIndex + " " + readIn + " > " + saiOut1 + newLine;
@@ -142,6 +150,7 @@ public class PrepareMapCmd {
 				    		  conf.refIndex + " " + mateIn + " > " + saiOut2 + newLine;
 				      // format paired sai files to bam file
 				      cmd += "  bwa sampe " + conf.refIndex + " " + saiOut1 + " " + saiOut2 + " " +
+				    		  " -a " + conf.maxFragLen + " -n " + conf.maxHit + " -N " + conf.maxHit + " " +
 				    		  readIn + " " + mateIn + " | samtools view -S -b -o " + outFn + " -";
 				      break;
 				    }
@@ -159,7 +168,7 @@ public class PrepareMapCmd {
 				    		conf.seedLen = MAX_BOWTIE2_SEED_LEN;
 				    }
 				    int readNMis = Math.max(maxNMisTR, maxNMisUN);
-				    int readNGap = (int) Math.floor(conf.allIndel * conf.readLen);
+				    int readNGap = (int) Math.floor(conf.allIndel * conf.readLen / 100);
 				    int readEdit = readNMis + readNGap;
 				    int maxIns = readNGap;
 				    int maxDel = readNGap;
@@ -209,11 +218,11 @@ public class PrepareMapCmd {
 				    break;
 				case "STAR":
 				    prog = "STAR";
-				    float minScoreRate = 1 - conf.allMis - conf.allIndel * STAR_INDEL_PENALTY / STAR_MATCH_SCORE;
+				    float minScoreRate = 1 - conf.allMis / 100 - conf.allIndel / 100 * STAR_INDEL_PENALTY / STAR_MATCH_SCORE;
 				    float minMatchRate = minScoreRate;
 				    int divRange = (int) Math.floor(conf.maxDiv * conf.readLen);
 				    int maxNMis = Math.max(maxNMisTR, maxNMisUN);
-				    float maxMisRate = conf.allMis;
+				    float maxMisRate = conf.allMis / 100;
 				    inFn = !conf.isPaired ? readIn : readIn + " " + mateIn;
 				    cmd = prog + " --genomeDir " + conf.refIndex + " --readFilesIn " + inFn + " --runThreadN " + MAX_PROC +
 				    		" --outFilterScoreMin " + minScoreRate + " --outFilterMatchNminOverLread " + minMatchRate +

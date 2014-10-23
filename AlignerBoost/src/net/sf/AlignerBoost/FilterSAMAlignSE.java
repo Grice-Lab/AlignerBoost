@@ -52,9 +52,9 @@ public class FilterSAMAlignSE {
 				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
 				Collections.sort(recordList, Collections.reverseOrder(recordComp));
-				float bestIdentity = !recordList.isEmpty() ? getSAMRecordIdentity(recordList.get(0)) : 0;
+				int bestScore = !recordList.isEmpty() ? getSAMRecordAlignScore(recordList.get(0)) : 0;
 				// remove non-best hits
-				removeSecondaryHits(recordList, bestIdentity, MAX_DIV);
+				removeSecondaryHits(recordList, bestScore, MAX_DIV);
 				if(MAX_BEST > 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
 					recordList.clear();
 				// report remaining alignments, up-to MAX_REPORT
@@ -78,17 +78,10 @@ public class FilterSAMAlignSE {
 		}
 	}
 
-	// a nested class for sorting SAMRecord using identity, ties are broken by the insert length
+	// a nested class for sorting SAMRecord using align score
 	static class SAMRecordIdentityComparator implements Comparator<SAMRecord> {
 		public int compare(SAMRecord r1, SAMRecord r2) {
-			float iden1 = getSAMRecordIdentity(r1);
-			float iden2 = getSAMRecordIdentity(r2);
-			if(iden1 < iden2)
-				return -1;
-			else if(iden1 > iden2)
-				return 1;
-			else
-				return getSAMRecordInsertLen(r1) - getSAMRecordInsertLen(r2);
+			return getSAMRecordAlignScore(r1) - getSAMRecordAlignScore(r2);
 		}
 	}
 
@@ -223,6 +216,15 @@ public class FilterSAMAlignSE {
 	static float getSAMRecordPercentAllIndel(SAMRecord record) throws RuntimeException {
 		return 100f * record.getIntegerAttribute("ZG") / record.getIntegerAttribute("XL");
 	}
+	
+	/**
+	 * get internal align score
+	 * @param record  SAMRecord to look at
+	 * @return  align score
+	 */
+	static int getSAMRecordAlignScore(SAMRecord record) {
+		return record.getIntegerAttribute("XQ");
+	}
 
 	/**
 	 * Filter hits by removing hits not satisfying the user-specified criteria
@@ -251,12 +253,12 @@ public class FilterSAMAlignSE {
 
 	/** Remove secondary hits from sorted List of records to allow only best-stratum hits
 	 */
-	private static int removeSecondaryHits(List<SAMRecord> recordList, float bestIden, float maxDiv) {
+	private static int removeSecondaryHits(List<SAMRecord> recordList, int bestScore, float maxDiv) {
 		int n = recordList.size();
 		int removed = 0;
 		for(int i = n - 1; i >= 0; i--) { // search backward
 			//System.err.printf("n:%d removed:%d bestIden:%f iden:%f maxDiv:%f%n", n, removed, bestIden, getSAMRecordIdentity(recordList.get(i)), maxDiv);
-			if(getSAMRecordIdentity(recordList.get(i)) < bestIden - maxDiv / 100f) {
+			if((float) getSAMRecordAlignScore(recordList.get(i)) / bestScore < 1 - maxDiv / 100f) {
 				recordList.remove(i);
 				removed++;
 			}
@@ -278,7 +280,7 @@ public class FilterSAMAlignSE {
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	// best stratum options
-	private static float MAX_DIV = 4; // max divergent
+	private static float MAX_DIV = 1; // max divergent%
 	private static int MAX_BEST = 0; // no limits
 	private static int MAX_REPORT = 10;
 	private static SAMRecordIdentityComparator recordComp = new SAMRecordIdentityComparator();

@@ -505,8 +505,6 @@ public class NGSExpDesign {
 			refIndex = refGenome;
 		if(transcriptomeIndex.equals("NA"))
 			transcriptomeIndex = "transcriptome/" + transcriptomeGFF.replaceFirst("(?i:\\.gff)", "");		
-		if(!doTrim && !hasSpliced)
-			minInsert = readLen;
 	}
 
 	/**

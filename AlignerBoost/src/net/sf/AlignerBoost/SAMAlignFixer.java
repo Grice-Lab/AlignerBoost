@@ -2,7 +2,6 @@
  * a class to provide static method to filter and fix SAM/BAM alignment
  */
 package net.sf.AlignerBoost;
-import java.util.List;
 import java.util.regex.*;
 
 import htsjdk.samtools.*;
@@ -15,8 +14,7 @@ import htsjdk.samtools.*;
  * XL   i     insert length, including M,=,X,I,D but not S,H,P,N, determined by Cigar or 1DP
  * XF   i     actual insert from (start) relative to reference
  * XI   f     alignment identity 1 - (YX + YG) / XL
- * XS   f     alignment score from AlignerBoost
- * XQ   f     quality weighted alignment score from AlignerBoost
+ * XQ   i     aignment score weighted by mapping quality 
  * YL	i     seed length for calculating seed mismatches and indels
  * YX   i     # of seed mismatches
  * YG   i     # of seed indels
@@ -37,11 +35,14 @@ public class SAMAlignFixer {
 		if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 			return false;
 		Cigar cigar = record.getCigar();
-		// valid cigar first
-		assert isValidCigarLength(cigar, readLen);
 
 		// Calculate alignment length
 		int alnLen = calcAlnLenByCigar(cigar);
+		if(alnLen == 0)
+			return false;
+		// valid cigar first
+		assert isValidCigarLength(cigar, readLen);
+		
 		// get align status index
 		char[] status = getAlnStatusBySAMRecord(record, alnLen);
 		// get InsertRegion from either Cigar or 1DP
@@ -83,8 +84,7 @@ public class SAMAlignFixer {
 		record.setAttribute("XL", insertLen);
 		record.setAttribute("XF", insertFrom);
 		record.setAttribute("XI", identity);
-		//record.setAttribute("XS", calcAlnScore(status));
-		//record.setAttribute("XQ", calcAlnScore(status, record.getBaseQualities()));
+		record.setAttribute("XQ", calcAlignScore(status, record.getBaseQualities()));
 		// seed tags
 		record.setAttribute("YL", SEED_LEN);
 		record.setAttribute("YX", nSeedMis);
@@ -323,8 +323,7 @@ public class SAMAlignFixer {
 		if(from == 0 && to == alnLen) // no fix needed
 			return;
 		
-		int readLen = record.getReadLength();
-		
+		//int readLen = record.getReadLength();
 		// calculate readFrom and readTo
 /*		int readFrom = calcReadInsertFrom(status, from, alnLen);
 		int readTo = calcReadInsertTo(status, to, alnLen);*/
@@ -457,6 +456,43 @@ public class SAMAlignFixer {
 		return cigRefAlnLen == misRefAlnLen;
 	}
 
+	/** calculate Alignment score
+	 * @param status  status index
+	 * @param qual  quality scores in Phred scale
+	 * @return  MAPQ style score in phred scale
+	 */
+	private static int calcAlignScore(char[] status, byte[] qual) {
+		if(status == null)
+			return 0;
+		assert status.length >= qual.length;
+		int alnScore = 0; // current map prob
+		int pos = 0; // relative pos on read
+		for(int i = 0; i < status.length; i++) {
+			float score = 0;
+			switch(status[i]) {
+			case 'M': case '=': // treat as match
+				score = MATCH_SCORE * qual[pos++]; // treat match prob == 1
+				break;
+			case 'X': // mismatch
+				score = MIS_SCORE * qual[pos++];
+				break;
+			case 'S': case 'H': case 'P': case 'N':
+				break;
+			case 'I': // insert consumes read
+				score = i == 0 || status[i-1] != 'I' && status[i-1] != 'D' ? GAP_OPEN_PENALTY * REF_QUAL : GAP_EXT_PENALTY * REF_QUAL;
+				pos++;
+				break;
+			case 'D':
+				score = i == 0 || status[i-1] != 'D' && status[i-1] != 'D' ? GAP_OPEN_PENALTY * REF_QUAL : GAP_EXT_PENALTY * REF_QUAL;
+				break;
+			default:
+				break; // do nothing
+			}
+			alnScore += score;
+		}
+		return alnScore;
+	}
+
 	/** determine whether a string is a decimal integer
 	 * @return true if is a valid decimal integer
 	 */
@@ -476,74 +512,14 @@ public class SAMAlignFixer {
 		return true;
 	}
 
-	/** calculate un-weighted alignment score
-	 * @param status  status index
-	 * @return  alignment score
-	 */
-	private static int calcAlnScore(char[] status) {
-		if(status == null)
-			return 0;
-		int alnScore = 0;
-		for(int i = 0; i < status.length; i++) {
-			int score = 0;
-			switch(status[i]) {
-			case 'M': case '=':
-				score = MATCH_SCORE;
-				break;
-			case 'X':
-				score += MIS_SCORE;
-				break;
-			case 'S': case 'H': case 'P': case 'N':
-				break;
-			case 'I': case 'D':
-				score = (status[i-1] != 'I' && status[i-1] != 'D' ? -GAP_OPEN_PENALTY : -GAP_EXT_PENALTY); 
-			default: // S,H,P or N
-				break; // do nothing
-			}
-			alnScore += score;
-		}
-		return alnScore;
+	public static double phredQ2P(double q) {
+		return Math.pow(10.0, -q / 10.0);
 	}
 
-	/** calculate quality weighted alignment score
-	 * @param status  status index
-	 * @param qual  quality scores in Phred scale
-	 * @return  alignment score
-	 */
-	private static int calcAlnScore(char[] status, byte[] qual) {
-		if(status == null)
-			return 0;
-		assert status.length >= qual.length;
-		int alnScore = 0;
-		int pos = 0; // relative pos on read
-		for(int i = 0; i < status.length; i++) {
-			int score = 0;
-			int weight = 0;
-			switch(status[i]) {
-			case 'M': case '=':
-				score = MATCH_SCORE;
-				weight = qual[pos++];
-				break;
-			case 'X':
-				score += MIS_SCORE;
-				weight = qual[pos++];
-				break;
-			case 'S': case 'H': case 'P': case 'N':
-				break;
-			case 'I':
-				score = (status[i-1] != 'I' ? -GAP_OPEN_PENALTY : -GAP_EXT_PENALTY);
-				weight += qual[pos++];
-			case 'D':
-				score = (status[i-1] != 'D' ? -GAP_OPEN_PENALTY : -GAP_EXT_PENALTY);
-				weight += REF_QUAL;
-			default: // S,H,P or N
-				break; // do nothing
-			}
-			alnScore += score * weight;
-		}
-		return alnScore;
+	public static double phredP2Q(double p) {
+		return -10.0 * Math.log10(p);
 	}
-
+	
 	/**
 	 * @return the sEED_LEN
 	 */
@@ -650,6 +626,7 @@ public class SAMAlignFixer {
 	private static int GAP_OPEN_PENALTY = 4;
 	private static int GAP_EXT_PENALTY = 1;
 	private static final int REF_QUAL = 40; // reference quality for deletions
+	//private static final int MAX_QUAL = 255; // max mapQ
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(\\d+)(.*)");
 	private static final Pattern misPat2 = Pattern.compile("([A-Z]|\\^[A-Z]+)(\\d+)");
