@@ -7,7 +7,6 @@ import static net.sf.AlignerBoost.EnvConstants.newLine;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -152,8 +151,8 @@ public class NGSExpDesign {
 					case "max_frag_len":
 						design.maxFragLen = Integer.parseInt(value);
 						break;
-					case "max_div":
-						design.maxDiv = Float.parseFloat(value);
+					case "min_mapQ":
+						design.minMapQ = Integer.parseInt(value);
 						break;
 					case "max_best":
 						design.maxBest = Integer.parseInt(value);
@@ -443,10 +442,10 @@ public class NGSExpDesign {
 	}
 
 	/**
-	 * @return the maxDiv
+	 * @return the minMapQ
 	 */
-	public float getMaxDiv() {
-		return maxDiv;
+	public double getMinMapQ() {
+		return minMapQ;
 	}
 
 	/**
@@ -609,7 +608,7 @@ public class NGSExpDesign {
 	// user-specified options
 	String otherAlignerOpts = "";
 	// best-stratum options
-	float maxDiv = 4;
+	int minMapQ = 0;
 	int maxBest = 0;
 	int maxReport = 0;
 	// reference genome options

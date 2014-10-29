@@ -44,14 +44,14 @@ public class PrepareFilterAlnCmd {
 					continue;
 				String inFn = conf.getAlignRawFileName();
 				String outFn = conf.getAlignFilteredFileName();
-				String dp = conf.aligner.equals("bowtie") ? " --1DP " : " ";
+				String dp = conf.hasSpliced && conf.aligner.equals("bowtie") ? " --1DP " : " ";
 				String silent = conf.isPaired ? " --silent " : " ";
 				String prog = !conf.isPaired ? "filterSE" : "filterPE";
 				String minIns = conf.hasSpliced && conf.aligner.equals("bowtie") ? " --min-insert " + conf.minInsert + " " : " ";
 				String cmd = "java -jar " + progFile + " run " + prog + minIns +
 						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis +
 						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent +
-						" --max-div " + conf.maxDiv + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
+						" --min-mapQ " + conf.minMapQ + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
 						" -in " + inFn + " -out " + outFn;
 
 				if(!(new File(outFn)).exists())

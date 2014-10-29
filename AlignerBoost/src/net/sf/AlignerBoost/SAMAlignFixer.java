@@ -5,16 +5,19 @@ package net.sf.AlignerBoost;
 import java.util.regex.*;
 
 import htsjdk.samtools.*;
+import static net.sf.AlignerBoost.EnvConstants.*;
 
 /** Parse SAM/BAM alignment file with Picard java packages in CLASSPATH
  * A 1-dimensional DP algorithm (1DP) is implemented to re-estimate the insert length of the alignment
  * The calculated metrix are stored in application-specified SAM tags,
  * X?: alignment tags, Y? seed tags, Z? total tags
  * Tag  Type  Description
+ * XA   i     alignment length, including M,=,X,I,D,S but not H,P,N
  * XL   i     insert length, including M,=,X,I,D but not S,H,P,N, determined by Cigar or 1DP
  * XF   i     actual insert from (start) relative to reference
  * XI   f     alignment identity 1 - (YX + YG) / XL
- * XQ   i     aignment score weighted by mapping quality 
+ * XQ   i     alignment score weighted by mapping quality 
+ * XH   Z     alignment likelihood given this mapping loc and quality, in string format to preserve double precision
  * YL	i     seed length for calculating seed mismatches and indels
  * YX   i     # of seed mismatches
  * YG   i     # of seed indels
@@ -24,6 +27,48 @@ import htsjdk.samtools.*;
  * @version 1.1
  */
 public class SAMAlignFixer {
+	
+	/**
+	 * Fix a SAMRecord read sequence and quality, according to its previous record (with read and quality provided)
+	 * @param record  the record to be fixed
+	 * @param prevRecord  previos record in the SAM file that contains read and quality information
+	 * @return  true if the record can be fixed
+	 */
+	public static boolean fixSAMRecordRead(SAMRecord record, SAMRecord prevRecord) {
+		if(record.getReadLength() != 0) // no fix neccessary
+			return false;
+		if(!(prevRecord != null && prevRecord.getReadLength() != 0 && prevRecord.getBaseQualities() != null &&
+				record.getReadName().equals(prevRecord.getReadName()))) // cannot be fixed
+			return false;
+		String read = prevRecord.getReadString(); // a copy of readString, can be modified
+		String qual = prevRecord.getBaseQualityString(); // a copy of readString, can be modified
+		int clippedStart = 0;
+		int clippedEnd = read.length();
+		// check cigar to see whether need hard-clip
+		Cigar cigar = record.getCigar();
+		int cigNum = record.getCigarLength();
+		for(int i = 0; i < cigNum; i++) {
+			CigarElement cigEle = cigar.getCigarElement(i);
+			if(cigEle.getOperator() == CigarOperator.H) { // a hard-clip, read needs to be clipped
+				if(i == 0) // 5' clip
+					clippedStart += cigEle.getLength();
+				else if(i == cigNum - 1)
+					clippedEnd -= cigEle.getLength();
+				else
+					throw new RuntimeException("Invalid cigar operator at SAMRecord:" + newLine + record.getSAMString());
+			}
+		}
+		if(clippedEnd - clippedStart == read.length()) { // clip not required
+			record.setReadString(read);
+			record.setBaseQualityString(qual);
+		}
+		else { // clip required
+			record.setReadString(read.substring(clippedStart, clippedEnd));
+			record.setBaseQualityString(qual.substring(clippedStart, clippedEnd));
+		}
+		return true;
+	}
+
 	/**
 	 * Fix a SAMRecord by adding the AlignerBoost-specific tags above, and optionally fix the alignment by 1DP 
 	 * @param record  SAMRecord alignment to be fixed
@@ -81,10 +126,13 @@ public class SAMAlignFixer {
 		// add customized tags
 		float identity = 1 - (nAllMis + nAllIndel) / ((float) insertLen);
 		// alignment tags
+		record.setAttribute("XA", alnLen);
 		record.setAttribute("XL", insertLen);
 		record.setAttribute("XF", insertFrom);
 		record.setAttribute("XI", identity);
-		record.setAttribute("XQ", calcAlignScore(status, record.getBaseQualities()));
+		//record.setAttribute("XQ", calcAlignScore(status, record.getBaseQualities()));
+		record.setAttribute("XH",
+				Double.toString(calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar))));
 		// seed tags
 		record.setAttribute("YL", SEED_LEN);
 		record.setAttribute("YX", nSeedMis);
@@ -137,6 +185,24 @@ public class SAMAlignFixer {
 			}
 		}
 		return alnLen;
+	}
+
+	/** calculate alignment hard-clipped length by Cigar
+	 * @param cigar  cigar to use to calculate hard-clipped length
+	 * @return hard-clipped length (H)
+	 */
+	private static int calcSAMRecordHardClippedLenByCigar(Cigar cigar) {
+		int hClipLen = 0;
+		for(CigarElement cigEle : cigar.getCigarElements()) {
+			switch(cigEle.getOperator()) {
+			case H:
+				hClipLen += cigEle.getLength();
+				break;
+			default: // H,P or N
+				break; // do nothing
+			}
+		}
+		return hClipLen;
 	}
 
 	/** get align status ('M', '=', 'X', 'I', 'S') given cigar and mismatch tag, if exists
@@ -479,11 +545,11 @@ public class SAMAlignFixer {
 			case 'S': case 'H': case 'P': case 'N':
 				break;
 			case 'I': // insert consumes read
-				score = i == 0 || status[i-1] != 'I' && status[i-1] != 'D' ? GAP_OPEN_PENALTY * REF_QUAL : GAP_EXT_PENALTY * REF_QUAL;
+				score = i == 0 || status[i-1] != 'I' && status[i-1] != 'D' ? -GAP_OPEN_PENALTY * REF_QUAL : -GAP_EXT_PENALTY * REF_QUAL;
 				pos++;
 				break;
 			case 'D':
-				score = i == 0 || status[i-1] != 'D' && status[i-1] != 'D' ? GAP_OPEN_PENALTY * REF_QUAL : GAP_EXT_PENALTY * REF_QUAL;
+				score = i == 0 || status[i-1] != 'D' && status[i-1] != 'D' ? -GAP_OPEN_PENALTY * REF_QUAL : -GAP_EXT_PENALTY * REF_QUAL;
 				break;
 			default:
 				break; // do nothing
@@ -491,6 +557,46 @@ public class SAMAlignFixer {
 			alnScore += score;
 		}
 		return alnScore;
+	}
+
+	/** calculate Alignment log-likelihood given it is actually mapped here
+	 * @param status  status index
+	 * @param qual  quality scores in Phred scale
+	 * @return  log-likelihood of this alignment
+	 */
+	private static double calcAlignLik(char[] status, byte[] qual, int hClipLen) {
+		if(status == null)
+			return 0;
+		assert status.length >= qual.length;
+		double log10Lik = 0;
+		int pos = 0; // relative pos on read
+		for(int i = 0; i < status.length; i++) {
+			switch(status[i]) {
+			case 'M': case '=': // treat as match
+				log10Lik += phredP2Q(1 - phredQ2P(qual[pos++]), -1); // use non-error prob
+				break;
+			case 'X': // mismatch
+				log10Lik += qual[pos++] / -PHRED_SCALE; // use error prob directly
+				break;
+			case 'S': // soft-mask
+				log10Lik += qual[pos++] / -PHRED_SCALE * CLIP_PENALTY;
+				break;
+			case 'H': case 'P': case 'N':
+				break;
+			case 'I': // insert consumes read
+				log10Lik += i == 0 || status[i-1] != 'I' ? GAP_OPEN_PENALTY * REF_QUAL / -PHRED_SCALE : GAP_EXT_PENALTY * REF_QUAL / -PHRED_SCALE;
+				pos++;
+				break;
+			case 'D':
+				log10Lik = i == 0 || status[i-1] != 'D' ? GAP_OPEN_PENALTY * REF_QUAL / -PHRED_SCALE : GAP_EXT_PENALTY * REF_QUAL / -PHRED_SCALE;
+				break;
+			default:
+				break; // do nothing
+			}
+		}
+		if(hClipLen > 0) // hard-clips exist
+			log10Lik += hClipLen * AVG_READ_QUAL / -PHRED_SCALE * CLIP_PENALTY;
+		return log10Lik;
 	}
 
 	/** determine whether a string is a decimal integer
@@ -512,12 +618,44 @@ public class SAMAlignFixer {
 		return true;
 	}
 
-	public static double phredQ2P(double q) {
-		return Math.pow(10.0, -q / 10.0);
+	/**
+	 * Transfer phred q-value to p-value
+	 * @param q  q-value in log10-scale
+	 * @param scale  phred scale
+	 * @return  p-value
+	 */
+	public static double phredQ2P(double q, double scale) {
+		if(q < 0)
+			q = 0;
+		return Math.pow(10.0, q / -scale);
 	}
 
+	/**
+	 * Transfer phred q-value to p-value in -10 scale
+	 * @param q  q-value in log10-scale
+	 * @return  p-value
+	 */
+	public static double phredQ2P(double q) {
+		return phredQ2P(q, PHRED_SCALE);
+	}
+	
+	/**
+	 * Transfer phred p-value to q-value
+	 * @param p  p-value
+	 * @param scale  phred scale
+	 * @return  q-value in log10-scale
+	 */
+	public static double phredP2Q(double p, double scale) {
+		return -scale * Math.log10(p);
+	}
+	
+	/**
+	 * Transfer phred p-value to q-value
+	 * @param p  p-value
+	 * @return  q-value in log10-scale
+	 */
 	public static double phredP2Q(double p) {
-		return -10.0 * Math.log10(p);
+		return phredP2Q(p, PHRED_SCALE);
 	}
 	
 	/**
@@ -601,6 +739,20 @@ public class SAMAlignFixer {
 	}
 
 	/**
+	 * @return the CLIP_PENALTY
+	 */
+	public static int getCLIP_PENALTY() {
+		return CLIP_PENALTY;
+	}
+
+	/**
+	 * @param clipPenalty the clipPenalty to set
+	 */
+	public static void setCLIP_PENALTY(int clipPenalty) {
+		CLIP_PENALTY = clipPenalty;
+	}
+
+	/**
 	 * a nested static class member holding POD of a insertRegion
 	 * @author Qi Zheng
 	 */
@@ -625,7 +777,10 @@ public class SAMAlignFixer {
 	private static int MIS_SCORE = -2;
 	private static int GAP_OPEN_PENALTY = 4;
 	private static int GAP_EXT_PENALTY = 1;
+	private static int CLIP_PENALTY = 1;
 	private static final int REF_QUAL = 40; // reference quality for deletions
+	private static final int AVG_READ_QUAL = 25;
+	private static final double PHRED_SCALE = 10; // scaling factor for phred scores
 	//private static final int MAX_QUAL = 255; // max mapQ
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(\\d+)(.*)");

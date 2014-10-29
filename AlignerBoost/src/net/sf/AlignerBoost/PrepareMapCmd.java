@@ -220,13 +220,12 @@ public class PrepareMapCmd {
 				    prog = "STAR";
 				    float minScoreRate = 1 - conf.allMis / 100 - conf.allIndel / 100 * STAR_INDEL_PENALTY / STAR_MATCH_SCORE;
 				    float minMatchRate = minScoreRate;
-				    int divRange = (int) Math.floor(conf.maxDiv * conf.readLen);
 				    int maxNMis = Math.max(maxNMisTR, maxNMisUN);
 				    float maxMisRate = conf.allMis / 100;
 				    inFn = !conf.isPaired ? readIn : readIn + " " + mateIn;
 				    cmd = prog + " --genomeDir " + conf.refIndex + " --readFilesIn " + inFn + " --runThreadN " + MAX_PROC +
 				    		" --outFilterScoreMin " + minScoreRate + " --outFilterMatchNminOverLread " + minMatchRate +
-				    		" --outFilterMultimapScoreRange " + divRange + " --outFilterMultimapNmax " + conf.maxHit +
+				    		" --outFilterMultimapNmax " + conf.maxHit +
 				    		" --outFilterMismatchNmax " + maxNMis + " --outFilterMismatchNoverLmax " + maxMisRate +
 				    		" " + conf.otherAlignerOpts + " --outStd SAM - | samtools view -S -b -o " + outFn + " -";
 				    break;

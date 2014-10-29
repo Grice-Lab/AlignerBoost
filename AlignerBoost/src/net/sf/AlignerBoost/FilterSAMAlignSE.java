@@ -38,33 +38,44 @@ public class FilterSAMAlignSE {
 
 		// write SAMHeader
 		String prevID = null;
+		SAMRecord prevRecord = null;
 		List<SAMRecord> recordList = new ArrayList<SAMRecord>();
 		// check each alignment
 		SAMRecordIterator results = in.iterator();
 		while(results.hasNext()) {
 			SAMRecord record = results.next();
-			// fix alignment, ignore if failed (unmapped or empty)
-			if(!SAMAlignFixer.fixSAMRecord(record, DO_1DP))
-				continue;
-
 			String ID = record.getReadName();
+
+			// fix read and quality string for this read, if is a secondary hit from multiple hits, used for BWA alignment
+			if(ID.equals(prevID) && record.getReadLength() == 0)
+				SAMAlignFixer.fixSAMRecordRead(record, prevRecord);
+			// fix alignment, ignore if failed (unmapped or empty)
+			if(!SAMAlignFixer.fixSAMRecord(record, DO_1DP)) {
+				prevID = ID;
+				prevRecord = record;
+				continue;
+			}
+
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
 				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
+				calcHitpostP(recordList);
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
 				Collections.sort(recordList, Collections.reverseOrder(recordComp));
-				int bestScore = !recordList.isEmpty() ? getSAMRecordAlignScore(recordList.get(0)) : 0;
 				// remove non-best hits
-				removeSecondaryHits(recordList, bestScore, MAX_DIV);
+				removeSecondaryHits(recordList, MIN_MAPQ);
 				if(MAX_BEST > 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
 					recordList.clear();
 				// report remaining alignments, up-to MAX_REPORT
-				for(int i = 0; i < recordList.size() && i < MAX_REPORT; i++)
+				for(int i = 0; i < recordList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++)
 					out.addAlignment(recordList.get(i));
 				// reset list
 				recordList.clear();
 			}
 			// update
-			prevID = ID;
+			if(!ID.equals(prevID)) {
+				prevID = ID;
+				prevRecord = record;
+			}
 			recordList.add(record);
 		}
 
@@ -81,7 +92,7 @@ public class FilterSAMAlignSE {
 	// a nested class for sorting SAMRecord using align score
 	static class SAMRecordIdentityComparator implements Comparator<SAMRecord> {
 		public int compare(SAMRecord r1, SAMRecord r2) {
-			return getSAMRecordAlignScore(r1) - getSAMRecordAlignScore(r2);
+			return r1.getMappingQuality() - r2.getMappingQuality();
 		}
 	}
 
@@ -98,11 +109,12 @@ public class FilterSAMAlignSE {
 				"            --mis-score mismatch score for 1DP, default -2" + newLine +
 				"            --gap-open-penalty gap open penalty for 1DP, default 4" + newLine +
 				"            --gap-ext-penalty gap extension penalty, default 1" + newLine +
+				"            --soft-mask-penalty soft-masked base penalty, used for calculate mapQ, default 1" + newLine +
 				"            --out-SAM write SAM text output instead of BAM binary output" + newLine +
 				"            --silent ignore certain SAM format errors such as empty reads" + newLine +
-				"            --max-div max %divergent allowed for best stratum hits comparing to the top hit as for the identity%, default 4" + newLine +
-				"            --max-best max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0" + newLine +
-				"            --max-report max report hits for all valid best stratum hits determined by --max-div and --max-best, set to 0 for no limit, default 10, default 6"
+				"            --min-mapQ min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
+				"            --max-best max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0 (no limit)" + newLine +
+				"            --max-report max report hits for all valid best stratum hits determined by --min-mapQ and --max-best, default 0 (no limit)"
 				);
 	}
 
@@ -132,19 +144,18 @@ public class FilterSAMAlignSE {
 				SAMAlignFixer.setGAP_OPEN_PENALTY(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--gap-ext-penalty"))
 				SAMAlignFixer.setGAP_EXT_PENALTY(Integer.parseInt(args[++i]));
+			else if(args[i].equals("--clip-penalty"))
+				SAMAlignFixer.setCLIP_PENALTY(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--out-SAM"))
 				OUT_IS_SAM = true;
 			else if(args[i].equals("--silent"))
 				isSilent = true;
-			else if(args[i].equals("--max-div"))
-				MAX_DIV = Float.parseFloat(args[++i]);
+			else if(args[i].equals("--min-mapQ"))
+				MIN_MAPQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--max-best"))
 				MAX_BEST = Integer.parseInt(args[++i]);
-			else if(args[i].equals("--max-report")) {
+			else if(args[i].equals("--max-report"))
 				MAX_REPORT = Integer.parseInt(args[++i]);
-				if(MAX_REPORT == 0)
-					MAX_REPORT = Integer.MAX_VALUE;
-			}
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'");
 		// Check required options
@@ -161,14 +172,22 @@ public class FilterSAMAlignSE {
 			throw new IllegalArgumentException("--all-indel must be between 0 to 100");
 		if(OUT_IS_SAM && outFile.endsWith(".bam"))
 			System.err.println("Warning: output file '" + outFile + "' might not be SAM format");
-		if(MAX_DIV < 0)
-			throw new IllegalArgumentException("--max-div must be non negative");
+		if(MIN_MAPQ < 0)
+			throw new IllegalArgumentException("--min-mapQ must be non negative integer");
 		if(MAX_BEST < 0)
 			throw new IllegalArgumentException("--max-best must be non negative integer");
 		if(MAX_REPORT < 0)
 			throw new IllegalArgumentException("--max-report must be non negative integer");
 	}
 
+	/** get align length from AlignerBoost internal tag
+	 * @return the identity if tag "XA" exists
+	 * throws {@RuntimeException} if tag "XA" not exists
+	 */
+	static int getSAMRecordAlignLen(SAMRecord record) throws RuntimeException {
+		return record.getIntegerAttribute("XA");
+	}
+	
 	/** get align insert length from AlignerBoost internal tag
 	 * @return the identity if tag "XL" exists
 	 * throws {@RuntimeException} if tag "XL" not exists
@@ -227,6 +246,24 @@ public class FilterSAMAlignSE {
 	}
 
 	/**
+	 * get align likelihood
+	 * @param record  SAMRecord to look at
+	 * @return  log10 likelihood
+	 */
+	static double getSAMRecordAlignLikelihood(SAMRecord record) {
+		return Double.parseDouble(record.getStringAttribute("XH"));
+	}
+	
+/*	*//**
+	 * get align postP
+	 * @param record  SAMRecord to look at
+	 * @return  posterior probability of this alignment
+	 *//*
+	static double getSAMRecordAlignPostP(SAMRecord record) {
+		return Double.parseDouble(record.getStringAttribute("XP"));
+	}*/
+	
+	/**
 	 * Filter hits by removing hits not satisfying the user-specified criteria
 	 * @param recordList
 	 * @param minInsert
@@ -251,14 +288,66 @@ public class FilterSAMAlignSE {
 		return removed;
 	}
 
+	/**
+	 * Calculate the posterior probability mapQ value (in phred scale) using the Bayesian method
+	 * @param recordList
+	 * 
+	 */
+	private static double[] calcHitpostP(List<SAMRecord> recordList) {
+		if(recordList == null) // return null for null list
+			return null;
+		if(recordList.isEmpty())
+			return new double[0]; // return empty array for empty list
+		
+		int nHits = recordList.size();
+		// get un-normalized posterior probs
+		double[] postP = new double[nHits];
+		for(int i = 0; i < nHits; i++)
+			// get postP as priorP * likelihood, with prior proportional to the alignLength
+			postP[i] = getSAMRecordAlignLen(recordList.get(i)) * Math.pow(10.0,  getSAMRecordAlignLikelihood(recordList.get(i)));
+		// normalize postP
+		normalizePostP(postP);
+		// reset the mapQ values
+		for(int i = 0; i < nHits; i++) {
+			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
+			// add the "XP" flag showing the mapQ value
+			double mapQ = Math.round(SAMAlignFixer.phredP2Q(1 - postP[i]));
+			if(Double.isNaN(mapQ) || Double.isInfinite(mapQ)) // is NaN or isInfinite
+				recordList.get(i).setMappingQuality(INVALID_MAPQ);
+			else {
+				if(mapQ > MAX_MAPQ)
+					mapQ = MAX_MAPQ;
+				recordList.get(i).setMappingQuality((int) mapQ);
+				//System.err.println(recordList.get(i).getSAMString());
+			}
+		}
+		return postP;
+	}
+
+	/**
+	 * Normalize posterior probabilities values
+	 * @param postP
+	 * @return  normalization constant pi
+	 */
+	private static double normalizePostP(double[] postP) {
+		double pi = 0; // normalization constant
+		for(double p : postP)
+			if(p >= 0)
+				pi += p;
+		for(int i = 0; i < postP.length; i++)
+			postP[i] /= pi;
+		return pi;
+	}
+
 	/** Remove secondary hits from sorted List of records to allow only best-stratum hits
 	 */
-	private static int removeSecondaryHits(List<SAMRecord> recordList, int bestScore, float maxDiv) {
+	private static int removeSecondaryHits(List<SAMRecord> recordList, int minQ) {
 		int n = recordList.size();
 		int removed = 0;
 		for(int i = n - 1; i >= 0; i--) { // search backward
 			//System.err.printf("n:%d removed:%d bestIden:%f iden:%f maxDiv:%f%n", n, removed, bestIden, getSAMRecordIdentity(recordList.get(i)), maxDiv);
-			if((float) getSAMRecordAlignScore(recordList.get(i)) / bestScore < 1 - maxDiv / 100f) {
+			int mapQ = recordList.get(i).getMappingQuality();
+			if(mapQ != INVALID_MAPQ && mapQ < minQ) {
 				recordList.remove(i);
 				removed++;
 			}
@@ -268,6 +357,8 @@ public class FilterSAMAlignSE {
 		return removed;
 	}
 
+	private static final int INVALID_MAPQ = 255;
+	private static final double MAX_MAPQ = 250; // MAX meaniful mapQ value, if not 255
 	private static String inFile;
 	private static String outFile;
 	// filter options
@@ -280,9 +371,9 @@ public class FilterSAMAlignSE {
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	// best stratum options
-	private static float MAX_DIV = 1; // max divergent%
-	private static int MAX_BEST = 0; // no limits
-	private static int MAX_REPORT = 10;
+	private static int MIN_MAPQ = 0; // min map postP
+	private static int MAX_BEST = 0;
+	private static int MAX_REPORT = 0;
 	private static SAMRecordIdentityComparator recordComp = new SAMRecordIdentityComparator();
 	// general options
 	private static boolean OUT_IS_SAM; // outFile is SAM format?
