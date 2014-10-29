@@ -38,31 +38,41 @@ public class FilterSAMAlignPE {
 
 		// write SAMHeader
 		String prevID = null;
+		SAMRecord prevRecord = null;
 		List<SAMRecord> alnList = new ArrayList<SAMRecord>();
 		// check each alignment
 		SAMRecordIterator results = in.iterator();
 		while(results.hasNext()) {
 			SAMRecord record = results.next();
+			String ID = record.getReadName();
+			// fix read and quality string for this read, if is a secondary hit from multiple hits, used for BWA alignment
+			if(ID.equals(prevID) && record.getReadLength() == 0)
+				SAMAlignFixer.fixSAMRecordRead(record, prevRecord);
+			
 			// fix alignment, ignore if failed (unmapped or empty)
-			if(!SAMAlignFixer.fixSAMRecord(record, DO_1DP))
+			if(!SAMAlignFixer.fixSAMRecord(record, DO_1DP)) {
+				prevID = ID;
+				prevRecord = record;
 				continue;
+			}
 			if(!record.getReadPairedFlag()) {
 				System.err.println("Error: alignment is not from a paired-end read at\n" + record.getSAMString());
 				out.close();
 				return;
 			}
 
-			String ID = record.getReadName();
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
 				// filter hits
-				filterHits(alnList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
-				List<SAMRecordPair> alnPEList = createAlnPEListFromAlnList(alnList); // create alnPEList from filtered alnList
+				SAMAlignFixer.filterHits(alnList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
+				// create alnPEList from filtered alnList
+				List<SAMRecordPair> alnPEList = createAlnPEListFromAlnList(alnList); 
+				calcPEHitPostP(alnPEList);
 
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
 				Collections.sort(alnPEList, Collections.reverseOrder());
 				int bestScore = !alnPEList.isEmpty() ? alnPEList.get(0).getPEAlignScore() : 0;
 				// remove non-best hits
-				removePESecondaryHits(alnPEList, bestScore, MAX_DIV);
+				removePESecondaryHits(alnPEList, bestScore, MIN_MAPQ);
 				if(MAX_BEST > 0 && alnList.size() > MAX_BEST) // too much best hits, ignore this read
 					alnList.clear();
 				// report remaining secondary alignments, up-to MAX_REPORT
@@ -76,7 +86,10 @@ public class FilterSAMAlignPE {
 				alnList.clear();
 			}
 			// update
-			prevID = ID;
+			if(!ID.equals(prevID)) {
+				prevID = ID;
+				prevRecord = record;
+			}
 			alnList.add(record);
 		} // end while
 		try {
@@ -129,6 +142,18 @@ public class FilterSAMAlignPE {
 			return PEScore;
 		}
 
+		/** Get PE align length
+		 * @return PE align length as the sum of the pairs
+		 */
+		public int getPEAlignLen() {
+			int len = 0;
+			if(fwdRecord != null)
+				len += getSAMRecordAlignLen(fwdRecord);
+			if(revRecord != null)
+				len += getSAMRecordAlignLen(revRecord);
+			return len;
+		}
+		
 		/** Get PE insert length
 		 * @return PE insert length as the sum of the pairs
 		 */
@@ -140,7 +165,30 @@ public class FilterSAMAlignPE {
 				PEInsertLen += getSAMRecordInsertLen(revRecord);
 			return PEInsertLen;
 		}
+		
+		/** Get PE log-likelihood
+		 * @return PE align log-likelihood
+		 */
+		public double getPEAlignLik() {
+			double log10Lik = 0;
+			if(fwdRecord != null)
+				log10Lik += FilterSAMAlignSE.getSAMRecordAlignLikelihood(fwdRecord);
+			if(revRecord != null)
+				log10Lik += FilterSAMAlignSE.getSAMRecordAlignLikelihood(revRecord);
+			return log10Lik;
+		}
 
+		/**
+		 * Set mapQ to an AlignRecordPair
+		 * @param mapQ  mapQ to be set to both pairs
+		 */
+		public void setPEMappingQuality(int mapQ) {
+			if(fwdRecord != null)
+				fwdRecord.setMappingQuality(mapQ);
+			if(revRecord != null)
+				revRecord.setMappingQuality(mapQ);
+		}
+		
 		/** implements the Comparable method
 		 * return -1 if PE identity is lower, 1 if higher, ties are broken by PEInsertLen
 		 */
@@ -198,9 +246,9 @@ public class FilterSAMAlignPE {
 				"            --out-SAM write SAM text output instead of BAM binary output" + newLine +
 				"            --silent ignore certain SAM format errors such as empty reads" + newLine +
 				"            --no-mix suppress unpaired alignments for paired reads, by default unpaired alignments are treated separately" + newLine +
-				"            --max-div max %divergent allowed for best stratum hit-pairs comparing to the top pair as for the identity%, default 4" + newLine +
-				"            --max-best max allowed best-stratum pairs to report for a given read, set to 0 for no limit, default 0" + newLine +
-				"            --max-report max report pairs for all valid best stratum pairs determined by --max-div and --max-best, set to 0 for no limit, default 10, default 6"
+				"            --min-mapQ min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
+				"            --max-best max allowed best-stratum pairs to report for a given read, default 0 (no limit)" + newLine +
+				"            --max-report max report pairs for all valid best stratum pairs determined by --min-mapQ and --max-best, default 0 (no limit)"
 				);
 	}
 
@@ -237,7 +285,7 @@ public class FilterSAMAlignPE {
 			else if(args[i].equals("--no-mix"))
 				noMix = true;
 			else if(args[i].equals("--max-div"))
-				MAX_DIV = Float.parseFloat(args[++i]);
+				MIN_MAPQ = Float.parseFloat(args[++i]);
 			else if(args[i].equals("--max-best"))
 				MAX_BEST = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--max-report")) {
@@ -261,7 +309,7 @@ public class FilterSAMAlignPE {
 			throw new IllegalArgumentException("--all-indel must be between 0 to 100");
 		if(OUT_IS_SAM && outFile.endsWith(".bam"))
 			System.err.println("Warning: output file '" + outFile + "' might not be SAM format");
-		if(MAX_DIV < 0)
+		if(MIN_MAPQ < 0)
 			throw new IllegalArgumentException("--max-div must be non negative");
 		if(MAX_BEST < 0)
 			throw new IllegalArgumentException("--max-best must be non negative integer");
@@ -269,6 +317,14 @@ public class FilterSAMAlignPE {
 			throw new IllegalArgumentException("--max-report must be non negative integer");
 	}
 
+	/** get align length from AlignerBoost internal tag
+	 * @return the identity if tag "XA" exists
+	 * throws {@RuntimeException} if tag "XA" not exists
+	 */
+	static int getSAMRecordAlignLen(SAMRecord record) throws RuntimeException {
+		return record.getIntegerAttribute("XA");
+	}
+	
 	/** get align insert length from AlignerBoost internal tag
 	 * @return the identity if tag "XL" exists
 	 * throws {@RuntimeException} if tag "XL" not exists
@@ -327,28 +383,39 @@ public class FilterSAMAlignPE {
 	}
 
 	/**
-	 * Filter hits by removing hits not satisfying the user-specified criteria
-	 * @param alnPEList
-	 * @param minInsert
-	 * @param maxSeedMis
-	 * @param maxSeedIndel
-	 * @param maxAllMis
-	 * @param maxAllIndel
+	 * Calculate the posterior probability mapQ value (in phred scale) using the Bayesian method
+	 * @param recordList
+	 * 
 	 */
-	private static int filterHits(List<SAMRecord> alnList, int minInsert,
-			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel) {
-		int n = alnList.size();
-		int removed = 0;
-		for(int i = n - 1; i >= 0; i--) {// search backward
-			SAMRecord record = alnList.get(i);
-			if(!(getSAMRecordIdentity(record) >= MIN_IDENTITY && getSAMRecordInsertLen(record) >= minInsert
-					&& getSAMRecordPercentSeedMis(record) <= maxSeedMis && getSAMRecordPercentSeedIndel(record) <= maxSeedIndel
-					&& getSAMRecordPercentAllMis(record) <= maxAllMis && getSAMRecordPercentAllIndel(record) <= maxAllIndel)) {
-				alnList.remove(i);
-				removed++;
+	private static double[] calcPEHitPostP(List<SAMRecordPair> alnPEList) {
+		if(alnPEList == null) // return null for null list
+			return null;
+		if(alnPEList.isEmpty())
+			return new double[0]; // return empty array for empty list
+		
+		int nPairs = alnPEList.size();
+		// get un-normalized posterior probs
+		double[] postP = new double[nPairs];
+		for(int i = 0; i < nPairs; i++)
+			// get postP as priorP * likelihood, with prior proportional to the alignLength
+			postP[i] = alnPEList.get(i).getPEAlignLen() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
+		// normalize postP
+		FilterSAMAlignSE.normalizePostP(postP);
+		// reset the mapQ values
+		for(int i = 0; i < nPairs; i++) {
+			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
+			// add the "XP" flag showing the mapQ value
+			double mapQ = Math.round(SAMAlignFixer.phredP2Q(1 - postP[i]));
+			if(Double.isNaN(mapQ) || Double.isInfinite(mapQ)) // is NaN or isInfinite
+				alnPEList.get(i).setPEMappingQuality(INVALID_MAPQ);
+			else {
+				if(mapQ > MAX_MAPQ)
+					mapQ = MAX_MAPQ;
+				alnPEList.get(i).setPEMappingQuality((int) mapQ);
+				//System.err.println(recordList.get(i).getSAMString());
 			}
 		}
-		return removed;
+		return postP;
 	}
 
 	/** Remove secondary hits from sorted List of records to allow only best-stratum hits
@@ -368,22 +435,23 @@ public class FilterSAMAlignPE {
 		return removed;
 	}
 
+	private static final int INVALID_MAPQ = 255;
+	private static final double MAX_MAPQ = 250; // MAX meaniful mapQ value, if not 255
 	private static String inFile;
 	private static String outFile;
 	// filter options
 	private static int MIN_INSERT = 15;
 	private static double MAX_SEED_MIS = 4; // max % seed mismatch
 	private static final double MAX_SEED_INDEL = 0; // seed indel is always not allowed
-	private static final float MIN_IDENTITY = 0;
 	private static double MAX_ALL_MIS = 6; // max % all mismatch
 	private static double MAX_ALL_INDEL = 0; // max % all indel
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	private static boolean noMix; // do not allow unpaired alignments for paired reads?
 	// best stratum options
-	private static float MAX_DIV = 1; // max divergent
+	private static float MIN_MAPQ = 0; // max divergent
 	private static int MAX_BEST = 0; // no limits
-	private static int MAX_REPORT = 10;
+	private static int MAX_REPORT = 0;
 	// general options
 	private static boolean OUT_IS_SAM; // outFile is SAM format?
 }

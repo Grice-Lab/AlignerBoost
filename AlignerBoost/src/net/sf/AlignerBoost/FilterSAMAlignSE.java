@@ -57,12 +57,13 @@ public class FilterSAMAlignSE {
 			}
 
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
-				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
-				calcHitpostP(recordList);
+				// filter hits
+				SAMAlignFixer.filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
+				FilterSAMAlignSE.calcHitPostP(recordList);
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
 				Collections.sort(recordList, Collections.reverseOrder(recordComp));
 				// remove non-best hits
-				removeSecondaryHits(recordList, MIN_MAPQ);
+				FilterSAMAlignSE.removeSecondaryHits(recordList, MIN_MAPQ);
 				if(MAX_BEST > 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
 					recordList.clear();
 				// report remaining alignments, up-to MAX_REPORT
@@ -245,45 +246,20 @@ public class FilterSAMAlignSE {
 		return record.getIntegerAttribute("XQ");
 	}
 
-	/**
-	 * get align likelihood
-	 * @param record  SAMRecord to look at
-	 * @return  log10 likelihood
+	/** Remove secondary hits from sorted List of records to allow only best-stratum hits
 	 */
-	static double getSAMRecordAlignLikelihood(SAMRecord record) {
-		return Double.parseDouble(record.getStringAttribute("XH"));
-	}
-	
-/*	*//**
-	 * get align postP
-	 * @param record  SAMRecord to look at
-	 * @return  posterior probability of this alignment
-	 *//*
-	static double getSAMRecordAlignPostP(SAMRecord record) {
-		return Double.parseDouble(record.getStringAttribute("XP"));
-	}*/
-	
-	/**
-	 * Filter hits by removing hits not satisfying the user-specified criteria
-	 * @param recordList
-	 * @param minInsert
-	 * @param maxSeedMis
-	 * @param maxSeedIndel
-	 * @param maxAllMis
-	 * @param maxAllIndel
-	 */
-	private static int filterHits(List<SAMRecord> recordList, int minInsert,
-			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel) {
+	static int removeSecondaryHits(List<SAMRecord> recordList, int minQ) {
 		int n = recordList.size();
 		int removed = 0;
-		for(int i = n - 1; i >= 0; i--) {// search backward
-			SAMRecord record = recordList.get(i);
-			if(!(getSAMRecordIdentity(record) >= MIN_IDENTITY && getSAMRecordInsertLen(record) >= minInsert
-					&& getSAMRecordPercentSeedMis(record) <= maxSeedMis && getSAMRecordPercentSeedIndel(record) <= maxSeedIndel
-					&& getSAMRecordPercentAllMis(record) <= maxAllMis && getSAMRecordPercentAllIndel(record) <= maxAllIndel)) {
+		for(int i = n - 1; i >= 0; i--) { // search backward
+			//System.err.printf("n:%d removed:%d bestIden:%f iden:%f maxDiv:%f%n", n, removed, bestIden, getSAMRecordIdentity(recordList.get(i)), maxDiv);
+			int mapQ = recordList.get(i).getMappingQuality();
+			if(mapQ != INVALID_MAPQ && mapQ < minQ) {
 				recordList.remove(i);
 				removed++;
 			}
+			else
+				break;
 		}
 		return removed;
 	}
@@ -293,7 +269,7 @@ public class FilterSAMAlignSE {
 	 * @param recordList
 	 * 
 	 */
-	private static double[] calcHitpostP(List<SAMRecord> recordList) {
+	static double[] calcHitPostP(List<SAMRecord> recordList) {
 		if(recordList == null) // return null for null list
 			return null;
 		if(recordList.isEmpty())
@@ -306,7 +282,7 @@ public class FilterSAMAlignSE {
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
 			postP[i] = getSAMRecordAlignLen(recordList.get(i)) * Math.pow(10.0,  getSAMRecordAlignLikelihood(recordList.get(i)));
 		// normalize postP
-		normalizePostP(postP);
+		FilterSAMAlignSE.normalizePostP(postP);
 		// reset the mapQ values
 		for(int i = 0; i < nHits; i++) {
 			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
@@ -325,11 +301,20 @@ public class FilterSAMAlignSE {
 	}
 
 	/**
+	 * get align likelihood
+	 * @param record  SAMRecord to look at
+	 * @return  log10 likelihood
+	 */
+	static double getSAMRecordAlignLikelihood(SAMRecord record) {
+		return Double.parseDouble(record.getStringAttribute("XH"));
+	}
+	
+/**
 	 * Normalize posterior probabilities values
 	 * @param postP
 	 * @return  normalization constant pi
 	 */
-	private static double normalizePostP(double[] postP) {
+	static double normalizePostP(double[] postP) {
 		double pi = 0; // normalization constant
 		for(double p : postP)
 			if(p >= 0)
@@ -339,33 +324,23 @@ public class FilterSAMAlignSE {
 		return pi;
 	}
 
-	/** Remove secondary hits from sorted List of records to allow only best-stratum hits
-	 */
-	private static int removeSecondaryHits(List<SAMRecord> recordList, int minQ) {
-		int n = recordList.size();
-		int removed = 0;
-		for(int i = n - 1; i >= 0; i--) { // search backward
-			//System.err.printf("n:%d removed:%d bestIden:%f iden:%f maxDiv:%f%n", n, removed, bestIden, getSAMRecordIdentity(recordList.get(i)), maxDiv);
-			int mapQ = recordList.get(i).getMappingQuality();
-			if(mapQ != INVALID_MAPQ && mapQ < minQ) {
-				recordList.remove(i);
-				removed++;
-			}
-			else
-				break;
-		}
-		return removed;
-	}
-
-	private static final int INVALID_MAPQ = 255;
-	private static final double MAX_MAPQ = 250; // MAX meaniful mapQ value, if not 255
+/*	*//**
+	 * get align postP
+	 * @param record  SAMRecord to look at
+	 * @return  posterior probability of this alignment
+	 *//*
+	static double getSAMRecordAlignPostP(SAMRecord record) {
+		return Double.parseDouble(record.getStringAttribute("XP"));
+	}*/
+	
+	static final int INVALID_MAPQ = 255;
+	static final double MAX_MAPQ = 250; // MAX meaniful mapQ value, if not 255
 	private static String inFile;
 	private static String outFile;
 	// filter options
 	private static int MIN_INSERT = 15;
 	private static double MAX_SEED_MIS = 4; // max % seed mismatch
 	private static final double MAX_SEED_INDEL = 0; // seed indel is always not allowed
-	private static final float MIN_IDENTITY = 0;
 	private static double MAX_ALL_MIS = 6; // max % all mismatch
 	private static double MAX_ALL_INDEL = 0; // max % all indel
 	private static boolean DO_1DP;

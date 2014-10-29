@@ -2,6 +2,7 @@
  * a class to provide static method to filter and fix SAM/BAM alignment
  */
 package net.sf.AlignerBoost;
+import java.util.List;
 import java.util.regex.*;
 
 import htsjdk.samtools.*;
@@ -77,7 +78,7 @@ public class SAMAlignFixer {
 	 */
 	public static boolean fixSAMRecord(SAMRecord record, boolean do1DP) {
 		int readLen = record.getReadLength();
-		if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
+		if(record.getReadUnmappedFlag() || record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 			return false;
 		Cigar cigar = record.getCigar();
 
@@ -597,6 +598,31 @@ public class SAMAlignFixer {
 		if(hClipLen > 0) // hard-clips exist
 			log10Lik += hClipLen * AVG_READ_QUAL / -PHRED_SCALE * CLIP_PENALTY;
 		return log10Lik;
+	}
+
+	/**
+	 * Filter hits by removing hits not satisfying the user-specified criteria
+	 * @param recordList  an array of ALignRecord
+	 * @param minInsert  min insert length
+	 * @param maxSeedMis  max %seed-mismatches
+	 * @param maxSeedIndel  max %seed-indels
+	 * @param maxAllMis  max %all-mismatches
+	 * @param maxAllIndel  max %all-indels
+	 */
+	static int filterHits(List<SAMRecord> recordList, int minInsert,
+			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel) {
+		int n = recordList.size();
+		int removed = 0;
+		for(int i = n - 1; i >= 0; i--) {// search backward
+			SAMRecord record = recordList.get(i);
+			if(!(FilterSAMAlignSE.getSAMRecordInsertLen(record) >= minInsert
+					&& FilterSAMAlignSE.getSAMRecordPercentSeedMis(record) <= maxSeedMis && FilterSAMAlignSE.getSAMRecordPercentSeedIndel(record) <= maxSeedIndel
+					&& FilterSAMAlignSE.getSAMRecordPercentAllMis(record) <= maxAllMis && FilterSAMAlignSE.getSAMRecordPercentAllIndel(record) <= maxAllIndel)) {
+				recordList.remove(i);
+				removed++;
+			}
+		}
+		return removed;
 	}
 
 	/** determine whether a string is a decimal integer
