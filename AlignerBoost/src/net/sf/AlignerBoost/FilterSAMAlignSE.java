@@ -57,13 +57,12 @@ public class FilterSAMAlignSE {
 			}
 
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
-				// filter hits
-				SAMAlignFixer.filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
+				// calculate Bayesian based posterior probabilities
 				FilterSAMAlignSE.calcHitPostP(recordList);
-				// sort the list first with an anonymous class of comparator, with DESCREASING order
+				// filter hits
+				FilterSAMAlignSE.filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_MAPQ);
+				// sort the list using the mapQ, using DESCREASING order
 				Collections.sort(recordList, Collections.reverseOrder(recordComp));
-				// remove non-best hits
-				FilterSAMAlignSE.removeSecondaryHits(recordList, MIN_MAPQ);
 				if(MAX_BEST > 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
 					recordList.clear();
 				// report remaining alignments, up-to MAX_REPORT
@@ -246,20 +245,29 @@ public class FilterSAMAlignSE {
 		return record.getIntegerAttribute("XQ");
 	}
 
-	/** Remove secondary hits from sorted List of records to allow only best-stratum hits
+	/**
+	 * Filter hits by removing hits not satisfying the user-specified criteria
+	 * @param recordList  an array of ALignRecord
+	 * @param minInsert  min insert length
+	 * @param maxSeedMis  max %seed-mismatches
+	 * @param maxSeedIndel  max %seed-indels
+	 * @param maxAllMis  max %all-mismatches
+	 * @param maxAllIndel  max %all-indels
+	 * @param minQ 
 	 */
-	static int removeSecondaryHits(List<SAMRecord> recordList, int minQ) {
+	private static int filterHits(List<SAMRecord> recordList, int minInsert,
+			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, int minQ) {
 		int n = recordList.size();
 		int removed = 0;
-		for(int i = n - 1; i >= 0; i--) { // search backward
-			//System.err.printf("n:%d removed:%d bestIden:%f iden:%f maxDiv:%f%n", n, removed, bestIden, getSAMRecordIdentity(recordList.get(i)), maxDiv);
-			int mapQ = recordList.get(i).getMappingQuality();
-			if(mapQ != INVALID_MAPQ && mapQ < minQ) {
+		for(int i = n - 1; i >= 0; i--) { // search backward for maximum performance
+			SAMRecord record = recordList.get(i);
+			if(!(getSAMRecordInsertLen(record) >= minInsert
+					&& getSAMRecordPercentSeedMis(record) <= maxSeedMis && getSAMRecordPercentSeedIndel(record) <= maxSeedIndel
+					&& getSAMRecordPercentAllMis(record) <= maxAllMis && getSAMRecordPercentAllIndel(record) <= maxAllIndel)
+					&& record.getMappingQuality() >= minQ) {
 				recordList.remove(i);
 				removed++;
 			}
-			else
-				break;
 		}
 		return removed;
 	}

@@ -2,7 +2,6 @@
  * a class to provide static method to filter and fix SAM/BAM alignment
  */
 package net.sf.AlignerBoost;
-import java.util.List;
 import java.util.regex.*;
 
 import htsjdk.samtools.*;
@@ -17,7 +16,6 @@ import static net.sf.AlignerBoost.EnvConstants.*;
  * XL   i     insert length, including M,=,X,I,D but not S,H,P,N, determined by Cigar or 1DP
  * XF   i     actual insert from (start) relative to reference
  * XI   f     alignment identity 1 - (YX + YG) / XL
- * XQ   i     alignment score weighted by mapping quality 
  * XH   Z     alignment likelihood given this mapping loc and quality, in string format to preserve double precision
  * YL	i     seed length for calculating seed mismatches and indels
  * YX   i     # of seed mismatches
@@ -28,7 +26,6 @@ import static net.sf.AlignerBoost.EnvConstants.*;
  * @version 1.1
  */
 public class SAMAlignFixer {
-	
 	/**
 	 * Fix a SAMRecord read sequence and quality, according to its previous record (with read and quality provided)
 	 * @param record  the record to be fixed
@@ -569,20 +566,24 @@ public class SAMAlignFixer {
 		if(status == null)
 			return 0;
 		assert status.length >= qual.length;
+		// make local copy of qual
+		byte[] baseQ = new byte[qual.length];
+		for(int i = 0; i < qual.length; i++)
+			baseQ[i] = qual[i] >= MIN_PHRED_QUAL ? qual[i] : MIN_PHRED_QUAL;
 		double log10Lik = 0;
 		int pos = 0; // relative pos on read
 		for(int i = 0; i < status.length; i++) {
 			switch(status[i]) {
 			case 'M': case '=': // treat as match
-				log10Lik += phredP2Q(1 - phredQ2P(qual[pos++]), -1); // use non-error prob
+				log10Lik += phredP2Q(1 - phredQ2P(baseQ[pos++]), -1); // use non-error prob
 				break;
 			case 'X': // mismatch
-				log10Lik += qual[pos++] / -PHRED_SCALE; // use error prob directly
+				log10Lik += baseQ[pos++] / -PHRED_SCALE; // use error prob directly
 				break;
-			case 'S': // soft-mask
-				log10Lik += qual[pos++] / -PHRED_SCALE * CLIP_PENALTY;
+			case 'S': // soft-clipped
+				log10Lik += baseQ[pos++] / -PHRED_SCALE * CLIP_PENALTY;
 				break;
-			case 'H': case 'P': case 'N':
+			case 'H': case 'P': case 'N': // not possible
 				break;
 			case 'I': // insert consumes read
 				log10Lik += i == 0 || status[i-1] != 'I' ? GAP_OPEN_PENALTY * REF_QUAL / -PHRED_SCALE : GAP_EXT_PENALTY * REF_QUAL / -PHRED_SCALE;
@@ -598,31 +599,6 @@ public class SAMAlignFixer {
 		if(hClipLen > 0) // hard-clips exist
 			log10Lik += hClipLen * AVG_READ_QUAL / -PHRED_SCALE * CLIP_PENALTY;
 		return log10Lik;
-	}
-
-	/**
-	 * Filter hits by removing hits not satisfying the user-specified criteria
-	 * @param recordList  an array of ALignRecord
-	 * @param minInsert  min insert length
-	 * @param maxSeedMis  max %seed-mismatches
-	 * @param maxSeedIndel  max %seed-indels
-	 * @param maxAllMis  max %all-mismatches
-	 * @param maxAllIndel  max %all-indels
-	 */
-	static int filterHits(List<SAMRecord> recordList, int minInsert,
-			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel) {
-		int n = recordList.size();
-		int removed = 0;
-		for(int i = n - 1; i >= 0; i--) {// search backward
-			SAMRecord record = recordList.get(i);
-			if(!(FilterSAMAlignSE.getSAMRecordInsertLen(record) >= minInsert
-					&& FilterSAMAlignSE.getSAMRecordPercentSeedMis(record) <= maxSeedMis && FilterSAMAlignSE.getSAMRecordPercentSeedIndel(record) <= maxSeedIndel
-					&& FilterSAMAlignSE.getSAMRecordPercentAllMis(record) <= maxAllMis && FilterSAMAlignSE.getSAMRecordPercentAllIndel(record) <= maxAllIndel)) {
-				recordList.remove(i);
-				removed++;
-			}
-		}
-		return removed;
 	}
 
 	/** determine whether a string is a decimal integer
@@ -806,6 +782,7 @@ public class SAMAlignFixer {
 	private static int CLIP_PENALTY = 1;
 	private static final int REF_QUAL = 40; // reference quality for deletions
 	private static final int AVG_READ_QUAL = 25;
+	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf
 	private static final double PHRED_SCALE = 10; // scaling factor for phred scores
 	//private static final int MAX_QUAL = 255; // max mapQ
 	// mismatch string patterns

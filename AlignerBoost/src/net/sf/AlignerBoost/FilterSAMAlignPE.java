@@ -62,21 +62,18 @@ public class FilterSAMAlignPE {
 			}
 
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
-				// filter hits
-				SAMAlignFixer.filterHits(alnList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
 				// create alnPEList from filtered alnList
-				List<SAMRecordPair> alnPEList = createAlnPEListFromAlnList(alnList); 
+				List<SAMRecordPair> alnPEList = createAlnPEListFromAlnList(alnList);
+				// calculate posterior mapQ for each pair
 				calcPEHitPostP(alnPEList);
-
+				// filter PEhits
+				filterPEHits(alnPEList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_MAPQ);
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
 				Collections.sort(alnPEList, Collections.reverseOrder());
-				int bestScore = !alnPEList.isEmpty() ? alnPEList.get(0).getPEAlignScore() : 0;
-				// remove non-best hits
-				removePESecondaryHits(alnPEList, bestScore, MIN_MAPQ);
 				if(MAX_BEST > 0 && alnList.size() > MAX_BEST) // too much best hits, ignore this read
 					alnList.clear();
 				// report remaining secondary alignments, up-to MAX_REPORT
-				for(int i = 0; i < alnPEList.size() && i < MAX_REPORT; i++) {
+				for(int i = 0; i < alnPEList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
 					if(alnPEList.get(i).fwdRecord != null)
 						out.addAlignment(alnPEList.get(i).fwdRecord);
 					if(alnPEList.get(i).revRecord != null)
@@ -179,6 +176,14 @@ public class FilterSAMAlignPE {
 		}
 
 		/**
+		 * Get PE mapQ, which is the same for both forward and reverse read
+		 * @return  mapQ either from fwdRecord or revRecord, which one is not null
+		 */
+		public int getPEMapQ() {
+			return fwdRecord != null ? fwdRecord.getMappingQuality() : revRecord.getMappingQuality(); 
+		}
+		
+		/**
 		 * Set mapQ to an AlignRecordPair
 		 * @param mapQ  mapQ to be set to both pairs
 		 */
@@ -190,7 +195,7 @@ public class FilterSAMAlignPE {
 		}
 		
 		/** implements the Comparable method
-		 * return -1 if PE identity is lower, 1 if higher, ties are broken by PEInsertLen
+		 * return -1 if PE mapQ is lower, 1 if higher, ties are broken by PEInsertLen
 		 */
 		public int compareTo(SAMRecordPair that) {
 			float iden = getPEIdentity();
@@ -205,6 +210,7 @@ public class FilterSAMAlignPE {
 
 		private SAMRecord fwdRecord;
 		private SAMRecord revRecord;
+
 	}
 	
 	public static List<SAMRecordPair> createAlnPEListFromAlnList(List<SAMRecord> alnList) {
@@ -284,15 +290,12 @@ public class FilterSAMAlignPE {
 				isSilent = true;
 			else if(args[i].equals("--no-mix"))
 				noMix = true;
-			else if(args[i].equals("--max-div"))
-				MIN_MAPQ = Float.parseFloat(args[++i]);
+			else if(args[i].equals("--min-mapQ"))
+				MIN_MAPQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--max-best"))
 				MAX_BEST = Integer.parseInt(args[++i]);
-			else if(args[i].equals("--max-report")) {
+			else if(args[i].equals("--max-report"))
 				MAX_REPORT = Integer.parseInt(args[++i]);
-				if(MAX_REPORT == 0)
-					MAX_REPORT = Integer.MAX_VALUE;
-			}
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'");
 		// Check required options
@@ -408,35 +411,38 @@ public class FilterSAMAlignPE {
 			double mapQ = Math.round(SAMAlignFixer.phredP2Q(1 - postP[i]));
 			if(Double.isNaN(mapQ) || Double.isInfinite(mapQ)) // is NaN or isInfinite
 				alnPEList.get(i).setPEMappingQuality(INVALID_MAPQ);
-			else {
-				if(mapQ > MAX_MAPQ)
-					mapQ = MAX_MAPQ;
-				alnPEList.get(i).setPEMappingQuality((int) mapQ);
-				//System.err.println(recordList.get(i).getSAMString());
-			}
+			else
+				alnPEList.get(i).setPEMappingQuality(mapQ > MAX_MAPQ ? MAX_MAPQ : (int) mapQ);
 		}
 		return postP;
 	}
 
-	/** Remove secondary hits from sorted List of records to allow only best-stratum hits
-	 */
-	private static int removePESecondaryHits(List<SAMRecordPair> alnPEList, int bestScore, float maxDiv) {
+	private static int filterPEHits(List<SAMRecordPair> alnPEList, int minInsert,
+			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, int minQ) {
 		int n = alnPEList.size();
 		int removed = 0;
-		for(int i = n - 1; i >= 0; i--) { // search backward
-			if(alnPEList.get(i).getPEAlignScore() / bestScore < 1 - maxDiv / 100) {
-				//System.err.printf("n:%d removed:%d bestIden:%f iden:%f maxDiv:%f%n", n, removed, bestIden, alnPEList.get(i).getPEIdentity(), maxDiv);
+		for(int i = n - 1; i >= 0; i--) { // search backward for maximum performance
+			SAMRecordPair pair = alnPEList.get(i);
+			if(!(  (pair.fwdRecord == null || getSAMRecordInsertLen(pair.fwdRecord) >= minInsert
+					&& getSAMRecordPercentSeedMis(pair.fwdRecord) <= maxSeedMis
+					&& getSAMRecordPercentSeedIndel(pair.fwdRecord) <= maxSeedIndel
+					&& getSAMRecordPercentAllMis(pair.fwdRecord) <= maxAllMis
+					&& getSAMRecordPercentAllIndel(pair.fwdRecord) <= maxAllIndel)
+				&& (pair.revRecord == null || getSAMRecordInsertLen(pair.revRecord) >= minInsert
+					&& getSAMRecordPercentSeedMis(pair.revRecord) <= maxSeedMis
+					&& getSAMRecordPercentSeedIndel(pair.revRecord) <= maxSeedIndel
+					&& getSAMRecordPercentAllMis(pair.revRecord) <= maxAllMis
+					&& getSAMRecordPercentAllIndel(pair.revRecord) <= maxAllIndel) 
+					&& pair.getPEMapQ() >= minQ) ) {
 				alnPEList.remove(i);
 				removed++;
 			}
-			else
-				break;
 		}
 		return removed;
 	}
 
 	private static final int INVALID_MAPQ = 255;
-	private static final double MAX_MAPQ = 250; // MAX meaniful mapQ value, if not 255
+	private static final int MAX_MAPQ = 250; // MAX meaniful mapQ value, if not 255
 	private static String inFile;
 	private static String outFile;
 	// filter options
@@ -449,7 +455,7 @@ public class FilterSAMAlignPE {
 	private static boolean isSilent; // ignore SAM warnings?
 	private static boolean noMix; // do not allow unpaired alignments for paired reads?
 	// best stratum options
-	private static float MIN_MAPQ = 0; // max divergent
+	private static int MIN_MAPQ = 0; // max divergent
 	private static int MAX_BEST = 0; // no limits
 	private static int MAX_REPORT = 0;
 	// general options
