@@ -15,7 +15,8 @@ import java.util.List;
 
 /**
  * @author Qi Zheng
- *
+ * @version 1.1
+ * @since 1.1
  */
 public class PrepareMapCmd {
 
@@ -44,19 +45,13 @@ public class PrepareMapCmd {
 				if(conf.refGenome.equals("NA"))
 					continue; // ignore if no ref genome
 				// set max_insert for trimmed and untrimmed reads separately
-				int maxInsertTR = conf.doTrim ? conf.readLen - conf.minTrim + 1 : conf.readLen;
-				int maxInsertUN = conf.readLen;
+				int maxInsert = conf.doTrim ? conf.readLen - conf.minTrim + 1 : conf.readLen;
 				int seedNMis = (int) Math.floor(conf.seedLen * conf.seedMis / 100);
-				// determine maximum #mismatches
-				int maxNMisTR, maxNMisUN;
-				if(conf.hasSpliced && conf.aligner.equals("bowtie")) { // has spliced reads and using the non-sw bowtie aligner
-					maxNMisTR = (int) Math.floor(conf.allMis * conf.minInsert / 100) + maxInsertUN - conf.minInsert;
-					maxNMisUN = (int) Math.floor(conf.allMis * conf.minInsert / 100) + maxInsertUN - conf.minInsert;
-				}
-				else { // no spliced reads or using SW aligner
-					maxNMisTR = (int) Math.floor(conf.allMis * maxInsertTR / 100);
-					maxNMisUN = (int) Math.floor(conf.allMis * maxInsertUN / 100);
-				}
+				int maxNMis;
+				if(conf.hasSpliced && conf.aligner.equals("bowtie")) // has spliced reads and using the non-sw bowtie aligner
+					maxNMis = (int) Math.floor(conf.allMis * conf.minInsert / 100) + conf.readLen - conf.minInsert;
+				else // no spliced reads or using SW aligner
+					maxNMis = (int) Math.floor(conf.allMis * maxInsert / 100);
 				// prepare mapping cmd
 				String cmd = "";
 				String prog = "";
@@ -72,7 +67,7 @@ public class PrepareMapCmd {
 					prog = "bowtie";
 					String inType = conf.doNR ? " -f " : " -q ";
 					String qual = " --phred" + conf.asciiOffset + "-quals ";
-					int e = Math.max(maxNMisTR,  maxNMisUN) * avgQ;
+					int e = maxNMis * avgQ;
 					String frag = conf.isPaired ? " --minins " + conf.minFragLen + " --maxins " + conf.maxFragLen + " " : " ";
 					String hit = " -k " + conf.maxHit;
 					if(conf.maxHit == 1)
@@ -96,27 +91,36 @@ public class PrepareMapCmd {
 				    	seedNMis = MAX_BOWTIE2_SEED_NMIS;
 				    if(conf.seedLen > MAX_BOWTIE2_SEED_LEN)
 				    	conf.seedLen = MAX_BOWTIE2_SEED_LEN;
+				    float maxScoreBowtie2 = maxInsert * BOWTIE2_MATCH_SCORE;
+				    float slope = - conf.allMis / 100 * BOWTIE2_MISMATCH_PENALTY - conf.allIndel / 100 * BOWTIE2_GAP_PENALTY;
+				    String scoreFunc = !conf.hasSpliced ? "L," + maxScoreBowtie2 + "," + slope : "";
 				    quiet = conf.doTrim && conf.isPaired ? " --quiet " : " ";
 				    inFn = !conf.isPaired ? " -U " + readIn : " -1 " + readIn + " -2 " + mateIn;
 				    cmd = prog + inType + mode + qual + " -N " + seedNMis + " -L " + conf.seedLen + hit + frag +
-				    		" -p " + MAX_PROC + quiet + conf.otherAlignerOpts +
+				    		" -p " + MAX_PROC + " --score-min " + scoreFunc + quiet + conf.otherAlignerOpts +
 				    		" -x " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
 				    break;
 				case "bwa-mem": case "bwa":
 				    prog = "bwa mem";
-				    int minScore = conf.minInsert * BWA_MEM_MATCH_SCORE - (int) Math.floor(conf.minInsert * conf.allMis / 100) * BWA_MEM_MISMATCH_PENALTY;
-				    if(minScore < 0)
-				    	minScore = 0;
+				    int minInsert = !conf.hasSpliced ? maxInsert : conf.minInsert;
+				    int minScoreBWA = minInsert * BWA_MEM_MATCH_SCORE -
+				    		(int) Math.floor(minInsert * conf.allMis / 100) * BWA_MEM_MISMATCH_PENALTY -
+				    		(int) Math.floor(minInsert * conf.allIndel / 100) * BWA_MEM_GAP_PENALTY;
+				    if(minScoreBWA < 0)
+				    	minScoreBWA = 0;
 				    inFn = !conf.isPaired ? " " + readIn : " " + readIn + " " + mateIn;
-				    cmd = prog + " -t " + MAX_PROC + " -k " + conf.seedLen + " -T " + minScore + " " + conf.otherAlignerOpts + 
+				    cmd = prog + " -t " + MAX_PROC + " -k " + conf.seedLen + " -T " + minScoreBWA + " " + conf.otherAlignerOpts + 
 				    		" -a " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
 				    break;
 				case "bwa-sw":
 				    prog = "bwa bwasw";
-				    minScore = conf.minInsert - (int) Math.floor(conf.minInsert * conf.allMis / 100 * BWA_SW_MISMATCH_PENALTY / BWA_SW_MATCH_SCORE);
+				    minInsert = !conf.hasSpliced ? maxInsert : conf.minInsert;
+				    int minScoreSW = minInsert * BWA_SW_MATCH_SCORE -
+				    		(int) Math.floor(minInsert * conf.allMis / 100) * BWA_SW_MISMATCH_PENALTY-
+				    		(int) Math.floor(minInsert * conf.allIndel / 100) * BWA_SW_MISMATCH_PENALTY;
 				    int zBest = conf.maxHit > BWA_SW_MAX_Z_BEST ? BWA_SW_MAX_Z_BEST : conf.maxHit;
 				    inFn = !conf.isPaired ? " " + readIn : " " + readIn + " " + mateIn;
-				    cmd = prog + " -t " + MAX_PROC + " -T " + minScore + " -z " + zBest + " " + conf.otherAlignerOpts +
+				    cmd = prog + " -t " + MAX_PROC + " -T " + minScoreSW + " -z " + zBest + " " + conf.otherAlignerOpts +
 				    		" " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
 				    break;
 				case "bwa-aln":
@@ -167,7 +171,7 @@ public class PrepareMapCmd {
 				    	if(conf.seedLen > MAX_BOWTIE2_SEED_LEN)
 				    		conf.seedLen = MAX_BOWTIE2_SEED_LEN;
 				    }
-				    int readNMis = Math.max(maxNMisTR, maxNMisUN);
+				    int readNMis = maxNMis;
 				    int readNGap = (int) Math.floor(conf.allIndel * conf.readLen / 100);
 				    int readEdit = readNMis + readNGap;
 				    int maxIns = readNGap;
@@ -220,7 +224,6 @@ public class PrepareMapCmd {
 				    prog = "STAR";
 				    float minScoreRate = 1 - conf.allMis / 100 - conf.allIndel / 100 * STAR_INDEL_PENALTY / STAR_MATCH_SCORE;
 				    float minMatchRate = minScoreRate;
-				    int maxNMis = Math.max(maxNMisTR, maxNMisUN);
 				    float maxMisRate = conf.allMis / 100;
 				    inFn = !conf.isPaired ? readIn : readIn + " " + mateIn;
 				    cmd = prog + " --genomeDir " + conf.refIndex + " --readFilesIn " + inFn + " --runThreadN " + MAX_PROC +
@@ -273,8 +276,12 @@ public class PrepareMapCmd {
 	public static final int MAX_BOWTIE_SEED_NMIS = 3;
 	public static final int MAX_BOWTIE2_SEED_NMIS = 1;
 	public static final int MAX_BOWTIE2_SEED_LEN = 32;
+	public static final int BOWTIE2_MATCH_SCORE = 2; // --local default
+	public static final int BOWTIE2_MISMATCH_PENALTY = 6; // --local default
+	private static final int BOWTIE2_GAP_PENALTY = 5;
 	public static final int BWA_MEM_MATCH_SCORE = 1;
 	public static final int BWA_MEM_MISMATCH_PENALTY = 4;
+	public static final int BWA_MEM_GAP_PENALTY = 6;
 	public static final int BWA_SW_MATCH_SCORE = 1;
 	public static final int BWA_SW_MISMATCH_PENALTY = 3;
 	public static final int BWA_SW_MAX_Z_BEST = 10;

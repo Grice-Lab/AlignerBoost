@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 
 /**
  * @author Qi Zheng
- * @version 1.1
+ * @version 1.2
  * @since 1.1
  */
 public class NGSExpDesign {

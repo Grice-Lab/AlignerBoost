@@ -8,7 +8,7 @@ import htsjdk.samtools.*;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
  * @author Qi Zheng
- * @version 1.1
+ * @version 1.2
  * @since 1.1
  */
 public class FilterSAMAlignPE {
@@ -107,6 +107,13 @@ public class FilterSAMAlignPE {
 			this.revRecord = revRecord;
 		}
 
+		/** Get whether this SAMRecordPair is actually paired
+		 * @return  true if both forward and reverse record are not null
+		 */
+		public boolean isPaired() {
+			return fwdRecord != null && revRecord != null;
+		}
+		
 		/** Get paired-end identity for a AlignmentPair
 		 * @return overall identity of the pair
 		 */
@@ -139,39 +146,25 @@ public class FilterSAMAlignPE {
 			return PEScore;
 		}
 
-		/** Get PE align length
-		 * @return PE align length as the sum of the pairs
-		 */
-		public int getPEAlignLen() {
-			int len = 0;
-			if(fwdRecord != null)
-				len += getSAMRecordAlignLen(fwdRecord);
-			if(revRecord != null)
-				len += getSAMRecordAlignLen(revRecord);
-			return len;
-		}
-		
 		/** Get PE insert length
-		 * @return PE insert length as the sum of the pairs
+		 * @return PE insert length as the inferred insert size if paired, or the insertLen of not paired
 		 */
 		public int getPEInsertLen() {
-			int PEInsertLen = 0;
-			if(fwdRecord != null)
-				PEInsertLen += getSAMRecordInsertLen(fwdRecord);
-			if(revRecord != null)
-				PEInsertLen += getSAMRecordInsertLen(revRecord);
-			return PEInsertLen;
+			return isPaired() ? fwdRecord.getInferredInsertSize() : fwdRecord != null ? getSAMRecordInsertLen(fwdRecord) : getSAMRecordInsertLen(revRecord);
 		}
 		
 		/** Get PE log-likelihood
 		 * @return PE align log-likelihood
 		 */
 		public double getPEAlignLik() {
-			double log10Lik = 0;
-			if(fwdRecord != null)
-				log10Lik += FilterSAMAlignSE.getSAMRecordAlignLikelihood(fwdRecord);
-			if(revRecord != null)
-				log10Lik += FilterSAMAlignSE.getSAMRecordAlignLikelihood(revRecord);
+			if(isPaired())
+				return FilterSAMAlignSE.getSAMRecordAlignLikelihood(fwdRecord) + FilterSAMAlignSE.getSAMRecordAlignLikelihood(revRecord);
+			double log10Lik = fwdRecord != null ? FilterSAMAlignSE.getSAMRecordAlignLikelihood(fwdRecord) :
+				FilterSAMAlignSE.getSAMRecordAlignLikelihood(revRecord); 
+			byte[] qual = fwdRecord != null ? fwdRecord.getBaseQualities() : revRecord.getBaseQualities();
+			// treat the missing mate as all SOFT-CLIPPED with same quality
+			for(int q : qual)
+				log10Lik += q / - SAMAlignFixer.PHRED_SCALE * SAMAlignFixer.CLIP_PENALTY;
 			return log10Lik;
 		}
 
@@ -187,25 +180,31 @@ public class FilterSAMAlignPE {
 		 * Set mapQ to an AlignRecordPair
 		 * @param mapQ  mapQ to be set to both pairs
 		 */
-		public void setPEMappingQuality(int mapQ) {
+		public void setPEMapQ(int mapQ) {
 			if(fwdRecord != null)
 				fwdRecord.setMappingQuality(mapQ);
 			if(revRecord != null)
 				revRecord.setMappingQuality(mapQ);
 		}
 		
+		/**
+		 * Get SAMString for this pair
+		 * @return  SAMString for non-null mate
+		 */
+		public String getSAMString() {
+			StringBuilder sam = new StringBuilder();
+			if(fwdRecord != null)
+				sam.append(fwdRecord.getSAMString());
+			if(revRecord != null)
+				sam.append(revRecord.getSAMString());
+			return sam.toString();
+		}
+		
 		/** implements the Comparable method
-		 * return -1 if PE mapQ is lower, 1 if higher, ties are broken by PEInsertLen
+		 * @return  the difference between the mapQ value
 		 */
 		public int compareTo(SAMRecordPair that) {
-			float iden = getPEIdentity();
-			float idenThat = that.getPEIdentity();
-			if(iden < idenThat)
-				return -1;
-			else if(iden > idenThat)
-				return 1;
-			else
-				return getPEInsertLen() - that.getPEInsertLen();
+			return getPEMapQ() - that.getPEMapQ();
 		}
 
 		private SAMRecord fwdRecord;
@@ -224,7 +223,7 @@ public class FilterSAMAlignPE {
 			boolean nextIsFirst = nextAln != null && nextAln.getFirstOfPairFlag();
 			int currTLen = alnList.get(i).getInferredInsertSize();
 			int nextTLen = i + 1 < alnList.size() ? alnList.get(i+1).getInferredInsertSize() : 0;
-			if(currIsFirst && nextAln != null && !nextIsFirst // this is forward, next is not null and is reverse
+			if(currIsFirst && !nextIsFirst // this is forward, next is not null and is reverse
 					&& Math.abs(currTLen) > 0 && Math.abs(currTLen) == Math.abs(nextTLen)) { // is a align pair on the same Chromosome
 				alnPEList.add(new SAMRecordPair(currAln, nextAln));
 				i++; // advance through nextAln
@@ -401,18 +400,17 @@ public class FilterSAMAlignPE {
 		double[] postP = new double[nPairs];
 		for(int i = 0; i < nPairs; i++)
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
-			postP[i] = alnPEList.get(i).getPEAlignLen() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
+			postP[i] = alnPEList.get(i).getPEInsertLen() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
 		// normalize postP
 		FilterSAMAlignSE.normalizePostP(postP);
 		// reset the mapQ values
 		for(int i = 0; i < nPairs; i++) {
 			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
-			// add the "XP" flag showing the mapQ value
 			double mapQ = Math.round(SAMAlignFixer.phredP2Q(1 - postP[i]));
 			if(Double.isNaN(mapQ) || Double.isInfinite(mapQ)) // is NaN or isInfinite
-				alnPEList.get(i).setPEMappingQuality(INVALID_MAPQ);
+				alnPEList.get(i).setPEMapQ(INVALID_MAPQ);
 			else
-				alnPEList.get(i).setPEMappingQuality(mapQ > MAX_MAPQ ? MAX_MAPQ : (int) mapQ);
+				alnPEList.get(i).setPEMapQ(mapQ > MAX_MAPQ ? MAX_MAPQ : (int) mapQ);
 		}
 		return postP;
 	}
@@ -433,8 +431,25 @@ public class FilterSAMAlignPE {
 					&& getSAMRecordPercentSeedIndel(pair.revRecord) <= maxSeedIndel
 					&& getSAMRecordPercentAllMis(pair.revRecord) <= maxAllMis
 					&& getSAMRecordPercentAllIndel(pair.revRecord) <= maxAllIndel) 
-					&& pair.getPEMapQ() >= minQ) ) {
+				&& pair.getPEMapQ() >= minQ) ) {
 				alnPEList.remove(i);
+/*				System.err.println("Removing pair:\n" + pair.getSAMString());
+				if(pair.fwdRecord != null)
+					System.err.printf("fwd: seedMis:%f seedIndel:%f allMis:%f allIndel:%f mapQ:%d%n", 
+							getSAMRecordPercentSeedMis(pair.fwdRecord), 
+							getSAMRecordPercentSeedIndel(pair.fwdRecord), 
+							getSAMRecordPercentAllIndel(pair.fwdRecord), 
+							getSAMRecordPercentAllIndel(pair.fwdRecord),
+							pair.getPEMapQ());
+				if(pair.revRecord != null)
+					System.err.printf("rev: seedMis:%f seedIndel:%f allMis:%f allIndel:%f mapQ:%d%n", 
+							getSAMRecordPercentSeedMis(pair.revRecord), 
+							getSAMRecordPercentSeedIndel(pair.revRecord), 
+							getSAMRecordPercentAllIndel(pair.revRecord), 
+							getSAMRecordPercentAllIndel(pair.revRecord),
+							pair.getPEMapQ());
+				System.err.printf("minInsert:%d maxSeedMis:%f maxSeedIndel:%f maxAllMis:%f maxAllIndel:%f minQ:%d%n",
+						minInsert, maxSeedMis, maxSeedIndel, maxAllMis, maxAllIndel, minQ);*/
 				removed++;
 			}
 		}

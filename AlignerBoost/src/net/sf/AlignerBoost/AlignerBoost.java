@@ -212,7 +212,7 @@ public class AlignerBoost {
 				"                  prepare  trim          prepare NGS read trimming commands" + newLine +
 				"                  prepare  NR            prepare NGS read Non-redundant collapsing commands" + newLine +
 				"                  prepare  align         prepare NGS read aligning (mapping) commands" + newLine +
-				"                  prepare  filter        prepare NGS alignment filtering & best-stratum commands" + newLine +
+				"                  prepare  filter        prepare NGS alignment filtering commands" + newLine +
 				"                  stats    total         init total read stats of a project" + newLine +
 				"                  stats    trimmed       add/update trimmed read stats" + newLine +
 				"                  stats    NR            add/update NR tag stats" + newLine +
@@ -225,8 +225,8 @@ public class AlignerBoost {
 //				"                  utils    bed2Wig       convert UCSC bed files to UCSC Wiggle files" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
 				"                  run      fastq2NR      collapse NGS FASTQ reads/pairs to NR-tags" + newLine +
-				"                  run      filterSE      boost NGS alignment accuracy by post-filtering and picking \"best-stratum\" hits for single-end alignments" + newLine +
-				"                  run      filterPE      boost NGS alignment accuracy by post-filtering and picking \"best-stratum\" hits for paired-end alignments"
+				"                  run      filterSE      boost single-end alignment accuracy using a Bayesian-based mapQ estimation method" + newLine +
+				"                  run      filterPE      boost paired-end alignment accuracy using a Bayesian-based mapQ estimation method"
 				);
 	}
 }

@@ -23,7 +23,7 @@ import static net.sf.AlignerBoost.EnvConstants.*;
  * ZX   i     # of all mismatches
  * ZG   i     # of all indels
  * @author Qi Zheng
- * @version 1.1
+ * @version 1.2
  */
 public class SAMAlignFixer {
 	/**
@@ -98,23 +98,27 @@ public class SAMAlignFixer {
 			if(!(oldInsReg.from == newInsReg.from && oldInsReg.to == newInsReg.to)) { // if insertRegion changed
 				insertFrom = newInsReg.from;
 				insertTo = newInsReg.to;
+				// fix Cigar and misStr
 				fixSAMRecordCigarMisStr(record, alnLen, status, newInsReg, oldInsReg);
+				// fix alignStart
+				record.setAlignmentStart(record.getAlignmentStart() + insertFrom - oldInsReg.from);
 			}
 		}
 		int insertLen = insertTo - insertFrom;
 		// calculate nmismatches and indels
+		boolean isMinus = record.getReadNegativeStrandFlag();
 		int nSeedMis = 0;
 		int nSeedIndel = 0;
 		int nAllMis = 0;
 		int nAllIndel = 0;
 		for(int i = insertFrom; i < insertTo; i++) {
 			if(status[i] == 'X') { // mismatch
-				if(i < SEED_LEN)
+				if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
 					nSeedMis++;
 				nAllMis++;
 			}
 			else if(status[i] == 'I' || status[i] == 'D') { // indel 
-				if(i < SEED_LEN)
+				if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
 					nSeedIndel++;
 				nAllIndel++;
 			}
@@ -129,8 +133,12 @@ public class SAMAlignFixer {
 		record.setAttribute("XF", insertFrom);
 		record.setAttribute("XI", identity);
 		//record.setAttribute("XQ", calcAlignScore(status, record.getBaseQualities()));
-		record.setAttribute("XH",
-				Double.toString(calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar))));
+		// set log-likelihood
+		if(record.getBaseQualities() != null)
+			record.setAttribute("XH",
+					Double.toString(calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar))));
+		else
+			record.setAttribute("XH", Double.toString(calcAlignLik(status, calcSAMRecordHardClippedLenByCigar(cigar))));
 		// seed tags
 		record.setAttribute("YL", SEED_LEN);
 		record.setAttribute("YX", nSeedMis);
@@ -172,6 +180,8 @@ public class SAMAlignFixer {
 	 * @return actual alignment length including M,=,X,I,D,S but not H,P and N
 	 */
 	private static int calcAlnLenByCigar(Cigar cigar) {
+		if(cigar == null)
+			return 0;
 		int alnLen = 0;
 		for(CigarElement cigEle : cigar.getCigarElements()) {
 			switch(cigEle.getOperator()) {
@@ -557,7 +567,7 @@ public class SAMAlignFixer {
 		return alnScore;
 	}
 
-	/** calculate Alignment log-likelihood given it is actually mapped here
+	/** calculate Alignment log-likelihood given the alignment status and quality
 	 * @param status  status index
 	 * @param qual  quality scores in Phred scale
 	 * @return  log-likelihood of this alignment
@@ -591,6 +601,41 @@ public class SAMAlignFixer {
 				break;
 			case 'D':
 				log10Lik = i == 0 || status[i-1] != 'D' ? GAP_OPEN_PENALTY * REF_QUAL / -PHRED_SCALE : GAP_EXT_PENALTY * REF_QUAL / -PHRED_SCALE;
+				break;
+			default:
+				break; // do nothing
+			}
+		}
+		if(hClipLen > 0) // hard-clips exist
+			log10Lik += hClipLen * AVG_READ_QUAL / -PHRED_SCALE * CLIP_PENALTY;
+		return log10Lik;
+	}
+
+	/** calculate Alignment log-likelihood given only alignment status with no quality (from a FASTA alignment)
+	 * @param status  status index
+	 * @return  log-likelihood of this alignment
+	 */
+	private static double calcAlignLik(char[] status, int hClipLen) {
+		if(status == null)
+			return 0;
+		// make local copy of qual
+		double log10Lik = 0;
+		for(int i = 0; i < status.length; i++) {
+			switch(status[i]) {
+			case 'M': case '=': // treat as match
+				log10Lik += phredP2Q(1 - phredQ2P(REF_QUAL), -1); // use non-error prob
+				break;
+			case 'X': // mismatch
+				log10Lik += REF_QUAL / -PHRED_SCALE; // use error prob directly
+				break;
+			case 'S': // soft-clipped
+				log10Lik += REF_QUAL / -PHRED_SCALE * CLIP_PENALTY;
+				break;
+			case 'H': case 'P': case 'N': // not possible
+				break;
+			case 'I': case 'D': // gap
+				log10Lik += i == 0 || status[i-1] != 'I' && status[i-1] != 'D' ?
+						GAP_OPEN_PENALTY * REF_QUAL / -PHRED_SCALE : GAP_EXT_PENALTY * REF_QUAL / -PHRED_SCALE;
 				break;
 			default:
 				break; // do nothing
@@ -779,11 +824,11 @@ public class SAMAlignFixer {
 	private static int MIS_SCORE = -2;
 	private static int GAP_OPEN_PENALTY = 4;
 	private static int GAP_EXT_PENALTY = 1;
-	private static int CLIP_PENALTY = 1;
+	static int CLIP_PENALTY = 1;
 	private static final int REF_QUAL = 40; // reference quality for deletions
 	private static final int AVG_READ_QUAL = 25;
 	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf
-	private static final double PHRED_SCALE = 10; // scaling factor for phred scores
+	static final double PHRED_SCALE = 10; // scaling factor for phred scores
 	//private static final int MAX_QUAL = 255; // max mapQ
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(\\d+)(.*)");

@@ -8,7 +8,7 @@ import htsjdk.samtools.*;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
  * @author Qi Zheng
- * @version 1.1
+ * @version 1.2
  * @since 1.1
  */
 public class FilterSAMAlignSE {
@@ -58,9 +58,9 @@ public class FilterSAMAlignSE {
 
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
 				// calculate Bayesian based posterior probabilities
-				FilterSAMAlignSE.calcHitPostP(recordList);
+				calcHitPostP(recordList);
 				// filter hits
-				FilterSAMAlignSE.filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_MAPQ);
+				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_MAPQ);
 				// sort the list using the mapQ, using DESCREASING order
 				Collections.sort(recordList, Collections.reverseOrder(recordComp));
 				if(MAX_BEST > 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
