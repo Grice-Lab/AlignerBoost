@@ -193,7 +193,7 @@ public class PrepareMapCmd {
 				    	segLen = MIN_TOPHAT_SEG_LEN;
 				    if(segLen > conf.seedLen)
 				    	segLen = conf.seedLen;
-				    int segNMis = (int) Math.floor(conf.seedMis * segLen);
+				    int segNMis = (int) Math.floor(conf.seedMis / 100 * segLen);
 				    String juncSearch = " ";
 				    if(!conf.hasSpliced) {
 				      System.err.println("Warning: not recommended to use tophat2 for non-spliced read mapping for lib: " +
@@ -215,7 +215,7 @@ public class PrepareMapCmd {
 				      " --max-insertion-length " + maxIns + " --max-deletion-length " + maxDel + qual + "--library-type" + libType +
 				      "-p " + MAX_PROC + " -G " + conf.transcriptomeGFF + " --transcriptome-index " + conf.transcriptomeIndex +
 				      " --segment-length " + segLen + " --segment-mismatches " + segNMis +
-				      "--b2-N " + seedNMis + "--b2-L " + conf.seedLen + juncSearch +
+				      " --b2-N " + seedNMis + "--b2-L " + conf.seedLen + juncSearch +
 				      " --no-sort-bam " + conf.otherAlignerOpts + " -o " + dir + " " + conf.refIndex + inFn + newLine;
 				    // move and rename tophat2 result out
 				    cmd += "mv " + dir + "/accepted_hits.bam " + outFn;
