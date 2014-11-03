@@ -150,7 +150,12 @@ public class FilterSAMAlignPE {
 		 * @return PE insert length as the inferred insert size if paired, or the insertLen of not paired
 		 */
 		public int getPEInsertLen() {
-			return isPaired() ? fwdRecord.getInferredInsertSize() : fwdRecord != null ? getSAMRecordInsertLen(fwdRecord) : getSAMRecordInsertLen(revRecord);
+			int len = 0;
+			if(fwdRecord != null)
+				len += getSAMRecordInsertLen(fwdRecord);
+			if(revRecord != null)
+				len += getSAMRecordInsertLen(revRecord);
+			return len;
 		}
 		
 		/** Get PE log-likelihood
