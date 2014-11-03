@@ -215,7 +215,7 @@ public class PrepareMapCmd {
 				      " --max-insertion-length " + maxIns + " --max-deletion-length " + maxDel + qual + "--library-type" + libType +
 				      "-p " + MAX_PROC + " -G " + conf.transcriptomeGFF + " --transcriptome-index " + conf.transcriptomeIndex +
 				      " --segment-length " + segLen + " --segment-mismatches " + segNMis +
-				      " --b2-N " + seedNMis + "--b2-L " + conf.seedLen + juncSearch +
+				      " --b2-N " + seedNMis + " --b2-L " + conf.seedLen + juncSearch +
 				      " --no-sort-bam " + conf.otherAlignerOpts + " -o " + dir + " " + conf.refIndex + inFn + newLine;
 				    // move and rename tophat2 result out
 				    cmd += "mv " + dir + "/accepted_hits.bam " + outFn;
