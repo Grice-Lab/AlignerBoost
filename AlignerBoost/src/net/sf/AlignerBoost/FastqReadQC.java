@@ -99,6 +99,7 @@ public class FastqReadQC {
 								mateLen = qual.length();
 							if(mateLen != readLen) {
 								mateIn.close();
+								out.close();
 								throw new IllegalArgumentException("Mate length '" + mateLen + "' is different to the read length '" + readLen + "' in mateFile: '" + mateFile + "'");
 							}
 							N2 = new long[mateLen];
