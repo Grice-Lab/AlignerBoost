@@ -176,7 +176,7 @@ public class PrepareMapCmd {
 				    int readEdit = readNMis + readNGap;
 				    int maxIns = readNGap;
 				    int maxDel = readNGap;
-				    qual = conf.asciiOffset == 33 ? " --solexa-quals " : " --solexa1.3-quals ";
+				    qual = conf.asciiOffset == 0 ? " " : conf.asciiOffset == 33 ? " --solexa-quals " : " --solexa1.3-quals ";
 				    String libType;
 				    if(conf.strandType == 0)
 				    	libType = " fr-unstranded ";

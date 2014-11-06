@@ -91,10 +91,8 @@ public class NGSExpDesign {
 						break;
 					case "ascii_offset":
 						design.asciiOffset = Integer.parseInt(value);
-						if(design.asciiOffset == 0)
-							design.asciiOffset = 33;
-						if(!(design.asciiOffset == 33 || design.asciiOffset == 64))
-							throw new IllegalArgumentException("option 'ascii_offset' must be 33 or 64");
+						if(!(design.asciiOffset == 0 || design.asciiOffset == 33 || design.asciiOffset == 64))
+							throw new IllegalArgumentException("option 'ascii_offset' must be 33 or 64 or 0 (not recommended)");
 						break;
 					case "is_paired":
 						design.isPaired = value.toUpperCase().equals("YES");
