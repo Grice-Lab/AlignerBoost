@@ -66,7 +66,7 @@ public class PrepareMapCmd {
 				case "bowtie":
 					prog = "bowtie";
 					String inType = conf.doNR ? " -f " : " -q ";
-					String qual = " --phred" + conf.asciiOffset + "-quals ";
+					String qual = conf.asciiOffset != 0 ? " --phred" + conf.asciiOffset + "-quals " : " ";
 					int e = maxNMis * avgQ;
 					String frag = conf.isPaired ? " --minins " + conf.minFragLen + " --maxins " + conf.maxFragLen + " " : " ";
 					String hit = " -k " + conf.maxHit;
@@ -83,7 +83,7 @@ public class PrepareMapCmd {
 				case "bowtie2":
 				    prog = "bowtie2";
 				    inType = conf.doNR ? " -f " : " -q ";
-				    qual = " --phred" + conf.asciiOffset + " ";
+				    qual = conf.asciiOffset != 0 ? " --phred" + conf.asciiOffset + " " : " ";
 				    String mode = " --local ";
 				    hit = conf.maxHit > 1 ? " -k " + conf.maxHit : ""; // use default mode if max_hit == 1
 					frag = conf.isPaired ? " --minins " + conf.minFragLen + " --maxins " + conf.maxFragLen + " " : " ";
@@ -126,7 +126,7 @@ public class PrepareMapCmd {
 				case "bwa-aln":
 				    prog = "bwa aln";
 				    float maxEdit = conf.allMis / 100 + conf.allIndel / 100;
-				    String qualFormat = conf.asciiOffset == 33 ? " " : " -I ";
+				    String qualFormat = conf.asciiOffset == 64 ? " -I " : " ";
 				    inFn = readIn;
 				    if(!conf.isPaired) {
 				      String saiOut = conf.libName + "_" + conf.refGenome + ".sai";
