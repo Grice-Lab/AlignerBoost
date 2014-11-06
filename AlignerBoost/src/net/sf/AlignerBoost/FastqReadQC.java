@@ -44,6 +44,7 @@ public class FastqReadQC {
 		int[] qualMax_1 = null;
 		int[] qualMax_2 = null;
 		try {
+			out = new BufferedWriter(new FileWriter(outFile));
 			// processing readFiles
 			boolean isFirst = true;
 			for(String readFile: readFiles) {
@@ -142,7 +143,6 @@ public class FastqReadQC {
 
 			// Output
 			System.err.println("Output ...");
-			out = new BufferedWriter(new FileWriter(outFile));
 			// Output the header line
 			out.write("pos\tN\tmin\tmax\tmean\tsd" + newLine);
 			// Output each base pos, note that qBase will be subtracted from mean, min and max, but not sd because sd(X - c) = sd(X)
