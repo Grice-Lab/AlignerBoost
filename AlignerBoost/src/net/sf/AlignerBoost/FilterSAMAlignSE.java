@@ -4,6 +4,7 @@ import static net.sf.AlignerBoost.EnvConstants.*;
 import java.io.*;
 import java.util.*;
 
+import net.sf.AlignerBoost.utils.Stats;
 import htsjdk.samtools.*;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
@@ -295,7 +296,7 @@ public class FilterSAMAlignSE {
 		for(int i = 0; i < nHits; i++) {
 			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
 			// add the "XP" flag showing the mapQ value
-			double mapQ = Math.round(SAMAlignFixer.phredP2Q(1 - postP[i]));
+			double mapQ = Math.round(Stats.phredP2Q(1 - postP[i]));
 			if(Double.isNaN(mapQ) || Double.isInfinite(mapQ)) // is NaN or isInfinite
 				recordList.get(i).setMappingQuality(INVALID_MAPQ);
 			else {

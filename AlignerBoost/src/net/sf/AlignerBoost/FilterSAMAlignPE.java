@@ -4,6 +4,7 @@ import static net.sf.AlignerBoost.EnvConstants.*;
 import java.io.*;
 import java.util.*;
 
+import net.sf.AlignerBoost.utils.Stats;
 import htsjdk.samtools.*;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
@@ -169,7 +170,7 @@ public class FilterSAMAlignPE {
 			byte[] qual = fwdRecord != null ? fwdRecord.getBaseQualities() : revRecord.getBaseQualities();
 			// treat the missing mate as all SOFT-CLIPPED with same quality
 			for(int q : qual)
-				log10Lik += q / - SAMAlignFixer.PHRED_SCALE * SAMAlignFixer.CLIP_PENALTY;
+				log10Lik += q / - Stats.PHRED_SCALE * SAMAlignFixer.CLIP_PENALTY;
 			return log10Lik;
 		}
 
@@ -411,7 +412,7 @@ public class FilterSAMAlignPE {
 		// reset the mapQ values
 		for(int i = 0; i < nPairs; i++) {
 			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
-			double mapQ = Math.round(SAMAlignFixer.phredP2Q(1 - postP[i]));
+			double mapQ = Math.round(Stats.phredP2Q(1 - postP[i]));
 			if(Double.isNaN(mapQ) || Double.isInfinite(mapQ)) // is NaN or isInfinite
 				alnPEList.get(i).setPEMapQ(INVALID_MAPQ);
 			else

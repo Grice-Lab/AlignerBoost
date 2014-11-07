@@ -4,6 +4,8 @@
 package net.sf.AlignerBoost;
 import java.util.regex.*;
 
+import net.sf.AlignerBoost.utils.Stats;
+import static net.sf.AlignerBoost.utils.Stats.PHRED_SCALE;
 import htsjdk.samtools.*;
 import static net.sf.AlignerBoost.EnvConstants.*;
 
@@ -455,7 +457,7 @@ public class SAMAlignFixer {
 			int refPos = oldInsReg.from; // relative pos to the reference, excluding 'I'
 			while(match.find()) {
 				String s = match.group();
-				if(isDecimal(s)) { // a span met
+				if(Stats.isDecimal(s)) { // a span met
 					int span = Integer.parseInt(s);
 					if(refPos + span <= refFrom || refPos >= refTo) // completely in soft-clipped region
 						; // do nothing
@@ -585,7 +587,7 @@ public class SAMAlignFixer {
 		for(int i = 0; i < status.length; i++) {
 			switch(status[i]) {
 			case 'M': case '=': // treat as match
-				log10Lik += phredP2Q(1 - phredQ2P(baseQ[pos++]), -1); // use non-error prob
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1); // use non-error prob
 				break;
 			case 'X': // mismatch
 				log10Lik += baseQ[pos++] / -PHRED_SCALE; // use error prob directly
@@ -607,7 +609,7 @@ public class SAMAlignFixer {
 			}
 		}
 		if(hClipLen > 0) // hard-clips exist
-			log10Lik += hClipLen * AVG_READ_QUAL / -PHRED_SCALE * CLIP_PENALTY;
+			log10Lik += hClipLen * Stats.mean(qual) / -PHRED_SCALE * CLIP_PENALTY; // use average quality of the read
 		return log10Lik;
 	}
 
@@ -623,7 +625,7 @@ public class SAMAlignFixer {
 		for(int i = 0; i < status.length; i++) {
 			switch(status[i]) {
 			case 'M': case '=': // treat as match
-				log10Lik += phredP2Q(1 - phredQ2P(REF_QUAL), -1); // use non-error prob
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(REF_QUAL), -1); // use non-error prob
 				break;
 			case 'X': // mismatch
 				log10Lik += REF_QUAL / -PHRED_SCALE; // use error prob directly
@@ -642,69 +644,10 @@ public class SAMAlignFixer {
 			}
 		}
 		if(hClipLen > 0) // hard-clips exist
-			log10Lik += hClipLen * AVG_READ_QUAL / -PHRED_SCALE * CLIP_PENALTY;
+			log10Lik += hClipLen * REF_QUAL / -PHRED_SCALE * CLIP_PENALTY;
 		return log10Lik;
 	}
 
-	/** determine whether a string is a decimal integer
-	 * @return true if is a valid decimal integer
-	 */
-	public static boolean isDecimal(String s) {
-		if(s.isEmpty())
-			return false;
-		for(int i = 0; i < s.length(); i++) {
-			if(i == 0 && s.charAt(i) == '-') {
-				if(s.length() == 1)
-					return false;
-				else
-					continue;
-			}
-			if(!Character.isDigit(s.charAt(i)))
-				return false;
-		}
-		return true;
-	}
-
-	/**
-	 * Transfer phred q-value to p-value
-	 * @param q  q-value in log10-scale
-	 * @param scale  phred scale
-	 * @return  p-value
-	 */
-	public static double phredQ2P(double q, double scale) {
-		if(q < 0)
-			q = 0;
-		return Math.pow(10.0, q / -scale);
-	}
-
-	/**
-	 * Transfer phred q-value to p-value in -10 scale
-	 * @param q  q-value in log10-scale
-	 * @return  p-value
-	 */
-	public static double phredQ2P(double q) {
-		return phredQ2P(q, PHRED_SCALE);
-	}
-	
-	/**
-	 * Transfer phred p-value to q-value
-	 * @param p  p-value
-	 * @param scale  phred scale
-	 * @return  q-value in log10-scale
-	 */
-	public static double phredP2Q(double p, double scale) {
-		return -scale * Math.log10(p);
-	}
-	
-	/**
-	 * Transfer phred p-value to q-value
-	 * @param p  p-value
-	 * @return  q-value in log10-scale
-	 */
-	public static double phredP2Q(double p) {
-		return phredP2Q(p, PHRED_SCALE);
-	}
-	
 	/**
 	 * @return the sEED_LEN
 	 */
@@ -828,7 +771,6 @@ public class SAMAlignFixer {
 	private static final int REF_QUAL = 40; // reference quality for deletions
 	private static final int AVG_READ_QUAL = 25;
 	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf
-	static final double PHRED_SCALE = 10; // scaling factor for phred scores
 	//private static final int MAX_QUAL = 255; // max mapQ
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(\\d+)(.*)");
