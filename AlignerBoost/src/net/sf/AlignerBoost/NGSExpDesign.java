@@ -535,7 +535,7 @@ public class NGSExpDesign {
 	public String getNRReadFileName() {
 		if(!doNR)
 			return getTrimmedReadFileName();
-		String fn = !isPaired ? libName + "_NR.fas" : libName + "_NR_1.fas";
+		String fn = !isPaired ? libName + "_NR.fastq" : libName + "_NR_1.fastq";
 		return !WORK_DIR.equals(".") ? WORK_DIR + "/" + fn : fn;
 	}
 	

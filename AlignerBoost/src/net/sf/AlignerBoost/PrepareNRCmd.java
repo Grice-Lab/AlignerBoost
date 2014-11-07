@@ -47,17 +47,18 @@ public class PrepareNRCmd {
 				
 				String inFn = conf.getTrimmedReadFileName();
 				String outFn = conf.getNRReadFileName();
+				String asciiOffset = conf.asciiOffset == 0 ? " " : " --ascii-offset " + conf.asciiOffset + " ";
 				if(conf.isPaired) {
 					inFn += " --mate-in " + conf.getTrimmedMateFileName();
 					outFn += " --mate-out " + conf.getNRMateFileName();
 				}
-				String cmd = "java -jar -Xms " + INIT_MEM + " -Xmx " + MAX_MEM + " " +
-						progFile + " run NR -readLen " + conf.readLen + " -in " + inFn + " -out " + outFn;
+				String cmd = "java -Xms" + INIT_MEM + " -Xmx" + MAX_MEM + " -jar " +
+						progFile + " run NR -readLen " + conf.readLen + asciiOffset + " -in " + inFn + " -out " + outFn;
 		
-				if(!(new File(outFn)).exists())
+				if(!(new File(conf.getNRReadFileName())).exists())
 					out.write(cmd + newLine);
 				else {
-					System.err.println("QC output file already exists, won't override");
+					System.err.println("NR file(s) already exists, won't override");
 					cmd = cmd.replace("\n", "\n#");
 					out.write("#" + cmd + newLine);
 				}

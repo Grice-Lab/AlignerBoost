@@ -183,7 +183,7 @@ public class AlignerBoost {
 			FilterSAMAlignPE.main(opts);
 			break;
 		default:
-			System.err.println("Unknown prepare command '" + cmd + "'");
+			System.err.println("Unknown run command '" + cmd + "'");
 			printUsage();
 			return;
 		}
@@ -224,7 +224,7 @@ public class AlignerBoost {
 //				"                  utils    bed2Cover     convert UCSC bed files to AlignBoost tab-delimited read-coverage files" + newLine +
 //				"                  utils    bed2Wig       convert UCSC bed files to UCSC Wiggle files" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
-				"                  run      fastq2NR      collapse NGS FASTQ reads/pairs to NR-tags" + newLine +
+				"                  run      NR            collapse NGS FASTQ reads/pairs to NR-tags/NR-pairs" + newLine +
 				"                  run      filterSE      boost single-end alignment accuracy using a Bayesian-based mapQ estimation method" + newLine +
 				"                  run      filterPE      boost paired-end alignment accuracy using a Bayesian-based mapQ estimation method"
 				);

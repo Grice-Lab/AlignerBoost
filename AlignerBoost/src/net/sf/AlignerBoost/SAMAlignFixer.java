@@ -771,7 +771,6 @@ public class SAMAlignFixer {
 	private static final int REF_QUAL = 40; // reference quality for deletions
 	private static final int AVG_READ_QUAL = 25;
 	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf
-	//private static final int MAX_QUAL = 255; // max mapQ
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(\\d+)(.*)");
 	private static final Pattern misPat2 = Pattern.compile("([A-Z]|\\^[A-Z]+)(\\d+)");
