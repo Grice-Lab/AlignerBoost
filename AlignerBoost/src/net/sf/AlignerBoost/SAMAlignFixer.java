@@ -394,11 +394,10 @@ public class SAMAlignFixer {
 	 */
 	private static void fixSAMRecordCigarMisStr(SAMRecord record, int alnLen, char[] status,
 			InsertRegion newInsReg, InsertRegion oldInsReg) {
+		if(newInsReg.from == oldInsReg.from && newInsReg.to == oldInsReg.to) // no fix needed if the insert region doesn't change
+			return;
 		int from = newInsReg.from; // 0-based
 		int to = newInsReg.to; // 1-based
-		if(from == 0 && to == alnLen) // no fix needed
-			return;
-		
 		//int readLen = record.getReadLength();
 		// calculate readFrom and readTo
 /*		int readFrom = calcReadInsertFrom(status, from, alnLen);
