@@ -6,6 +6,8 @@ import java.util.*;
 
 import net.sf.AlignerBoost.utils.Stats;
 import htsjdk.samtools.*;
+import htsjdk.samtools.SAMFileHeader.GroupOrder;
+import htsjdk.samtools.SAMFileHeader.SortOrder;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
  * @author Qi Zheng
@@ -35,7 +37,12 @@ public class FilterSAMAlignSE {
 			readerFac.validationStringency(ValidationStringency.SILENT); // use SILENT stringency
 
 		SamReader in = readerFac.open(new File(inFile));
-		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(in.getFileHeader(), false, new File(outFile)) : writerFac.makeBAMWriter(in.getFileHeader(), false, new File(outFile));
+		SAMFileHeader header = in.getFileHeader().clone(); // copy the inFile header as outFile header
+		//System.err.println(inFile + " groupOrder: " + in.getFileHeader().getGroupOrder() + " sortOrder: " + in.getFileHeader().getSortOrder());
+		// reset the orders
+		header.setGroupOrder(GroupOrder.none);
+		header.setSortOrder(SortOrder.unsorted);
+		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(header, true, new File(outFile)) : writerFac.makeBAMWriter(header, true, new File(outFile));
 
 		// write SAMHeader
 		String prevID = null;

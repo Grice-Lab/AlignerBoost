@@ -6,6 +6,8 @@ import java.util.*;
 
 import net.sf.AlignerBoost.utils.Stats;
 import htsjdk.samtools.*;
+import htsjdk.samtools.SAMFileHeader.GroupOrder;
+import htsjdk.samtools.SAMFileHeader.SortOrder;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
  * @author Qi Zheng
@@ -35,7 +37,13 @@ public class FilterSAMAlignPE {
 			readerFac.validationStringency(ValidationStringency.SILENT); // use SILENT stringency
 
 		SamReader in = readerFac.open(new File(inFile));
-		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(in.getFileHeader(), false, new File(outFile)) : writerFac.makeBAMWriter(in.getFileHeader(), false, new File(outFile));
+		SAMFileHeader header = in.getFileHeader().clone(); // copy the inFile header as outFile header
+		//System.err.println(inFile + " groupOrder: " + in.getFileHeader().getGroupOrder() + " sortOrder: " + in.getFileHeader().getSortOrder());
+		// reset the orders
+		header.setGroupOrder(GroupOrder.none);
+		header.setSortOrder(SortOrder.unsorted);
+
+		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(header, true, new File(outFile)) : writerFac.makeBAMWriter(header, true, new File(outFile));
 
 		// write SAMHeader
 		String prevID = null;
@@ -65,6 +73,7 @@ public class FilterSAMAlignPE {
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
 				// create alnPEList from filtered alnList
 				List<SAMRecordPair> alnPEList = createAlnPEListFromAlnList(alnList);
+				//System.err.printf("%d alignments for %s transformed to %d alnPairs%n", alnList.size(), prevID, alnPEList.size());
 				// calculate posterior mapQ for each pair
 				calcPEHitPostP(alnPEList);
 				// filter PEhits
@@ -229,9 +238,9 @@ public class FilterSAMAlignPE {
 			boolean nextIsFirst = nextAln != null && nextAln.getFirstOfPairFlag();
 			int currTLen = alnList.get(i).getInferredInsertSize();
 			int nextTLen = i + 1 < alnList.size() ? alnList.get(i+1).getInferredInsertSize() : 0;
-			if(currIsFirst && !nextIsFirst // this is forward, next is not null and is reverse
+			if(currIsFirst ^ nextIsFirst // this is forward, next is reverse or vice versa
 					&& Math.abs(currTLen) > 0 && Math.abs(currTLen) == Math.abs(nextTLen)) { // is a align pair on the same Chromosome
-				alnPEList.add(new SAMRecordPair(currAln, nextAln));
+				alnPEList.add(currIsFirst ? new SAMRecordPair(currAln, nextAln) : new SAMRecordPair(nextAln, currAln));
 				i++; // advance through nextAln
 			}
 			else 
