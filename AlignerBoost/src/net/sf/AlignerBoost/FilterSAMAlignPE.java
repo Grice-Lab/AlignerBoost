@@ -43,7 +43,7 @@ public class FilterSAMAlignPE {
 		header.setGroupOrder(GroupOrder.none);
 		header.setSortOrder(SortOrder.unsorted);
 
-		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(header, true, new File(outFile)) : writerFac.makeBAMWriter(header, true, new File(outFile));
+		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(header, false, new File(outFile)) : writerFac.makeBAMWriter(header, false, new File(outFile));
 
 		// write SAMHeader
 		String prevID = null;
