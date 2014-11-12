@@ -47,10 +47,9 @@ public class ProcessStatusTask extends TimerTask {
 	 */
 	@Override
 	public void run() {
-		System.err.println(status + " processed");
+		if(status > 0)
+			System.err.println(status + " processed");
 	}
-
-	private volatile long status;
 
 	/**
 	 * Show terminal status up-on finish this task
@@ -59,4 +58,5 @@ public class ProcessStatusTask extends TimerTask {
 		System.err.println("Total " + status + " processed successfully");
 	}
 
+	private volatile long status;
 }
