@@ -45,7 +45,7 @@ public class PercentProcessStatusTask extends TimerTask {
 	 */
 	@Override
 	public void run() {
-		System.err.printf("%.1f%% processed%n", processed / (double) total * 100);
+		System.err.printf("%.1f%% processed%n", 100.0 * processed / total);
 	}
 
 	/**
