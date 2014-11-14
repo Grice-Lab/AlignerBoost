@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src"/>
-	<classpathentry including="htsjdk-1.122.jar|picard-1.122.jar" kind="src" path="picard-tools-1.122"/>
+	<classpathentry including="htsjdk-1.122.jar" kind="src" path="picard-tools-1.122"/>
 	<classpathentry kind="src" path="ant"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
 	<classpathentry exported="true" kind="lib" path="picard-tools-1.122/htsjdk-1.122.jar"/>
-	<classpathentry exported="true" kind="lib" path="picard-tools-1.122/picard-1.122.jar"/>
+	<classpathentry kind="lib" path="picard-tools-1.122/picard-1.122.jar"/>
 	<classpathentry exported="true" kind="lib" path="ant/ant-1.8.1-apache-bcel.jar"/>
 	<classpathentry exported="true" kind="lib" path="ant/bcel-5.2.jar"/>
 	<classpathentry kind="output" path="bin"/>
