@@ -160,6 +160,9 @@ public class NGSExpDesign {
 					case "max_report":
 						design.maxReport = Integer.parseInt(value);
 						break;
+					case "sort_method":
+						design.sortMethod = value;
+						break;
 					case "ref_genome":
 						design.refGenome = value;
 						break;
@@ -463,6 +466,13 @@ public class NGSExpDesign {
 	}
 
 	/**
+	 * @return the sortMethod
+	 */
+	public String getSortMethod() {
+		return sortMethod;
+	}
+
+	/**
 	 * @return the refGenome
 	 */
 	public String getRefGenome() {
@@ -564,7 +574,8 @@ public class NGSExpDesign {
 	 * @return  BAM filename
 	 */
 	public String getAlignFilteredFileName() {
-		String fn = libName + "_" + refGenome + "_filtered.bam"; // always bam output
+		String fn = !sortMethod.equals("coordinate") ? libName + "_" + refGenome + "_filtered.bam" : 
+			libName + "_" + refGenome + "_filtered_sorted.bam"; // always bam output
 		return PROJECT_DIR.equals(".") ? fn : PROJECT_DIR + "/" + fn;
 	}
 	
@@ -611,6 +622,7 @@ public class NGSExpDesign {
 	int minMapQ = 0;
 	int maxBest = 0;
 	int maxReport = 0;
+	String sortMethod = "none";
 	// reference genome options
 	String refGenome;
 	String refIndex;

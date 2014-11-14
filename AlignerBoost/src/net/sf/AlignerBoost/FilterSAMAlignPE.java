@@ -40,8 +40,8 @@ public class FilterSAMAlignPE {
 		SAMFileHeader header = in.getFileHeader().clone(); // copy the inFile header as outFile header
 		//System.err.println(inFile + " groupOrder: " + in.getFileHeader().getGroupOrder() + " sortOrder: " + in.getFileHeader().getSortOrder());
 		// reset the orders
-		header.setGroupOrder(GroupOrder.none);
-		header.setSortOrder(SortOrder.unsorted);
+		header.setGroupOrder(groupOrder);
+		header.setSortOrder(sortOrder);
 
 		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(header, false, new File(outFile)) : writerFac.makeBAMWriter(header, false, new File(outFile));
 
@@ -268,7 +268,8 @@ public class FilterSAMAlignPE {
 				"            --no-mix suppress unpaired alignments for paired reads, by default unpaired alignments are treated separately" + newLine +
 				"            --min-mapQ min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
 				"            --max-best max allowed best-stratum pairs to report for a given read, default 0 (no limit)" + newLine +
-				"            --max-report max report pairs for all valid best stratum pairs determined by --min-mapQ and --max-best, default 0 (no limit)"
+				"            --max-report max report pairs for all valid best stratum pairs determined by --min-mapQ and --max-best, default 0 (no limit)" + newLine +
+				"            --sort-method sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none"
 				);
 	}
 
@@ -310,6 +311,24 @@ public class FilterSAMAlignPE {
 				MAX_BEST = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--max-report"))
 				MAX_REPORT = Integer.parseInt(args[++i]);
+			else if(args[i].equals("--sort-method")) {
+				switch(args[++i]) {
+				case "none":
+					groupOrder = GroupOrder.none;
+					sortOrder = SortOrder.unsorted;
+					break;
+				case "name":
+					groupOrder = GroupOrder.query;
+					sortOrder = SortOrder.queryname;
+					break;
+				case "coordinate":
+					groupOrder = GroupOrder.reference;
+					sortOrder = SortOrder.coordinate;
+					break;
+				default:
+					throw new IllegalArgumentException("--sort-method must be \"none\", \"name\" or \"coordiante\"");
+				}
+			}
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'");
 		// Check required options
@@ -489,5 +508,7 @@ public class FilterSAMAlignPE {
 	private static int MAX_BEST = 0; // no limits
 	private static int MAX_REPORT = 0;
 	// general options
+	private static GroupOrder groupOrder = GroupOrder.none;
+	private static SortOrder sortOrder = SortOrder.unsorted;
 	private static boolean OUT_IS_SAM; // outFile is SAM format?
 }
