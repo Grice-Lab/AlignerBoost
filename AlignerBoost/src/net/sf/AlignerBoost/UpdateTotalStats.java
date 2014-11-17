@@ -71,7 +71,11 @@ public class UpdateTotalStats {
 				while((line = in.readLine()) != null) {
 					if(line.startsWith("@")) {
 						totalNum++;
-						in.readLine();
+						int readLen = in.readLine().length();
+						if(readLen > conf.readLen) {
+							System.err.println("Warning: Found a read for lib \"" + conf.libName + "\" of length "
+									+ readLen + " that is longer than the read_len option in the config file, need to be fixed before following steps");
+						}
 						in.readLine();
 						in.readLine();
 					}
