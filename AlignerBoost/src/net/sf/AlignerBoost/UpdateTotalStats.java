@@ -6,6 +6,7 @@ import static net.sf.AlignerBoost.EnvConstants.*;
 
 import java.io.*;
 import java.util.*;
+import java.util.zip.*;
 
 /**
  * @author Qi Zheng
@@ -64,7 +65,9 @@ public class UpdateTotalStats {
 				}
 				// check FASTQ readFile
 				int totalNum = 0;
-				in = new BufferedReader(new FileReader(conf.getReadFile()));
+				String readFile = conf.getReadFile();
+				in = !readFile.endsWith(".gz") ? new BufferedReader(new FileReader(conf.getReadFile())) :
+					new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(readFile))));
 				while((line = in.readLine()) != null) {
 					if(line.startsWith("@")) {
 						totalNum++;
