@@ -6,11 +6,8 @@ import static net.sf.AlignerBoost.EnvConstants.newLine;
 import static net.sf.AlignerBoost.EnvConstants.progFile;
 import static net.sf.AlignerBoost.utils.Stats.*;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.util.zip.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -111,9 +108,11 @@ public class Fastq2NR {
 	 * @return  map of seqCounts
 	 * @throws IOException
 	 */
+	@SuppressWarnings("resource")
 	public static Map<String, NRTag> extractNRFromRead(String readInFile)
 			throws IOException {
-		readIn = new BufferedReader(new FileReader(readInFile));
+		readIn = !readInFile.endsWith(".gz") ? new BufferedReader(new FileReader(readInFile)) :
+			new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(readInFile))));
 		Map<String, NRTag> seq2NR = new HashMap<String, NRTag>();
 		String line = null;
 		while((line = readIn.readLine()) != null) {
@@ -138,10 +137,13 @@ public class Fastq2NR {
 	 * @return  map of seqCounts
 	 * @throws IOException
 	 */
+	@SuppressWarnings("resource")
 	public static Map<String, NRPair> extractNRFromRead(String readInFile, String mateInFile)
 			throws IOException {
-		readIn = new BufferedReader(new FileReader(readInFile));
-		mateIn = new BufferedReader(new FileReader(mateInFile));
+		readIn = !readInFile.endsWith(".gz") ? new BufferedReader(new FileReader(readInFile)) :
+			new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(readInFile))));
+		mateIn = !mateInFile.endsWith(".gz") ? new BufferedReader(new FileReader(mateInFile)) :
+			new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(mateInFile))));
 		Map<String, NRPair> seq2NRPair = new HashMap<String, NRPair>();
 		String line1 = null;
 		String line2 = null;
@@ -199,9 +201,9 @@ public class Fastq2NR {
 		System.err.println(
 				"Usage:    java -jar " + progFile + " run NR <-in FASTQ-INFILE> <-out FAS-OUTFILE>" +
 						" [--mate-in <MATE-INFILE> <--mate-out MATE-FAS-OUTFILE> [-readLen <int>] [--ascii-offset <int>]" + newLine +
-						"Options:    -in FASTQ file for (forward) reads" + newLine +
+						"Options:    -in FASTQ file for (forward) reads (support .gz compressed file)" + newLine +
 						"            --mate-in FASTQ file for reverse reads, optional" + newLine +
-						"            -out FASTQ OUTPUT file for (forward) reads" + newLine + 
+						"            -out FASTQ OUTPUT file for (forward) reads (support .gz compressed file)" + newLine + 
 						"            --mate-out FASTQ OUTPUT file for reverse reads, optional" + newLine +
 						"            -readLen int value of read length, optional" + newLine +
 						"            --ascii-offset int value of the ascii-offset of this read, default 33"
