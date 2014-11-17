@@ -2,13 +2,10 @@ package net.sf.AlignerBoost;
 import static net.sf.AlignerBoost.EnvConstants.newLine;
 import static net.sf.AlignerBoost.EnvConstants.progFile;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.*;
 
 /** A util class to get base-to-base QC report of Fastq read files
  * The variance will be calculated as one-pass algorithm VAR(X) = E(X^2) - E(X)^2
@@ -49,7 +46,8 @@ public class FastqReadQC {
 			boolean isFirst = true;
 			for(String readFile: readFiles) {
 				System.err.println("Processing readFile: " + readFile);
-				readIn = new BufferedReader(new FileReader(readFile));
+				readIn = !readFile.endsWith(".gz") ? new BufferedReader(new FileReader(readFile)) :
+					new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(readFile))));
 				String line = null;
 				while((line = readIn.readLine()) != null) {
 					if(line.startsWith("+")) { // will always meet the + first, even a qual line starts with a + addidentally
@@ -88,7 +86,8 @@ public class FastqReadQC {
 			isFirst = true;
 			for(String mateFile : mateFiles) {
 				System.err.println("Processing mateFile: " + mateFile);
-				mateIn = new BufferedReader(new FileReader(mateFile));
+				mateIn = !mateFile.endsWith(".gz") ? new BufferedReader(new FileReader(mateFile)) :
+					new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(mateFile))));
 				String line = null;
 				while((line = mateIn.readLine()) != null) {
 					if(line.startsWith("+")) {
@@ -227,8 +226,8 @@ public class FastqReadQC {
 				"Usage:    java -jar " + progFile + " run fastqQC <-in FASTQ-INFILE [FASTQ-INFILE2 ...]>" +
 						" [-mate <MATE-INFILE> [MATE-INFILE2 ...]] -<-out OUTFILE>" +
 						" [-Sanger] [-Illumina] [-qBase <int>] [-readLen <int>]" + newLine +
-						"Options:    -in FASTQ files for single-end or forward paired-end reads, multiple files must be separated by space" + newLine +
-						"            -mate FASTQ files for reverse paired-end reads, multiple files must be separated by space" + newLine +
+						"Options:    -in FASTQ files for single-end or forward paired-end reads, multiple files must be separated by space (support .gz compressed files)" + newLine +
+						"            -mate FASTQ files for reverse paired-end reads, multiple files must be separated by space (support .gz compressed files)" + newLine +
 						"            -out OUTPUT file" + newLine + 
 						"            -Sanger use Sanger ascii offset, equivilent to set qBase=33; default is to auto-detect" + newLine +
 						"            -Illumina use Illumina 1.5x ascii offset, equivilent to set qBase=64; default is to auto-detect" + newLine +
