@@ -52,7 +52,7 @@ public class SamToCover {
 				String line = null;
 				while((line = bedIn.readLine()) != null) {
 					String[] fields = line.split("\t");
-					if(fields.length < 3)
+					if(fields.length < 3) // ignore header lines
 						continue;
 					String chr = fields[0];
 					int chrI = samIn.getFileHeader().getSequenceIndex(chr);
