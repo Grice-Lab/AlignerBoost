@@ -35,6 +35,8 @@ public class NGSExpDesign {
 		BufferedReader in = new BufferedReader(new FileReader(designFileName));
 		String line = null;
 		while((line = in.readLine()) != null) {
+			if(line.isEmpty())
+				continue;
 			if(line.startsWith("#")) { // a header line
 				Matcher match = globalPat.matcher(line);
 				if(match.find()) { // a global opt line
@@ -177,6 +179,9 @@ public class NGSExpDesign {
 						break;
 					case "other_aligner_opts":
 						design.otherAlignerOpts = value;
+						break;
+					case "other_filter_opts":
+						design.otherFilterOpts = value;
 						break;
 					default:
 						throw new IllegalArgumentException("Unknown per-lib option '" + name + "' found at\n" + line);							
@@ -445,6 +450,13 @@ public class NGSExpDesign {
 	}
 
 	/**
+	 * @return the otherFilterOpts
+	 */
+	public String getOtherFilterrOpts() {
+		return otherFilterOpts;
+	}
+	
+	/**
 	 * @return the minMapQ
 	 */
 	public double getMinMapQ() {
@@ -618,6 +630,7 @@ public class NGSExpDesign {
 	int maxFragLen = 600;
 	// user-specified options
 	String otherAlignerOpts = "";
+	String otherFilterOpts = "";
 	// best-stratum options
 	int minMapQ = 0;
 	int maxBest = 0;

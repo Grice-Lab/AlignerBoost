@@ -29,6 +29,22 @@ public class FilterSAMAlignSE {
 			return;
 		}
 
+		// Read in chrList, if specified
+		if(chrFile != null) {
+			chrFilter = new HashSet<String>();
+			try {
+				BufferedReader chrFilterIn = new BufferedReader(new FileReader(chrFile));
+				String chr = null;
+				while((chr = chrFilterIn.readLine()) != null)
+					chrFilter.add(chr);
+				chrFilterIn.close();
+			}
+			catch(IOException e) {
+				System.err.println("Error: " + e.getMessage());
+				return;
+			}
+		}
+		
 		SamReaderFactory readerFac = SamReaderFactory.makeDefault();
 		SAMFileWriterFactory writerFac = new SAMFileWriterFactory();
 		if(!isSilent)
@@ -57,6 +73,12 @@ public class FilterSAMAlignSE {
 			// fix read and quality string for this read, if is a secondary hit from multiple hits, used for BWA alignment
 			if(ID.equals(prevID) && record.getReadLength() == 0)
 				SAMAlignFixer.fixSAMRecordRead(record, prevRecord);
+			if(chrFilter != null && !chrFilter.contains(record.getReferenceName())) {
+				prevID = ID;
+				prevRecord = record;
+				continue;
+			}
+			
 			// fix alignment, ignore if failed (unmapped or empty)
 			if(!SAMAlignFixer.fixSAMRecord(record, DO_1DP)) {
 				prevID = ID;
@@ -123,7 +145,8 @@ public class FilterSAMAlignSE {
 				"            --min-mapQ min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
 				"            --max-best max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0 (no limit)" + newLine +
 				"            --max-report max report hits for all valid best stratum hits determined by --min-mapQ and --max-best, default 0 (no limit)" + newLine +
-				"            --sort-method sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none"
+				"            --sort-method sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none" + newLine +
+				"            --chrom-list pre-filtering chromosome name file contains one chromosome name per-line"
 				);
 	}
 
@@ -183,6 +206,8 @@ public class FilterSAMAlignSE {
 					throw new IllegalArgumentException("--sort-method must be \"none\", \"name\" or \"coordinate\"");
 				}
 			}
+			else if(args[i].equals("--chrom-list"))
+				chrFile = args[++i];
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'");
 		// Check required options
@@ -372,6 +397,7 @@ public class FilterSAMAlignSE {
 	static final double MAX_MAPQ = 250; // MAX meaniful mapQ value, if not 255
 	private static String inFile;
 	private static String outFile;
+	private static String chrFile;
 	// filter options
 	private static int MIN_INSERT = 15;
 	private static double MAX_SEED_MIS = 4; // max % seed mismatch
@@ -385,6 +411,7 @@ public class FilterSAMAlignSE {
 	private static int MAX_BEST = 0;
 	private static int MAX_REPORT = 0;
 	private static SAMRecordIdentityComparator recordComp = new SAMRecordIdentityComparator();
+	private static Set<String> chrFilter;
 	// general options
 	private static GroupOrder groupOrder = GroupOrder.none;
 	private static SortOrder sortOrder = SortOrder.unsorted;

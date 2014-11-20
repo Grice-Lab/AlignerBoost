@@ -52,7 +52,7 @@ public class PrepareFilterAlnCmd {
 						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis +
 						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent +
 						" --min-mapQ " + conf.minMapQ + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
-						" --sort-method " + conf.sortMethod + " -in " + inFn + " -out " + outFn;
+						" --sort-method " + conf.sortMethod + " " + conf.otherFilterOpts + " -in " + inFn + " -out " + outFn;
 
 				if(!(new File(outFn)).exists())
 					out.write(cmd + newLine);
