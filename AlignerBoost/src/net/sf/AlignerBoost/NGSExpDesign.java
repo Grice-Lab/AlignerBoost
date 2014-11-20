@@ -172,7 +172,8 @@ public class NGSExpDesign {
 						design.refIndex = value;
 						break;
 					case "transcriptome_GFF":
-						design.transcriptomeGFF = value;
+						if(!value.equals("NA"))
+							design.transcriptomeGFF = value;
 						break;
 					case "transcriptome_index":
 						design.transcriptomeIndex = value;
@@ -524,7 +525,7 @@ public class NGSExpDesign {
 			readFile = libName + ".fastq";
 		if(refIndex.equals("NA"))
 			refIndex = refGenome;
-		if(transcriptomeIndex.equals("NA"))
+		if(transcriptomeGFF != null && transcriptomeIndex.equals("NA"))
 			transcriptomeIndex = "transcriptome/" + transcriptomeGFF.replaceFirst("(?i:\\.gff)", "");		
 	}
 

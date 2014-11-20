@@ -202,18 +202,20 @@ public class PrepareMapCmd {
 				    }
 				    inFn = !conf.isPaired ? " " + readIn : " " + readIn + " " + mateIn;
 				    String dir = conf.libName + "_" + conf.refGenome + "_" + conf.aligner;
+				    String transcriptome = conf.transcriptomeGFF != null ?
+				    		" -G " + conf.transcriptomeGFF + " --transcriptome-index " + conf.transcriptomeIndex : " ";
 				    if(conf.aligner.equals("tophat1"))
 				      cmd = prog + " --bowtie1 -N " + readNMis + " --read-gap-length " + readNGap + " --read-edit-dist " + readEdit +
 				      " -g " + conf.maxHit + " -x " + conf.maxHit +
 				      " --max-insertion-length " + maxIns + " --max-deletion-length " + maxDel + qual + "--library-type" + libType +
-				      "-p " + MAX_PROC + " -G " + conf.transcriptomeGFF + " --transcriptome-index " + conf.transcriptomeIndex +
+				      "-p " + MAX_PROC + transcriptome +
 				      " --segment-length " + segLen + " --segment-mismatches " + segNMis + juncSearch +
 				      " --no-sort-bam " + conf.otherAlignerOpts + " -o " + dir + " " + conf.refIndex + inFn + newLine;
 				    else
 				      cmd = prog + " -N " + readNMis + " --read-gap-length " + readNGap + " --read-edit-dist " + readEdit +
 				      " -g " + conf.maxHit + " -x " + conf.maxHit +
 				      " --max-insertion-length " + maxIns + " --max-deletion-length " + maxDel + qual + "--library-type" + libType +
-				      "-p " + MAX_PROC + " -G " + conf.transcriptomeGFF + " --transcriptome-index " + conf.transcriptomeIndex +
+				      "-p " + MAX_PROC + transcriptome +
 				      " --segment-length " + segLen + " --segment-mismatches " + segNMis +
 				      " --b2-N " + seedNMis + " --b2-L " + conf.seedLen + juncSearch +
 				      " --no-sort-bam " + conf.otherAlignerOpts + " -o " + dir + " " + conf.refIndex + inFn + newLine;
