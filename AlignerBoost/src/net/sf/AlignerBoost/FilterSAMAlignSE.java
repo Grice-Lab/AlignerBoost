@@ -53,7 +53,13 @@ public class FilterSAMAlignSE {
 			readerFac.validationStringency(ValidationStringency.SILENT); // use SILENT stringency
 
 		SamReader in = readerFac.open(new File(inFile));
-		SAMFileHeader header = in.getFileHeader().clone(); // copy the inFile header as outFile header
+		SAMFileHeader inHeader = in.getFileHeader();
+		if(!(inHeader.getGroupOrder() != GroupOrder.reference && inHeader.getSortOrder() == SortOrder.queryname)) {
+			System.err.println("Error: Input SAM/BAM file must be sorted by queryname");
+			return;
+		}
+
+		SAMFileHeader header = inHeader.clone(); // copy the inFile header as outFile header
 		//System.err.println(inFile + " groupOrder: " + in.getFileHeader().getGroupOrder() + " sortOrder: " + in.getFileHeader().getSortOrder());
 		// reset the orders
 		header.setGroupOrder(groupOrder);
