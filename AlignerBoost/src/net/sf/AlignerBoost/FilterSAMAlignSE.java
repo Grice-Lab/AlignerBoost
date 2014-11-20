@@ -180,7 +180,7 @@ public class FilterSAMAlignSE {
 					sortOrder = SortOrder.coordinate;
 					break;
 				default:
-					throw new IllegalArgumentException("--sort-method must be \"none\", \"name\" or \"coordiante\"");
+					throw new IllegalArgumentException("--sort-method must be \"none\", \"name\" or \"coordinate\"");
 				}
 			}
 			else
