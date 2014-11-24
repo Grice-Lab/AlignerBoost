@@ -75,7 +75,7 @@ public class FilterSAMAlignSE {
 			// Start the ProcessStatusTask
 			statusTask = new ProcessStatusTask("alignment(s) processed");
 			// Schedule to show the status every 1 second
-			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
+			processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
 		}
 		
 		// write SAMHeader
@@ -448,5 +448,6 @@ public class FilterSAMAlignSE {
 	private static SortOrder sortOrder = SortOrder.unsorted;
 	private static boolean OUT_IS_SAM; // outFile is SAM format?
 	private static Timer processMonitor;
-	static ProcessStatusTask statusTask;
+	private static ProcessStatusTask statusTask;
+	private static final int statusFreq = 30000;
 }
