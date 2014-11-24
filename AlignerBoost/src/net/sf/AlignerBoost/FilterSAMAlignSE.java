@@ -4,6 +4,7 @@ import static net.sf.AlignerBoost.EnvConstants.*;
 import java.io.*;
 import java.util.*;
 
+import net.sf.AlignerBoost.utils.ProcessStatusTask;
 import net.sf.AlignerBoost.utils.Stats;
 import htsjdk.samtools.*;
 import htsjdk.samtools.SAMFileHeader.GroupOrder;
@@ -38,6 +39,8 @@ public class FilterSAMAlignSE {
 				while((chr = chrFilterIn.readLine()) != null)
 					chrFilter.add(chr);
 				chrFilterIn.close();
+				if(verbose > 0)
+					System.err.println("Only looking at alignments on " + chrFilter.size() + " specified chromosomes");
 			}
 			catch(IOException e) {
 				System.err.println("Error: " + e.getMessage());
@@ -66,6 +69,15 @@ public class FilterSAMAlignSE {
 		header.setSortOrder(sortOrder);
 		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(header, false, new File(outFile)) : writerFac.makeBAMWriter(header, false, new File(outFile));
 
+		if(verbose > 0) {
+			// Start the processMonitor
+			processMonitor = new Timer();
+			// Start the ProcessStatusTask
+			statusTask = new ProcessStatusTask();
+			// Schedule to show the status every 1 second
+			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
+		}
+		
 		// write SAMHeader
 		String prevID = null;
 		SAMRecord prevRecord = null;
@@ -74,6 +86,8 @@ public class FilterSAMAlignSE {
 		SAMRecordIterator results = in.iterator();
 		while(results.hasNext()) {
 			SAMRecord record = results.next();
+			if(verbose > 0)
+				statusTask.updateStatus();
 			String ID = record.getReadName();
 
 			// fix read and quality string for this read, if is a secondary hit from multiple hits, used for BWA alignment
@@ -123,6 +137,13 @@ public class FilterSAMAlignSE {
 		catch(IOException e) {
 			System.err.println(e.getMessage());
 		}
+		
+		// Terminate the monitor task and monitor
+		if(verbose > 0) {
+			statusTask.cancel();
+			statusTask.finish();
+			processMonitor.cancel();
+		}
 	}
 
 	// a nested class for sorting SAMRecord using align score
@@ -152,7 +173,8 @@ public class FilterSAMAlignSE {
 				"            --max-best max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0 (no limit)" + newLine +
 				"            --max-report max report hits for all valid best stratum hits determined by --min-mapQ and --max-best, default 0 (no limit)" + newLine +
 				"            --sort-method sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none" + newLine +
-				"            --chrom-list pre-filtering chromosome name file contains one chromosome name per-line"
+				"            --chrom-list pre-filtering chromosome name file contains one chromosome name per-line" + newLine +
+				"            -v show verbose information"
 				);
 	}
 
@@ -214,6 +236,8 @@ public class FilterSAMAlignSE {
 			}
 			else if(args[i].equals("--chrom-list"))
 				chrFile = args[++i];
+			else if(args[i].equals("-v"))
+				verbose++;
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'");
 		// Check required options
@@ -416,10 +440,13 @@ public class FilterSAMAlignSE {
 	private static int MIN_MAPQ = 0; // min map postP
 	private static int MAX_BEST = 0;
 	private static int MAX_REPORT = 0;
+	private static int verbose = 0; // verbose level
 	private static SAMRecordIdentityComparator recordComp = new SAMRecordIdentityComparator();
 	private static Set<String> chrFilter;
 	// general options
 	private static GroupOrder groupOrder = GroupOrder.none;
 	private static SortOrder sortOrder = SortOrder.unsorted;
 	private static boolean OUT_IS_SAM; // outFile is SAM format?
+	private static Timer processMonitor;
+	static ProcessStatusTask statusTask;
 }
