@@ -41,7 +41,8 @@ public class SamToCover {
 			out = new BufferedWriter(new FileWriter(outFile));
 
 			// Scan SAM/BAM file
-			System.err.println("Scan SAM/BAM file ...");
+			if(verbose > 0)
+				System.err.println("Scan SAM/BAM file ...");
 			SAMRecordIterator results = null;
 			Map<String, List<QueryInterval>> chrSeen = new HashMap<String, List<QueryInterval>>(); // chromosomes seen so far
 			if(bedFile == null) // no -R specified
@@ -66,7 +67,8 @@ public class SamToCover {
 						chrSeen.get(chr).add(interval);
 					}
 				}
-				System.err.println("Read in " + bedRegions.size() + " regions from BED file");
+				if(verbose > 0)
+					System.err.println("Read in " + bedRegions.size() + " regions from BED file");
 				bedIn.close();
 				QueryInterval[] intervals = new QueryInterval[bedRegions.size()];
 				intervals = bedRegions.toArray(intervals); // dump List to array[]
@@ -75,20 +77,22 @@ public class SamToCover {
 			}
 			
 			// Initialize chrom-index
-			System.err.println("Initialize chrom-index ...");
+			if(verbose > 0)
+				System.err.println("Initialize chrom-index ...");
 			for(SAMSequenceRecord headSeq : samIn.getFileHeader().getSequenceDictionary().getSequences()) {
 				String chr = headSeq.getSequenceName();
 				if(bedFile != null && !chrSeen.containsKey(chr)) // bed file specified and not in the regions
 					continue;
 				int len = headSeq.getSequenceLength();
-				System.err.println("  " + chr + ": " + len);
+				if(verbose > 0)
+					System.err.println("  " + chr + ": " + len);
 				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
 			}
 
 			// Start the processMonitor to monitor the process
 			processMonitor = new Timer();
 			// Start the ProcessStatusTask
-			ProcessStatusTask statusTask = new ProcessStatusTask();
+			statusTask = new ProcessStatusTask("alignment(s) processed");
 
 			// Schedule to show the status every 1 second
 			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
@@ -149,7 +153,8 @@ public class SamToCover {
 			processMonitor.cancel();
 
 			// Output
-			System.err.println("Output ...");
+			if(verbose > 0)
+				System.err.println("Output ...");
 			out.write("chrom\tloc\tcover\n");
 			for(Map.Entry<String, int[]> entry : chrIdx.entrySet()) {
 				String chr = entry.getKey();
@@ -214,7 +219,9 @@ public class SamToCover {
 				"Options:    -s strand to look at, 1 for plus, 2 for minus and 3 for both, default: 3" + newLine +
 				"            --norm-rpm normalize the coverage with RPM values of total mapped read number" + newLine +
 				"            --count-soft including soft-masked regions as covered region, excluding by default" + newLine +
-				"            -R genome regions to search provided as a BED file, the -i file must be a sorted BAM file with index pre-built");
+				"            -R genome regions to search provided as a BED file, the -i file must be a sorted BAM file with index pre-built" + newLine +
+				"            -v show verbose information"
+				);
 	}
 	
 	private static void parseOptions(String[] args) throws IllegalArgumentException {
@@ -231,6 +238,8 @@ public class SamToCover {
 				normRPM = true;
 			else if(args[i].equals("--count-soft"))
 				countSoft = true;
+			else if(args[i].equals("-v"))
+				verbose++;
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'.");
 		}
@@ -251,10 +260,12 @@ public class SamToCover {
 	private static boolean normRPM;
 	private static boolean countSoft; // whether to count soft-clipped bases
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
+	private static int verbose;
 
 	private static long totalNum;
 	private static Map<String, int[]> chrIdx;
 
 	private static Timer processMonitor;
+	private static ProcessStatusTask statusTask;
 	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
 }

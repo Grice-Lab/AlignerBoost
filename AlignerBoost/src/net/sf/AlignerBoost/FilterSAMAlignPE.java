@@ -74,7 +74,7 @@ public class FilterSAMAlignPE {
 			// Start the processMonitor
 			processMonitor = new Timer();
 			// Start the ProcessStatusTask
-			statusTask = new ProcessStatusTask("alignment processed");
+			statusTask = new ProcessStatusTask("alignment(s) processed");
 			// Schedule to show the status every 1 second
 			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
 		}
@@ -560,7 +560,7 @@ public class FilterSAMAlignPE {
 	private static int MIN_MAPQ = 0; // max divergent
 	private static int MAX_BEST = 0; // no limits
 	private static int MAX_REPORT = 0;
-	private static int verbose = 0; // verbose level
+	private static int verbose; // verbose level
 	private static Set<String> chrFilter;
 	// general options
 	private static GroupOrder groupOrder = GroupOrder.none;

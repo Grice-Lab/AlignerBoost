@@ -41,7 +41,8 @@ public class SamToWig {
 			out = new BufferedWriter(new FileWriter(outFile));
 
 			// Scan SAM/BAM file
-			System.err.println("Scan SAM/BAM file ...");
+			if(verbose > 0)
+				System.err.println("Scan SAM/BAM file ...");
 			SAMRecordIterator results = null;
 			Map<String, List<QueryInterval>> chrSeen = new HashMap<String, List<QueryInterval>>(); // chromosomes seen so far
 			if(bedFile == null) // no -R specified
@@ -66,7 +67,8 @@ public class SamToWig {
 						chrSeen.get(chr).add(interval);
 					}
 				}
-				System.err.println("Read in " + bedRegions.size() + " regions from BED file");
+				if(verbose > 0)
+					System.err.println("Read in " + bedRegions.size() + " regions from BED file");
 				bedIn.close();
 				QueryInterval[] intervals = new QueryInterval[bedRegions.size()];
 				intervals = bedRegions.toArray(intervals); // dump List to array[]
@@ -75,20 +77,22 @@ public class SamToWig {
 			}
 			
 			// Initialize chrom-index
-			System.err.println("Initialize chrom-index ...");
+			if(verbose > 0)
+				System.err.println("Initialize chrom-index ...");
 			for(SAMSequenceRecord headSeq : samIn.getFileHeader().getSequenceDictionary().getSequences()) {
 				String chr = headSeq.getSequenceName();
 				if(bedFile != null && !chrSeen.containsKey(chr)) // bed file specified and not in the regions
 					continue;
 				int len = headSeq.getSequenceLength();
-				System.err.println("  " + chr + ": " + len);
+				if(verbose > 0)
+					System.err.println("  " + chr + ": " + len);
 				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
 			}
 
 			// Start the processMonitor to monitor the process
 			processMonitor = new Timer();
 			// Start the ProcessStatusTask
-			ProcessStatusTask statusTask = new ProcessStatusTask();
+			statusTask = new ProcessStatusTask("alignment(s) processed");
 
 			// Schedual to show the status every 1 second
 			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
@@ -223,7 +227,8 @@ public class SamToWig {
 				"            -name the track name used to display in UCSC Genome Browser, default is to use the OUTFILE name" + newLine +
 				"            -desc the description of the track used to display in UCSC Genome Browser, default to use the track name" + newLine +
 				"            -R genome regions to search provided as a BED file, the -i file must be a sorted BAM file with index pre-built by samtoos index;" +
-				"               The BED file also has to be sorted by chrom and start"
+				"               The BED file also has to be sorted by chrom and start" + newLine +
+				"            -v show verbose information"
 				);
 	}
 	
@@ -247,6 +252,8 @@ public class SamToWig {
 				trackDesc = args[++i];
 			else if(args[i].equals("-count-soft"))
 				countSoft = true;
+			else if(args[i].equals("-v"))
+				verbose++;
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'.");
 		}
@@ -279,10 +286,12 @@ public class SamToWig {
 	private static String trackHeader = "track type=wiggle_0";
 	private static boolean countSoft; // whether to count soft-clipped bases
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
+	private static int verbose;
 
 	private static long totalNum;
 	private static Map<String, int[]> chrIdx;
 
 	private static Timer processMonitor;
+	private static ProcessStatusTask statusTask;
 	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
 }

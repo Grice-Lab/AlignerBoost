@@ -73,7 +73,7 @@ public class FilterSAMAlignSE {
 			// Start the processMonitor
 			processMonitor = new Timer();
 			// Start the ProcessStatusTask
-			statusTask = new ProcessStatusTask("alignment processed");
+			statusTask = new ProcessStatusTask("alignment(s) processed");
 			// Schedule to show the status every 1 second
 			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
 		}
@@ -440,7 +440,7 @@ public class FilterSAMAlignSE {
 	private static int MIN_MAPQ = 0; // min map postP
 	private static int MAX_BEST = 0;
 	private static int MAX_REPORT = 0;
-	private static int verbose = 0; // verbose level
+	private static int verbose; // verbose level
 	private static SAMRecordIdentityComparator recordComp = new SAMRecordIdentityComparator();
 	private static Set<String> chrFilter;
 	// general options
