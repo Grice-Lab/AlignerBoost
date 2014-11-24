@@ -54,8 +54,8 @@ public class FilterSAMAlignSE {
 
 		SamReader in = readerFac.open(new File(inFile));
 		SAMFileHeader inHeader = in.getFileHeader();
-		if(!(inHeader.getGroupOrder() != GroupOrder.reference && inHeader.getSortOrder() == SortOrder.queryname)) {
-			System.err.println("Error: Input SAM/BAM file must be sorted by queryname");
+		if(inHeader.getGroupOrder() == GroupOrder.reference || inHeader.getSortOrder() == SortOrder.coordinate) {
+			System.err.println("Error: Input SAM/BAM file can not be sorted by coordinate");
 			return;
 		}
 
