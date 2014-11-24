@@ -83,6 +83,7 @@ public class FilterSAMAlignPE {
 		String prevID = null;
 		SAMRecord prevRecord = null;
 		List<SAMRecord> alnList = new ArrayList<SAMRecord>();
+		List<SAMRecordPair> alnPEList = null;
 		// check each alignment
 		SAMRecordIterator results = in.iterator();
 		while(results.hasNext()) {
@@ -112,7 +113,7 @@ public class FilterSAMAlignPE {
 
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
 				// create alnPEList from filtered alnList
-				List<SAMRecordPair> alnPEList = createAlnPEListFromAlnList(alnList);
+				alnPEList = createAlnPEListFromAlnList(alnList);
 				//System.err.printf("%d alignments for %s transformed to %d alnPairs%n", alnList.size(), prevID, alnPEList.size());
 				// calculate posterior mapQ for each pair
 				calcPEHitPostP(alnPEList);
