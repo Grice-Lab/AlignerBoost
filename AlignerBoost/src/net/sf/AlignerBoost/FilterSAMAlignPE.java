@@ -120,8 +120,10 @@ public class FilterSAMAlignPE {
 				filterPEHits(alnPEList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_MAPQ);
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
 				Collections.sort(alnPEList, Collections.reverseOrder());
-				if(MAX_BEST > 0 && alnList.size() > MAX_BEST) // too much best hits, ignore this read
+				if(MAX_BEST > 0 && alnList.size() > MAX_BEST) {// too much best hits, ignore this read
 					alnList.clear();
+					alnPEList.clear();
+				}
 				// report remaining secondary alignments, up-to MAX_REPORT
 				for(int i = 0; i < alnPEList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
 					if(alnPEList.get(i).fwdRecord != null)
@@ -131,6 +133,7 @@ public class FilterSAMAlignPE {
 				}
 				// reset list
 				alnList.clear();
+				alnPEList.clear();
 			}
 			// update
 			if(!ID.equals(prevID)) {
