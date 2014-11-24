@@ -12,18 +12,43 @@ import java.util.TimerTask;
  * @since 1.1
  */
 public class PercentProcessStatusTask extends TimerTask {
-
 	/**
-	 * construct a ProcessStatusTask with given initial status
-	 * @param status  initial status
+	 * construct a ProcessStatusTask with given initial status, total and info String
+	 * @param processed   initial processed
+	 * @param total  total status
+	 * @param info  information String 
 	 * @throws  an {@link IllegalArgumentException} if the total status is not positive integers 
 	 */
-	public PercentProcessStatusTask(long total) throws IllegalArgumentException {
+	public PercentProcessStatusTask(long processed, long total, String info)
+			throws IllegalArgumentException {
 		if(total <= 0)
 			throw new IllegalArgumentException("total must be a positive integer");
+		this.processed = processed;
 		this.total = total;
+		this.info = info;
+	}
+	
+	/**
+	 * Overloaded construct a ProcessStatusTask with a given total and info String
+	 * @param total  total status
+	 * @param info  information String
+	 * @throws  an {@link IllegalArgumentException} if the total status is not positive integers 
+	 */
+	public PercentProcessStatusTask(long total, String info)
+			throws IllegalArgumentException {
+		this(0, total, info);
 	}
 
+	/**
+	 * Overloaded construct a ProcessStatusTask with a given total
+	 * @param total  total status
+	 * @throws  an {@link IllegalArgumentException} if the total status is not positive integers 
+	 */
+	public PercentProcessStatusTask(long total)
+			throws IllegalArgumentException {
+		this(total, "processed");
+	}
+	
 	/**
 	 * get number of processed tasks
 	 * @return  processed
@@ -40,12 +65,26 @@ public class PercentProcessStatusTask extends TimerTask {
 	}
 
 	/**
+	 * @return the info
+	 */
+	public String getInfo() {
+		return info;
+	}
+
+	/**
+	 * @param info the info to set
+	 */
+	public void setInfo(String info) {
+		this.info = info;
+	}
+
+	/**
 	 * re-implementation of the run method of a TimerTask
 	 * @see java.util.TimerTask#run()
 	 */
 	@Override
 	public void run() {
-		System.err.printf("%.1f%% processed%n", 100.0 * processed / total);
+		System.err.printf("%.1f%% %s%n", 100.0 * processed / total, info);
 	}
 
 	/**
@@ -53,10 +92,10 @@ public class PercentProcessStatusTask extends TimerTask {
 	 */
 	public void finish() {
 		if(processed > 0)
-			System.err.printf("%.1f%% processed%n", 100.0 * processed / total);
+			System.err.printf("%.1f%% %s%n", 100.0 * processed / total, info);
 	}
 	
 	private volatile long processed;
 	private long total;
-
+	private String info;
 }

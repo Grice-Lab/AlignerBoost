@@ -74,7 +74,7 @@ public class FilterSAMAlignPE {
 			// Start the processMonitor
 			processMonitor = new Timer();
 			// Start the ProcessStatusTask
-			statusTask = new ProcessStatusTask();
+			statusTask = new ProcessStatusTask("alignment processed");
 			// Schedule to show the status every 1 second
 			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
 		}

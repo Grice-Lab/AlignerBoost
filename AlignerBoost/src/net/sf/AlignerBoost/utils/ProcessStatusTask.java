@@ -14,17 +14,37 @@ import java.util.TimerTask;
 public class ProcessStatusTask extends TimerTask {
 
 	/**
-	 * construct a ProcessStatusTask with given initial status
+	 * construct a ProcessStatusTask with given initial status and the info String
+	 * @param status  initial status
+	 * @param info the information to show
+	 */
+	public ProcessStatusTask(long status, String info) {
+		this.status = status;
+		this.info = info;
+	}
+	
+	/**
+	 * Overloaded construct a ProcessStatusTask with given initial status
 	 * @param status  initial status
 	 */
 	public ProcessStatusTask(long status) {
-		this.status = status;
+		this(status, "processed");
 	}
 
 	/**
-	 * default constructor to set the initial status to 0
+	 * Overloaded construct a ProcessStatusTask with given info String
+	 * @param info  information String
 	 */
-	public ProcessStatusTask() { } // Default constructor, do nothing
+	public ProcessStatusTask(String info) {
+		this(0, info);
+	}
+	
+	/**
+	 * Overloaded default constructor to set the initial status to 0
+	 */
+	public ProcessStatusTask() { // Default constructor
+		this(0);
+	}
 
 	/**
 	 * get status
@@ -42,21 +62,36 @@ public class ProcessStatusTask extends TimerTask {
 	}
 
 	/**
+	 * @return the info
+	 */
+	public String getInfo() {
+		return info;
+	}
+
+	/**
+	 * @param info the info to set
+	 */
+	public void setInfo(String info) {
+		this.info = info;
+	}
+
+	/**
 	 * re-implementation of the run method of a TimerTask
 	 * @see java.util.TimerTask#run()
 	 */
 	@Override
 	public void run() {
 		if(status > 0)
-			System.err.println(status + " processed");
+			System.err.println(status + " " + info);
 	}
 
 	/**
 	 * Show terminal status up-on finish this task
 	 */
 	public void finish() {
-		System.err.println("Total " + status + " processed successfully");
+		System.err.println("Total " + status + " " + info);
 	}
 
 	private volatile long status;
+	private String info;
 }
