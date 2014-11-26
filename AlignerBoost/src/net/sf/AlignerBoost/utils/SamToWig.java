@@ -40,9 +40,6 @@ public class SamToWig {
 			samIn = factory.open(new File(samInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
 
-			// Scan SAM/BAM file
-			if(verbose > 0)
-				System.err.println("Scan SAM/BAM file ...");
 			SAMRecordIterator results = null;
 			Map<String, List<QueryInterval>> chrSeen = new HashMap<String, List<QueryInterval>>(); // chromosomes seen so far
 			if(bedFile == null) // no -R specified
@@ -96,7 +93,10 @@ public class SamToWig {
 
 			// Schedual to show the status every 1 second
 			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
-			
+
+			// Scan SAM/BAM file
+			if(verbose > 0)
+				System.err.println("Scan SAM/BAM file ...");
 			while(results.hasNext()) {
 				SAMRecord record = results.next();
 				statusTask.updateStatus(); // Update status
