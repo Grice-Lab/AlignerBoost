@@ -84,18 +84,21 @@ public class PercentProcessStatusTask extends TimerTask {
 	 */
 	@Override
 	public void run() {
-		System.err.printf("%.1f%% %s%n", 100.0 * processed / total, info);
+		if(processed > 0 && processed != prevProcessed) {
+			System.err.printf("%.1f%% %s%n", 100.0 * processed / total, info);
+			prevProcessed = processed;
+		}
 	}
 
 	/**
 	 * Show terminal status up-on finish this task
 	 */
 	public void finish() {
-		if(processed > 0)
-			System.err.printf("%.1f%% %s%n", 100.0 * processed / total, info);
+		System.err.printf("%.1f%% %s%n", 100.0 * processed / total, info);
 	}
 	
 	private volatile long processed;
+	private volatile long prevProcessed;
 	private long total;
 	private String info;
 }

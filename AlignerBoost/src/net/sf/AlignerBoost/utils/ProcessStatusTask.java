@@ -81,8 +81,10 @@ public class ProcessStatusTask extends TimerTask {
 	 */
 	@Override
 	public void run() {
-		if(status > 0)
+		if(status > 0 && status != prevStatus) {
 			System.err.println(status + " " + info);
+			prevStatus = status;
+		}
 	}
 
 	/**
@@ -93,5 +95,6 @@ public class ProcessStatusTask extends TimerTask {
 	}
 
 	private volatile long status;
+	private volatile long prevStatus;
 	private String info;
 }
