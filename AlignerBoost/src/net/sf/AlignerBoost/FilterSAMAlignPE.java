@@ -118,7 +118,7 @@ public class FilterSAMAlignPE {
 				// calculate posterior mapQ for each pair
 				calcPEHitPostP(alnPEList);
 				// filter PEhits
-				filterPEHits(alnPEList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_MAPQ);
+				filterPEHits(alnPEList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_IDENTITY, MIN_MAPQ);
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
 				Collections.sort(alnPEList, Collections.reverseOrder());
 				if(MAX_BEST > 0 && alnPEList.size() > MAX_BEST) {// too much best hits, ignore this read
@@ -268,10 +268,19 @@ public class FilterSAMAlignPE {
 		/** implements the Comparable method
 		 * @return  the difference between the mapQ value
 		 */
+		@Override
 		public int compareTo(SAMRecordPair that) {
 			return getPEMapQ() - that.getPEMapQ();
 		}
 
+		/** Override the hashCode method
+		 * @return  the mapQ as the hashCode
+		 */
+		@Override
+		public int hashCode() {
+			return getPEMapQ();
+		}
+		
 		private SAMRecord fwdRecord;
 		private SAMRecord revRecord;
 
@@ -308,6 +317,7 @@ public class FilterSAMAlignPE {
 				"            --seed-mis %mismatches allowed in seed region, default 4" + newLine +
 				"            --all-mis %mismatches allowed in the entire insert region (excluding masked regions and Ns), default 6" + newLine +
 				"            --all-indel %in-dels allowed in the entire insert region, default 2" + newLine +
+				"            -i --identity mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels), default 0" + newLine +
 				"            --1DP enable 1-dimentional dymamic programming (1DP) re-aligning, useful for non-local aligners, i.e. bowtie" + newLine +
 				"            --match-score match score for 1DP, default 1" + newLine +
 				"            --mis-score mismatch score for 1DP, default -2" + newLine +
@@ -341,6 +351,8 @@ public class FilterSAMAlignPE {
 				MAX_ALL_MIS = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--all-indel"))
 				MAX_ALL_INDEL = Double.parseDouble(args[++i]);
+			else if(args[i].equals("-i") || args[i].equals("--identity"))
+				MIN_IDENTITY = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--1DP"))
 				DO_1DP = true;
 			else if(args[i].equals("--match-score"))
@@ -399,6 +411,10 @@ public class FilterSAMAlignPE {
 			throw new IllegalArgumentException("--all-mis must be between 0 to 100");
 		if(MAX_ALL_INDEL < 0 || MAX_ALL_INDEL > 100)
 			throw new IllegalArgumentException("--all-indel must be between 0 to 100");
+		if(!(MIN_IDENTITY >= 0 && MIN_IDENTITY <= 100))
+			throw new IllegalArgumentException("-i/--identity must be between 0 to 100");
+		else
+			MIN_IDENTITY /= 100.0; // use absolute identity
 		if(OUT_IS_SAM && outFile.endsWith(".bam"))
 			System.err.println("Warning: output file '" + outFile + "' might not be SAM format");
 		if(MIN_MAPQ < 0)
@@ -506,7 +522,7 @@ public class FilterSAMAlignPE {
 	}
 
 	private static int filterPEHits(List<SAMRecordPair> alnPEList, int minInsert,
-			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, int minQ) {
+			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, double minIdentity, int minQ) {
 		int n = alnPEList.size();
 		int removed = 0;
 		for(int i = n - 1; i >= 0; i--) { // search backward for maximum performance
@@ -515,12 +531,14 @@ public class FilterSAMAlignPE {
 					&& getSAMRecordPercentSeedMis(pair.fwdRecord) <= maxSeedMis
 					&& getSAMRecordPercentSeedIndel(pair.fwdRecord) <= maxSeedIndel
 					&& getSAMRecordPercentAllMis(pair.fwdRecord) <= maxAllMis
-					&& getSAMRecordPercentAllIndel(pair.fwdRecord) <= maxAllIndel)
+					&& getSAMRecordPercentAllIndel(pair.fwdRecord) <= maxAllIndel
+					&& getSAMRecordIdentity(pair.fwdRecord) >= minIdentity)
 				&& (pair.revRecord == null || getSAMRecordInsertLen(pair.revRecord) >= minInsert
 					&& getSAMRecordPercentSeedMis(pair.revRecord) <= maxSeedMis
 					&& getSAMRecordPercentSeedIndel(pair.revRecord) <= maxSeedIndel
 					&& getSAMRecordPercentAllMis(pair.revRecord) <= maxAllMis
-					&& getSAMRecordPercentAllIndel(pair.revRecord) <= maxAllIndel) 
+					&& getSAMRecordPercentAllIndel(pair.revRecord) <= maxAllIndel
+					&& getSAMRecordIdentity(pair.revRecord)>= minIdentity)
 				&& pair.getPEMapQ() >= minQ) ) {
 				alnPEList.remove(i);
 /*				System.err.println("Removing pair:\n" + pair.getSAMString());
@@ -557,6 +575,7 @@ public class FilterSAMAlignPE {
 	private static final double MAX_SEED_INDEL = 0; // seed indel is always not allowed
 	private static double MAX_ALL_MIS = 6; // max % all mismatch
 	private static double MAX_ALL_INDEL = 0; // max % all indel
+	private static double MIN_IDENTITY = 0; // min identity
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	private static boolean noMix; // do not allow unpaired alignments for paired reads?

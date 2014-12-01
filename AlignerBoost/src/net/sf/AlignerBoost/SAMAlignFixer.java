@@ -17,7 +17,7 @@ import static net.sf.AlignerBoost.EnvConstants.*;
  * XA   i     alignment length, including M,=,X,I,D,S but not H,P,N
  * XL   i     insert length, including M,=,X,I,D but not S,H,P,N, determined by Cigar or 1DP
  * XF   i     actual insert from (start) relative to reference
- * XI   f     alignment identity 1 - (YX + YG) / XL
+ * XI   f     alignment identity as 1 - (YX + YG) / XL
  * XH   Z     alignment likelihood given this mapping loc and quality, in string format to preserve double precision
  * YL	i     seed length for calculating seed mismatches and indels
  * YX   i     # of seed mismatches
@@ -536,7 +536,7 @@ public class SAMAlignFixer {
 	 * @param qual  quality scores in Phred scale
 	 * @return  MAPQ style score in phred scale
 	 */
-	private static int calcAlignScore(char[] status, byte[] qual) {
+/*	private static int calcAlignScore(char[] status, byte[] qual) {
 		if(status == null)
 			return 0;
 		assert status.length >= qual.length;
@@ -566,7 +566,7 @@ public class SAMAlignFixer {
 			alnScore += score;
 		}
 		return alnScore;
-	}
+	}*/
 
 	/** calculate Alignment log-likelihood given the alignment status and quality
 	 * @param status  status index
@@ -768,7 +768,7 @@ public class SAMAlignFixer {
 	private static int GAP_EXT_PENALTY = 1;
 	static int CLIP_PENALTY = 1;
 	private static final int REF_QUAL = 40; // reference quality for deletions
-	private static final int AVG_READ_QUAL = 25;
+//	private static final int AVG_READ_QUAL = 25;
 	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(\\d+)(.*)");

@@ -110,7 +110,7 @@ public class FilterSAMAlignSE {
 				// calculate Bayesian based posterior probabilities
 				calcHitPostP(recordList);
 				// filter hits
-				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_MAPQ);
+				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_IDENTITY, MIN_MAPQ);
 				// sort the list using the mapQ, using DESCREASING order
 				Collections.sort(recordList, Collections.reverseOrder(recordComp));
 				if(MAX_BEST > 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
@@ -147,7 +147,7 @@ public class FilterSAMAlignSE {
 	}
 
 	// a nested class for sorting SAMRecord using align score
-	static class SAMRecordIdentityComparator implements Comparator<SAMRecord> {
+	static class SAMRecordMapQComparator implements Comparator<SAMRecord> {
 		public int compare(SAMRecord r1, SAMRecord r2) {
 			return r1.getMappingQuality() - r2.getMappingQuality();
 		}
@@ -161,6 +161,7 @@ public class FilterSAMAlignSE {
 				"            --seed-mis %mismatches allowed in seed region, default 4" + newLine +
 				"            --all-mis %mismatches allowed in the entire insert region (excluding masked regions and Ns), default 6" + newLine +
 				"            --all-indel %in-dels allowed in the entire insert region, default 2" + newLine +
+				"            -i --identity mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels), default 0" + newLine +
 				"            --1DP enable 1-dimentional dymamic programming (1DP) re-aligning, useful for non-local aligners, i.e. bowtie" + newLine +
 				"            --match-score match score for 1DP, default 1" + newLine +
 				"            --mis-score mismatch score for 1DP, default -2" + newLine +
@@ -194,6 +195,8 @@ public class FilterSAMAlignSE {
 				MAX_ALL_MIS = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--all-indel"))
 				MAX_ALL_INDEL = Double.parseDouble(args[++i]);
+			else if(args[i].equals("-i") || args[i].equals("--identity"))
+				MIN_IDENTITY = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--1DP"))
 				DO_1DP = true;
 			else if(args[i].equals("--match-score"))
@@ -252,6 +255,10 @@ public class FilterSAMAlignSE {
 			throw new IllegalArgumentException("--all-mis must be between 0 to 100");
 		if(MAX_ALL_INDEL < 0 || MAX_ALL_INDEL > 100)
 			throw new IllegalArgumentException("--all-indel must be between 0 to 100");
+		if(!(MIN_IDENTITY >= 0 && MIN_IDENTITY <= 100))
+			throw new IllegalArgumentException("-i/--identity must be between 0 to 100");
+		else
+			MIN_IDENTITY /= 100.0; // use absolute identity
 		if(OUT_IS_SAM && outFile.endsWith(".bam"))
 			System.err.println("Warning: output file '" + outFile + "' might not be SAM format");
 		if(MIN_MAPQ < 0)
@@ -335,18 +342,19 @@ public class FilterSAMAlignSE {
 	 * @param maxSeedIndel  max %seed-indels
 	 * @param maxAllMis  max %all-mismatches
 	 * @param maxAllIndel  max %all-indels
+	 * @param minIdentity  min identity 
 	 * @param minQ 
 	 */
 	private static int filterHits(List<SAMRecord> recordList, int minInsert,
-			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, int minQ) {
+			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, double minIdentity, int minQ) {
 		int n = recordList.size();
 		int removed = 0;
 		for(int i = n - 1; i >= 0; i--) { // search backward for maximum performance
 			SAMRecord record = recordList.get(i);
 			if(!(getSAMRecordInsertLen(record) >= minInsert
 					&& getSAMRecordPercentSeedMis(record) <= maxSeedMis && getSAMRecordPercentSeedIndel(record) <= maxSeedIndel
-					&& getSAMRecordPercentAllMis(record) <= maxAllMis && getSAMRecordPercentAllIndel(record) <= maxAllIndel)
-					&& record.getMappingQuality() >= minQ) {
+					&& getSAMRecordPercentAllMis(record) <= maxAllMis && getSAMRecordPercentAllIndel(record) <= maxAllIndel
+					&& getSAMRecordIdentity(record) >= minIdentity && record.getMappingQuality() >= minQ)) {
 				recordList.remove(i);
 				removed++;
 			}
@@ -434,6 +442,7 @@ public class FilterSAMAlignSE {
 	private static final double MAX_SEED_INDEL = 0; // seed indel is always not allowed
 	private static double MAX_ALL_MIS = 6; // max % all mismatch
 	private static double MAX_ALL_INDEL = 0; // max % all indel
+	private static double MIN_IDENTITY = 0; // min identity
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	// best stratum options
@@ -441,7 +450,7 @@ public class FilterSAMAlignSE {
 	private static int MAX_BEST = 0;
 	private static int MAX_REPORT = 0;
 	private static int verbose; // verbose level
-	private static SAMRecordIdentityComparator recordComp = new SAMRecordIdentityComparator();
+	private static SAMRecordMapQComparator recordComp = new SAMRecordMapQComparator();
 	private static Set<String> chrFilter;
 	// general options
 	private static GroupOrder groupOrder = GroupOrder.none;
