@@ -57,10 +57,8 @@ public class FilterSAMAlignSE {
 
 		SamReader in = readerFac.open(new File(inFile));
 		SAMFileHeader inHeader = in.getFileHeader();
-		if(inHeader.getGroupOrder() == GroupOrder.reference || inHeader.getSortOrder() == SortOrder.coordinate) {
-			System.err.println("Error: Input SAM/BAM file can not be sorted by coordinate");
-			return;
-		}
+		if(inHeader.getGroupOrder() == GroupOrder.reference || inHeader.getSortOrder() == SortOrder.coordinate)
+			System.err.println("Warning: Input file '" + inFile + "' might be sorted by coordinate and cannot be correctly processed!");
 
 		SAMFileHeader header = inHeader.clone(); // copy the inFile header as outFile header
 		//System.err.println(inFile + " groupOrder: " + in.getFileHeader().getGroupOrder() + " sortOrder: " + in.getFileHeader().getSortOrder());
@@ -173,6 +171,8 @@ public class FilterSAMAlignSE {
 				"            --min-mapQ min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
 				"            --max-best max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0 (no limit)" + newLine +
 				"            --max-report max report hits for all valid best stratum hits determined by --min-mapQ and --max-best, default 0 (no limit)" + newLine +
+				"            --best-only only report unique best hit, will set --max-best 1 --max-report 1" + newLine +
+				"            --best report the best hit, ignore any secondary hit, will set --max-best 0 --max-report 1" + newLine +
 				"            --sort-method sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none" + newLine +
 				"            --chrom-list pre-filtering chromosome name file contains one chromosome name per-line" + newLine +
 				"            -v show verbose information"
@@ -219,6 +219,14 @@ public class FilterSAMAlignSE {
 				MAX_BEST = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--max-report"))
 				MAX_REPORT = Integer.parseInt(args[++i]);
+			else if(args[i].equals("--best-only")) {
+				MAX_BEST = 1;
+				MAX_REPORT = 1;
+			}
+			else if(args[i].equals("--best")) {
+				MAX_BEST = 0;
+				MAX_REPORT = 1;
+			}
 			else if(args[i].equals("--sort-method")) {
 				switch(args[++i]) {
 				case "none":
