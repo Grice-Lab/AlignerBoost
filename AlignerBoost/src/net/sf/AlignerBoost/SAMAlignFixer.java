@@ -699,11 +699,15 @@ public class SAMAlignFixer {
 			case 'H': case 'P': case 'N': // not possible
 				break;
 			case 'I': // insert consumes read
-				log10Lik += i == 0 || status[i-1] != 'I' ? REF_QUAL / -PHRED_SCALE - GAP_OPEN_PENALTY : REF_QUAL / -PHRED_SCALE - GAP_EXT_PENALTY;
+				if(i == 0 || status[i-1] != 'I') // gap-open
+					log10Lik -= GAP_OPEN_PENALTY;
+				log10Lik -= GAP_EXT_PENALTY;
 				pos++;
 				break;
 			case 'D':
-				log10Lik += i == 0 || status[i-1] != 'D' ? REF_QUAL / -PHRED_SCALE - GAP_OPEN_PENALTY : REF_QUAL / -PHRED_SCALE - GAP_EXT_PENALTY;
+				if(i == 0 || status[i-1] != 'D')
+					log10Lik -= GAP_OPEN_PENALTY;
+				log10Lik -= GAP_EXT_PENALTY;
 				break;
 			case 'V': // known SNP/SNV position, treat similar as match
 				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - KNOWN_SNP_PENALTY;
