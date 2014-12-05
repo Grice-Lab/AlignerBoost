@@ -165,6 +165,10 @@ public class NGSExpDesign {
 					case "sort_method":
 						design.sortMethod = value;
 						break;
+					case "known_SNP_file":
+						if(!value.equals("NA"))
+							design.knownSnpFile = value;
+						break;
 					case "ref_genome":
 						design.refGenome = value;
 						break;
@@ -486,6 +490,20 @@ public class NGSExpDesign {
 	}
 
 	/**
+	 * @return the knownSnpFile
+	 */
+	public String getKnownSnpFile() {
+		return knownSnpFile;
+	}
+
+	/**
+	 * @param knownSnpFile the knownSnpFile to set
+	 */
+	public void setKnown_SNP_file(String knownSnpFile) {
+		this.knownSnpFile = knownSnpFile;
+	}
+
+	/**
 	 * @return the refGenome
 	 */
 	public String getRefGenome() {
@@ -637,6 +655,7 @@ public class NGSExpDesign {
 	int maxBest = 0;
 	int maxReport = 0;
 	String sortMethod = "none";
+	String knownSnpFile;
 	// reference genome options
 	String refGenome;
 	String refIndex;
