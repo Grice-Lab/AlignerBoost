@@ -71,6 +71,7 @@ public class PercentProcessStatusTask extends TimerTask {
 	public void reset() {
 		processed = 0;
 		info = DEFAULT_INFO;
+		isFinished = false;
 	}
 	
 	/**
@@ -79,7 +80,7 @@ public class PercentProcessStatusTask extends TimerTask {
 	 */
 	@Override
 	public void run() {
-		if(processed > 0 && processed != prevProcessed) {
+		if(!isFinished && processed > 0 && processed != prevProcessed) {
 			System.err.printf("%.1f%% %s%n", 100.0 * processed / total, info);
 			prevProcessed = processed;
 		}
@@ -89,12 +90,14 @@ public class PercentProcessStatusTask extends TimerTask {
 	 * Show terminal status up-on finish this task
 	 */
 	public void finish() {
-		System.err.printf("%.1f%% %s%n", 100.0 * processed / total, info);
+		isFinished = true;
+		System.err.printf("Total %.1f%% %s%n", 100.0 * processed / total, info);
 	}
 	
 	private static final String DEFAULT_INFO = "processed";
 	private volatile long processed;
 	private volatile long prevProcessed;
+	private volatile boolean isFinished;
 	private long total;
 	private String info;
 }

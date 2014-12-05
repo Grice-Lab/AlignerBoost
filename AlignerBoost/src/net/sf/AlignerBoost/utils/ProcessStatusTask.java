@@ -63,6 +63,7 @@ public class ProcessStatusTask extends TimerTask {
 	public void reset() {
 		status = 0;
 		info = DEFAULT_INFO;
+		isFinished = false;
 	}
 
 	/**
@@ -71,7 +72,7 @@ public class ProcessStatusTask extends TimerTask {
 	 */
 	@Override
 	public void run() {
-		if(status > 0 && status != prevStatus) {
+		if(!isFinished && status > 0 && status != prevStatus) {
 			System.err.println(status + " " + info);
 			prevStatus = status;
 		}
@@ -81,11 +82,13 @@ public class ProcessStatusTask extends TimerTask {
 	 * Show terminal status up-on finish this task
 	 */
 	public void finish() {
+		isFinished = true;
 		System.err.println("Total " + status + " " + info);
 	}
 
 	private static final String DEFAULT_INFO = "processed"; // default display info
 	private volatile long status;
 	private volatile long prevStatus;
+	private volatile boolean isFinished;
 	private String info;
 }
