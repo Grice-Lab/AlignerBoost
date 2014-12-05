@@ -30,6 +30,15 @@ public class FilterSAMAlignSE {
 			return;
 		}
 
+		if(verbose > 0) {
+			// Start the processMonitor
+			processMonitor = new Timer();
+			// Start the ProcessStatusTask
+			statusTask = new ProcessStatusTask();
+			// Schedule to show the status every 1 second
+			processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
+		}
+		
 		// Read in chrList, if specified
 		if(chrFile != null) {
 			chrFilter = new HashSet<String>();
@@ -41,6 +50,45 @@ public class FilterSAMAlignSE {
 				chrFilterIn.close();
 				if(verbose > 0)
 					System.err.println("Only looking at alignments on " + chrFilter.size() + " specified chromosomes");
+			}
+			catch(IOException e) {
+				System.err.println("Error: " + e.getMessage());
+				return;
+			}
+		}
+		
+		// Read in known SNP file, if specified
+		if(knownSnpFile != null) {
+			if(verbose > 0) {
+				System.err.println("Reading in known SNPs from user specified file");
+				statusTask.setInfo("known SNPs read");
+			}
+			knownSnp = new SNPTable();
+			try {
+				BufferedReader knownSnpIn = new BufferedReader(new FileReader(knownSnpFile));
+				String line = null;
+				while((line = knownSnpIn.readLine()) != null) {
+					if(line.startsWith("#")) // comment line
+						continue;
+					String[] fields = line.split("\t");
+					String chr = fields[0];
+					int loc = Integer.parseInt(fields[1]);
+					String id = fields[2];
+					String refAllele = fields[3];
+					if(id.equals(".") || fields[4].equals(".")) // filtered SNP or monomorphic SNP 
+						continue;
+					for(String altAllele : fields[4].split(","))
+						knownSnp.add(chr, loc, refAllele, altAllele);
+					if(verbose > 0)
+						statusTask.updateStatus();
+				}
+				if(verbose > 0)
+					statusTask.finish();
+				knownSnpIn.close();
+			}
+			catch(IllegalArgumentException e) {
+				System.err.println("Error: " + e.getMessage() + " check your known SNP file to make sure it is in VCF format");
+				return;
 			}
 			catch(IOException e) {
 				System.err.println("Error: " + e.getMessage());
@@ -67,21 +115,17 @@ public class FilterSAMAlignSE {
 		header.setSortOrder(sortOrder);
 		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(header, false, new File(outFile)) : writerFac.makeBAMWriter(header, false, new File(outFile));
 
-		if(verbose > 0) {
-			// Start the processMonitor
-			processMonitor = new Timer();
-			// Start the ProcessStatusTask
-			statusTask = new ProcessStatusTask("alignment(s) processed");
-			// Schedule to show the status every 1 second
-			processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
-		}
-		
 		// write SAMHeader
 		String prevID = null;
 		SAMRecord prevRecord = null;
 		List<SAMRecord> recordList = new ArrayList<SAMRecord>();
 		// check each alignment
 		SAMRecordIterator results = in.iterator();
+		if(verbose > 0) {
+			System.err.println("Filtering alignments ...");
+			statusTask.reset();
+			statusTask.setInfo("alignments processed");
+		}
 		while(results.hasNext()) {
 			SAMRecord record = results.next();
 			if(verbose > 0)
@@ -98,7 +142,7 @@ public class FilterSAMAlignSE {
 			}
 			
 			// fix alignment, ignore if failed (unmapped or empty)
-			if(!SAMAlignFixer.fixSAMRecord(record, DO_1DP)) {
+			if(!SAMAlignFixer.fixSAMRecord(record, knownSnp, DO_1DP)) {
 				prevID = ID;
 				prevRecord = record;
 				continue;
@@ -155,27 +199,31 @@ public class FilterSAMAlignSE {
 		System.err.println("Usage:   java -jar " + progFile + " run filterSE " +
 				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" + newLine +
 				"Options:    --min-insert  minimum insert length (excluding adapters) of a read to allow amabiguous alignment, default 15" + newLine +
-				"            --seed-len seed length for Burrows-Wheeler algorithm dependent aligners, default 25" + newLine +
-				"            --seed-mis %mismatches allowed in seed region, default 4" + newLine +
-				"            --all-mis %mismatches allowed in the entire insert region (excluding masked regions and Ns), default 6" + newLine +
-				"            --all-indel %in-dels allowed in the entire insert region, default 2" + newLine +
-				"            -i --identity mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels), default 0" + newLine +
-				"            --1DP enable 1-dimentional dymamic programming (1DP) re-aligning, useful for non-local aligners, i.e. bowtie" + newLine +
-				"            --match-score match score for 1DP, default 1" + newLine +
-				"            --mis-score mismatch score for 1DP, default -2" + newLine +
-				"            --gap-open-penalty gap open penalty for 1DP, default 4" + newLine +
-				"            --gap-ext-penalty gap extension penalty, default 1" + newLine +
-				"            --soft-mask-penalty soft-masked base penalty, used for calculate mapQ, default 1" + newLine +
-				"            --out-SAM write SAM text output instead of BAM binary output" + newLine +
-				"            --silent ignore certain SAM format errors such as empty reads" + newLine +
-				"            --min-mapQ min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
-				"            --max-best max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0 (no limit)" + newLine +
-				"            --max-report max report hits for all valid best stratum hits determined by --min-mapQ and --max-best, default 0 (no limit)" + newLine +
-				"            --best-only only report unique best hit, will set --max-best 1 --max-report 1" + newLine +
-				"            --best report the best hit, ignore any secondary hit, will set --max-best 0 --max-report 1" + newLine +
-				"            --sort-method sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none" + newLine +
-				"            --chrom-list pre-filtering chromosome name file contains one chromosome name per-line" + newLine +
-				"            -v show verbose information"
+				"            --seed-len  seed length for Burrows-Wheeler algorithm dependent aligners, default 25" + newLine +
+				"            --seed-mis  %mismatches allowed in seed region, default 4" + newLine +
+				"            --all-mis  %mismatches allowed in the entire insert region (excluding masked regions and Ns), default 6" + newLine +
+				"            --all-indel  %in-dels allowed in the entire insert region, default 2" + newLine +
+				"            -i/--identity  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels), default 0" + newLine +
+				"            --1DP enable  1-dimentional dymamic programming (1DP) re-aligning, useful for non-local aligners, i.e. bowtie" + newLine +
+				"            --match-score  match score for 1DP, default 1" + newLine +
+				"            --mis-score  mismatch score for 1DP, default -2" + newLine +
+				"            --gap-open-penalty  gap open penalty for 1DP, default 4" + newLine +
+				"            --gap-ext-penalty  gap extension penalty, default 1" + newLine +
+				"            --clip-penalty  additional soft or hard clipped base penalty, used for calculating mapQ, default 0" + newLine +
+				"            --known-SNP-penalty  known SNP penalty for calculating mapQ, default 1" + newLine +
+				"            --known-INDEL-penalty  known IN-DEL penalty for calculating mapQ, default 2" + newLine +
+				"            --known-MULTISUBSTITUTION-penalty  known large/multi-substitution penalty for calculating mapQ, default 3" + newLine +
+				"            --out-SAM  write SAM text output instead of BAM binary output" + newLine +
+				"            --silent  ignore certain SAM format errors such as empty reads" + newLine +
+				"            --min-mapQ  min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
+				"            --max-best  max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0 (no limit)" + newLine +
+				"            --max-report  max report hits for all valid best stratum hits determined by --min-mapQ and --max-best, default 0 (no limit)" + newLine +
+				"            --best-only  only report unique best hit, will set --max-best 1 --max-report 1" + newLine +
+				"            --best  report the best hit, ignore any secondary hit, will set --max-best 0 --max-report 1" + newLine +
+				"            --sort-method  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none" + newLine +
+				"            --chrom-list  pre-filtering chromosome name file contains one chromosome name per-line" + newLine +
+				"            --known-SNP  optional known SNP file in vcf/gvcf format (v4.0+), used for calculating mapQ" + newLine +
+				"            -v  show verbose information"
 				);
 	}
 
@@ -209,6 +257,12 @@ public class FilterSAMAlignSE {
 				SAMAlignFixer.setGAP_EXT_PENALTY(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--clip-penalty"))
 				SAMAlignFixer.setCLIP_PENALTY(Integer.parseInt(args[++i]));
+			else if(args[i].equals("--known-SNP-penalty"))
+				SAMAlignFixer.setKNOWN_SNP_PENALTY(Integer.parseInt(args[++i]));
+			else if(args[i].equals("--known-INDEL-penalty"))
+				SAMAlignFixer.setKNOWN_INDEL_PENALTY(Integer.parseInt(args[++i]));
+			else if(args[i].equals("--known-MULTISUBSTITUTION-penalty"))
+				SAMAlignFixer.setKNOWN_MULTISUBSTITUTION_PENALT(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--out-SAM"))
 				OUT_IS_SAM = true;
 			else if(args[i].equals("--silent"))
@@ -247,6 +301,8 @@ public class FilterSAMAlignSE {
 			}
 			else if(args[i].equals("--chrom-list"))
 				chrFile = args[++i];
+			else if(args[i].equals("--known-SNP"))
+				knownSnpFile = args[++i];
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -444,6 +500,7 @@ public class FilterSAMAlignSE {
 	private static String inFile;
 	private static String outFile;
 	private static String chrFile;
+	private static String knownSnpFile;
 	// filter options
 	private static int MIN_INSERT = 15;
 	private static double MAX_SEED_MIS = 4; // max % seed mismatch
@@ -460,6 +517,7 @@ public class FilterSAMAlignSE {
 	private static int verbose; // verbose level
 	private static SAMRecordMapQComparator recordComp = new SAMRecordMapQComparator();
 	private static Set<String> chrFilter;
+	private static SNPTable knownSnp;
 	// general options
 	private static GroupOrder groupOrder = GroupOrder.none;
 	private static SortOrder sortOrder = SortOrder.unsorted;

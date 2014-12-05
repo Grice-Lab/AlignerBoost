@@ -2,8 +2,10 @@
  * a class to provide static method to filter and fix SAM/BAM alignment
  */
 package net.sf.AlignerBoost;
+import java.util.Arrays;
 import java.util.regex.*;
 
+import net.sf.AlignerBoost.SNP.SNPType;
 import net.sf.AlignerBoost.utils.Stats;
 import static net.sf.AlignerBoost.utils.Stats.PHRED_SCALE;
 import htsjdk.samtools.*;
@@ -72,10 +74,11 @@ public class SAMAlignFixer {
 	/**
 	 * Fix a SAMRecord by adding the AlignerBoost-specific tags above, and optionally fix the alignment by 1DP 
 	 * @param record  SAMRecord alignment to be fixed
+	 * @param knownSnp  knownSnp to look at, ignored if null
 	 * @param do1DP  whether do additional 1DP fixing?
 	 * @return  false if this SAMRecord does not need to be fixed because it is not-mapped or empty.
 	 */
-	public static boolean fixSAMRecord(SAMRecord record, boolean do1DP) {
+	public static boolean fixSAMRecord(SAMRecord record, SNPTable knownSnp, boolean do1DP) {
 		int readLen = record.getReadLength();
 		if(record.getReadUnmappedFlag() || record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 			return false;
@@ -127,6 +130,7 @@ public class SAMAlignFixer {
 			else
 				continue;
 		}
+		
 		// add customized tags
 		float identity = 1 - (nAllMis + nAllIndel) / ((float) insertLen);
 		// alignment tags
@@ -135,12 +139,7 @@ public class SAMAlignFixer {
 		record.setAttribute("XF", insertFrom);
 		record.setAttribute("XI", identity);
 		//record.setAttribute("XQ", calcAlignScore(status, record.getBaseQualities()));
-		// set log-likelihood
-		if(record.getBaseQualities() != null)
-			record.setAttribute("XH",
-					Double.toString(calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar))));
-		else
-			record.setAttribute("XH", Double.toString(calcAlignLik(status, calcSAMRecordHardClippedLenByCigar(cigar))));
+
 		// seed tags
 		record.setAttribute("YL", SEED_LEN);
 		record.setAttribute("YX", nSeedMis);
@@ -148,16 +147,28 @@ public class SAMAlignFixer {
 		// all tags
 		record.setAttribute("ZX", nAllMis);
 		record.setAttribute("ZG", nAllIndel);
+
+		// set log-likelihood tag
+		if(knownSnp == null)
+			record.setAttribute("XH",
+					Double.toString(calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar))));
+		else { // knownSnps are provided, calculate based on updated status
+			String qSeq = record.getReadString();
+			char[] updatedStatus = updateKnownSnv(status, record.getReferenceName(), record.getAlignmentStart(), alnLen, qSeq, knownSnp); // update known SNP/SNV, including in-dels)
+			record.setAttribute("XH",
+					Double.toString(calcAlignLik(updatedStatus, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar))));
+		}
 		return true;
 	}
 	
 	/**
 	 * fix SAMRecord without doing 1DP
 	 * @param record  SAMRecord to be fixed
+	 * @param knownSnp  knownSnp to look at, ignored if null
 	 * @return false if the record does not need to be fixed due to unmapped or empty
 	 */
-	public static boolean fixSAMRecord(SAMRecord record) {
-		return fixSAMRecord(record, false);
+	public static boolean fixSAMRecord(SAMRecord record, SNPTable knownSnp) {
+		return fixSAMRecord(record, knownSnp, false);
 	}
 
 	/** test if a cigar length match the read length
@@ -533,6 +544,7 @@ public class SAMAlignFixer {
 
 	/** calculate Alignment score
 	 * @param status  status index
+	 * @param chr 
 	 * @param qual  quality scores in Phred scale
 	 * @return  MAPQ style score in phred scale
 	 */
@@ -568,6 +580,87 @@ public class SAMAlignFixer {
 		return alnScore;
 	}*/
 
+	private static char[] updateKnownSnv(final char[] status, String chr, int alnStart,
+			int alnLen, String qSeq, SNPTable knownSnp) {
+		if(knownSnp == null)
+			return null;
+		assert status.length == alnLen;
+
+		char[] updatedStatus = Arrays.copyOf(status, status.length); // make a copy
+		int subStart = 0;
+		int subLen = 0;
+		int insStart = 0;
+		int insLen = 0;
+		int delStart = 0;
+		int delLen = 0;
+		for(int i = 0, loc = alnStart, pos = 0; i < alnLen; i++) {
+			// loc is on reference
+			// pos is on read
+			switch(status[i]) {
+			case 'N':
+				loc++;
+				break;
+			case 'H': case 'P':
+				break;
+			case 'M': case '=': case 'S':
+				loc++;
+				pos++;
+				break;
+			case 'X': // an SNV/SNP
+				// deal with SIMPLE SNP first
+				if(knownSnp.isOccupied(chr, loc)) { // this mapLoc is occupied
+					for(SNP snp : knownSnp.getAll(chr, loc))
+						if(snp.type == SNPType.SIMPLE && snp.altAllele.equals(qSeq.substring(pos, pos + 1))) // a matched known SNP
+							updatedStatus[i] = 'V'; // update status to known SNV
+				}
+				if(i == 0 || status[i-1] != 'X')
+					subStart = loc;
+				if(i == status.length - 1 || status[i+1] != 'X') { // a multi-substitution end
+					subLen = loc - subStart + 1;
+					if(subLen > 1 && knownSnp.isOccupied(chr, subStart)) {
+						for(SNP snp : knownSnp.getAll(chr, subStart))
+							if(snp.type == SNPType.MULTISUBSTITUTION && subLen == snp.size()
+							&& snp.altAllele.equals(qSeq.substring(pos - subLen + 1, pos + 1))) // a matched multi-substitution
+								updatedStatus[i] = 'B';
+					}
+				}
+				loc++;
+				pos++;
+				break;
+			case 'I': // an insertion
+				if(i == 0 || status[i-1] != 'I') // an insert start
+					insStart = loc;
+				if(i == status.length - 1 || status[i+1] != 'I') { // an insert end
+					insLen = i - insStart + 1; // loc will not change
+					if(knownSnp.isOccupied(chr, insStart)) { // there is a known insertion
+						for(SNP snp : knownSnp.getAll(chr, insStart))
+							if(snp.type == SNPType.INSERTION && insLen == snp.size()
+							&& snp.altAllele.equals(qSeq.substring(pos - insLen + 1, pos + 1))) // a matched known insertion
+								updatedStatus[i] = '-'; // update status to known SNV
+					}
+				}
+				pos++; // insertion takes pos on read
+				break;
+			case 'D': // a deletion
+				if(i == 0 || status[i-1] != 'D') // a deletion start
+					delStart = loc;
+				if(i == status.length - 1 || status[i+1] != 'D') { // an insert end
+					delLen = loc - delStart + 1;
+					if(knownSnp.isOccupied(chr, delStart)) { // there is a known deletion
+						for(SNP snp : knownSnp.getAll(chr, delStart))
+							if(snp.type == SNPType.DELETION && delLen == snp.size()) // a matched known deletion
+								updatedStatus[i] = '-'; // update status to known SNV
+					}
+				}
+				loc++; // deletion takes loc on reference
+				break;
+			default:
+				break;
+			} // end switch
+		} // end for
+		return updatedStatus;
+	}
+
 	/** calculate Alignment log-likelihood given the alignment status and quality
 	 * @param status  status index
 	 * @param qual  quality scores in Phred scale
@@ -575,12 +668,21 @@ public class SAMAlignFixer {
 	 */
 	private static double calcAlignLik(char[] status, byte[] qual, int hClipLen) {
 		if(status == null)
-			return 0;
-		assert status.length >= qual.length;
-		// make local copy of qual
-		byte[] baseQ = new byte[qual.length];
-		for(int i = 0; i < qual.length; i++)
-			baseQ[i] = qual[i] >= MIN_PHRED_QUAL ? qual[i] : MIN_PHRED_QUAL;
+			return Double.NaN;
+		assert qual == null || status.length >= qual.length;
+		// make local copy of qual, or dummy array if no qual available
+		byte[] baseQ;
+		if(qual != null) {
+			baseQ = new byte[qual.length];
+			for(int i = 0; i < qual.length; i++)
+				baseQ[i] = qual[i] >= MIN_PHRED_QUAL ? qual[i] : MIN_PHRED_QUAL;
+		}
+		else {
+			// create a dummy qual array with REF_QUAL
+			baseQ = new byte[status.length];
+			Arrays.fill(baseQ, REF_QUAL);
+		}
+		
 		double log10Lik = 0;
 		int pos = 0; // relative pos on read
 		for(int i = 0; i < status.length; i++) {
@@ -592,17 +694,25 @@ public class SAMAlignFixer {
 				log10Lik += baseQ[pos++] / -PHRED_SCALE; // use error prob directly
 				break;
 			case 'S': // soft-clipped
-				log10Lik += baseQ[pos++] / -PHRED_SCALE * CLIP_PENALTY;
+				log10Lik += baseQ[pos++] / -PHRED_SCALE + CLIP_PENALTY;
 				break;
 			case 'H': case 'P': case 'N': // not possible
 				break;
 			case 'I': // insert consumes read
-				log10Lik += i == 0 || status[i-1] != 'I' ? GAP_OPEN_PENALTY * REF_QUAL / -PHRED_SCALE : GAP_EXT_PENALTY * REF_QUAL / -PHRED_SCALE;
+				log10Lik += i == 0 || status[i-1] != 'I' ? REF_QUAL / -PHRED_SCALE + GAP_OPEN_PENALTY: REF_QUAL / -PHRED_SCALE + GAP_EXT_PENALTY;
 				pos++;
 				break;
 			case 'D':
 				log10Lik = i == 0 || status[i-1] != 'D' ? GAP_OPEN_PENALTY * REF_QUAL / -PHRED_SCALE : GAP_EXT_PENALTY * REF_QUAL / -PHRED_SCALE;
 				break;
+			case 'V': // known SNP/SNV position, treat similar as match
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - KNOWN_SNP_PENALTY;
+				break;
+			case '-': // known SNP/SNV position
+				log10Lik += -KNOWN_INDEL_PENALTY;
+				break;
+			case 'B': // known multi-substitution
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - KNOWN_MULTISUBSTITUTION_PENALTY;
 			default:
 				break; // do nothing
 			}
@@ -612,10 +722,10 @@ public class SAMAlignFixer {
 		return log10Lik;
 	}
 
-	/** calculate Alignment log-likelihood given only alignment status with no quality (from a FASTA alignment)
+/*	*//** calculate Alignment log-likelihood given only alignment status with no quality (from a FASTA alignment)
 	 * @param status  status index
 	 * @return  log-likelihood of this alignment
-	 */
+	 *//*
 	private static double calcAlignLik(char[] status, int hClipLen) {
 		if(status == null)
 			return 0;
@@ -646,7 +756,8 @@ public class SAMAlignFixer {
 			log10Lik += hClipLen * REF_QUAL / -PHRED_SCALE * CLIP_PENALTY;
 		return log10Lik;
 	}
-
+*/
+	
 	/**
 	 * @return the sEED_LEN
 	 */
@@ -659,7 +770,7 @@ public class SAMAlignFixer {
 	 */
 	public static void setSEED_LEN(int seedLen) {
 		if(seedLen <= 0)
-			throw new IllegalArgumentException("--seed-len must be positive");
+			throw new IllegalArgumentException("SEED_LEN must be positive");
 		SEED_LEN = seedLen;
 	}
 
@@ -675,7 +786,7 @@ public class SAMAlignFixer {
 	 */
 	public static void setMATCH_SCORE(int matchScore) {
 		if(matchScore <= 0)
-			throw new IllegalArgumentException("--match-score must be positive");
+			throw new IllegalArgumentException("MATCH_SCORE must be positive");
 		MATCH_SCORE = matchScore;
 	}
 
@@ -691,7 +802,7 @@ public class SAMAlignFixer {
 	 */
 	public static void setMIS_SCORE(int misScore) {
 		if(misScore > 0)
-			throw new IllegalArgumentException("--mis-score must be non-positive");
+			throw new IllegalArgumentException("MIS_SCORE must be non-positive");
 		MIS_SCORE = misScore;
 	}
 
@@ -707,7 +818,7 @@ public class SAMAlignFixer {
 	 */
 	public static void setGAP_OPEN_PENALTY(int gapOpenPenalty) {
 		if(gapOpenPenalty < 0)
-			throw new IllegalArgumentException("--gap-open-penalty must be non negative");
+			throw new IllegalArgumentException("GAP_OPEN_PENALTY must be non negative");
 		GAP_OPEN_PENALTY = gapOpenPenalty;
 	}
 
@@ -723,7 +834,7 @@ public class SAMAlignFixer {
 	 */
 	public static void setGAP_EXT_PENALTY(int gapExtPenalty) {
 		if(gapExtPenalty <= 0)
-			throw new IllegalArgumentException("--gap-ext-penalty must be positive");
+			throw new IllegalArgumentException("GAP_EXT_PENALTY must be positive");
 		GAP_EXT_PENALTY = gapExtPenalty;
 	}
 
@@ -738,7 +849,55 @@ public class SAMAlignFixer {
 	 * @param clipPenalty the clipPenalty to set
 	 */
 	public static void setCLIP_PENALTY(int clipPenalty) {
+		if(clipPenalty < 0)
+			throw new IllegalArgumentException("CLIP_PENALTY must be non-negative");
 		CLIP_PENALTY = clipPenalty;
+	}
+
+	/**
+	 * @return the KNOWN_SNP_PENALTY
+	 */
+	public static int getKNOWN_SNP_PENALTY() {
+		return KNOWN_SNP_PENALTY;
+	}
+
+	/**
+	 * @param knownSnpPenalty the knownSnpPenalty to set
+	 */
+	public static void setKNOWN_SNP_PENALTY(int knownSnpPenalty) {
+		if(knownSnpPenalty < 0)
+			throw new IllegalArgumentException("KNOWN_SNP_PENALTY must be non-negative");
+		KNOWN_SNP_PENALTY = knownSnpPenalty;
+	}
+
+	/**
+	 * @return the KNOWN_INDEL_PENALTY
+	 */
+	public static int getKNOWN_INDEL_PENALTY() {
+		return KNOWN_INDEL_PENALTY;
+	}
+
+	/**
+	 * @param knownIndelPenalty the knownIndelPenalty to set
+	 */
+	public static void setKNOWN_INDEL_PENALTY(int knownIndelPenalty) {
+		if(knownIndelPenalty < 0)
+			throw new IllegalArgumentException("KNOWN_INDEL_PENALTY must be non-negative");
+		KNOWN_INDEL_PENALTY = knownIndelPenalty;
+	}
+
+	/**
+	 * @return the KNOWN_MULTISUBSTITUTION_PENALTY
+	 */
+	public static int getKNOWN_MULTISUBSTITUTION_PENALT() {
+		return KNOWN_MULTISUBSTITUTION_PENALTY;
+	}
+
+	/**
+	 * @param knownMultiSubstitutionPenalty the knownMultiSubstitutionPenalty to set
+	 */
+	public static void setKNOWN_MULTISUBSTITUTION_PENALT(int knownMultiSubstitutionPenalty) {
+		KNOWN_MULTISUBSTITUTION_PENALTY = knownMultiSubstitutionPenalty;
 	}
 
 	/**
@@ -766,9 +925,12 @@ public class SAMAlignFixer {
 	private static int MIS_SCORE = -2;
 	private static int GAP_OPEN_PENALTY = 4;
 	private static int GAP_EXT_PENALTY = 1;
-	static int CLIP_PENALTY = 1;
-	private static final int REF_QUAL = 40; // reference quality for deletions
-//	private static final int AVG_READ_QUAL = 25;
+	static int CLIP_PENALTY = 0; // additional CLIP_PENALTY except for the mismatch penalty
+	static int KNOWN_SNP_PENALTY = 0;
+	static int KNOWN_INDEL_PENALTY = 1;
+	static int KNOWN_MULTISUBSTITUTION_PENALTY = 2;
+	private static final byte REF_QUAL = 40; // reference quality for deletions
+//	private static final byte AVG_READ_QUAL = 25;
 	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(\\d+)(.*)");
