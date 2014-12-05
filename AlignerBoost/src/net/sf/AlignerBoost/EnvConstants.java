@@ -14,7 +14,7 @@ public class EnvConstants {
 	public static final String progName = "AlignerBoost";
 	public static final String progVer = "v1.2";
 	public static final String progDesc = "A tool for boosting the accuracy of NextGen-seq aligner";
-	public static final String progFile = "AlignerBoost-v1.2.jar";
+	public static final String progFile = "AlignerBoost.jar";
 	// environment variables
 	public static final String newLine = System.getProperty("line.separator", "\n");
 	public static final String osName = System.getProperty("os.name");
