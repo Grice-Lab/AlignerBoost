@@ -13,22 +13,6 @@ import java.util.TimerTask;
  */
 public class PercentProcessStatusTask extends TimerTask {
 	/**
-	 * construct a ProcessStatusTask with given initial status, total and info String
-	 * @param processed   initial processed
-	 * @param total  total status
-	 * @param info  information String 
-	 * @throws  an {@link IllegalArgumentException} if the total status is not positive integers 
-	 */
-	public PercentProcessStatusTask(long processed, long total, String info)
-			throws IllegalArgumentException {
-		if(total <= 0)
-			throw new IllegalArgumentException("total must be a positive integer");
-		this.processed = processed;
-		this.total = total;
-		this.info = info;
-	}
-	
-	/**
 	 * Overloaded construct a ProcessStatusTask with a given total and info String
 	 * @param total  total status
 	 * @param info  information String
@@ -36,7 +20,10 @@ public class PercentProcessStatusTask extends TimerTask {
 	 */
 	public PercentProcessStatusTask(long total, String info)
 			throws IllegalArgumentException {
-		this(0, total, info);
+		if(total < 0)
+			throw new IllegalArgumentException("total must be positive");
+		this.total = total;
+		this.info = info;
 	}
 
 	/**
@@ -46,7 +33,7 @@ public class PercentProcessStatusTask extends TimerTask {
 	 */
 	public PercentProcessStatusTask(long total)
 			throws IllegalArgumentException {
-		this(total, "processed");
+		this(total, DEFAULT_INFO);
 	}
 	
 	/**
@@ -79,6 +66,14 @@ public class PercentProcessStatusTask extends TimerTask {
 	}
 
 	/**
+	 * Reset this PercentProcessTask to initial status
+	 */
+	public void reset() {
+		processed = 0;
+		info = DEFAULT_INFO;
+	}
+	
+	/**
 	 * re-implementation of the run method of a TimerTask
 	 * @see java.util.TimerTask#run()
 	 */
@@ -97,6 +92,7 @@ public class PercentProcessStatusTask extends TimerTask {
 		System.err.printf("%.1f%% %s%n", 100.0 * processed / total, info);
 	}
 	
+	private static final String DEFAULT_INFO = "processed";
 	private volatile long processed;
 	private volatile long prevProcessed;
 	private long total;

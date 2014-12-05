@@ -14,36 +14,18 @@ import java.util.TimerTask;
 public class ProcessStatusTask extends TimerTask {
 
 	/**
-	 * construct a ProcessStatusTask with given initial status and the info String
-	 * @param status  initial status
-	 * @param info the information to show
-	 */
-	public ProcessStatusTask(long status, String info) {
-		this.status = status;
-		this.info = info;
-	}
-	
-	/**
-	 * Overloaded construct a ProcessStatusTask with given initial status
-	 * @param status  initial status
-	 */
-	public ProcessStatusTask(long status) {
-		this(status, "processed");
-	}
-
-	/**
 	 * Overloaded construct a ProcessStatusTask with given info String
 	 * @param info  information String
 	 */
 	public ProcessStatusTask(String info) {
-		this(0, info);
+		this.info = info;
 	}
 	
 	/**
 	 * Overloaded default constructor to set the initial status to 0
 	 */
 	public ProcessStatusTask() { // Default constructor
-		this(0);
+		this(DEFAULT_INFO);
 	}
 
 	/**
@@ -69,10 +51,18 @@ public class ProcessStatusTask extends TimerTask {
 	}
 
 	/**
-	 * @param info the info to set
+	 * @param info  the display info to set
 	 */
 	public void setInfo(String info) {
 		this.info = info;
+	}
+	
+	/**
+	 * reset this ProcessStatusTask to initial status
+	 */
+	public void reset() {
+		status = 0;
+		info = DEFAULT_INFO;
 	}
 
 	/**
@@ -94,6 +84,7 @@ public class ProcessStatusTask extends TimerTask {
 		System.err.println("Total " + status + " " + info);
 	}
 
+	private static final String DEFAULT_INFO = "processed"; // default display info
 	private volatile long status;
 	private volatile long prevStatus;
 	private String info;
