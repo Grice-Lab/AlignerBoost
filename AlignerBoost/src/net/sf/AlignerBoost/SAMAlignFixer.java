@@ -621,7 +621,7 @@ public class SAMAlignFixer {
 						for(SNP snp : knownSnp.getAll(chr, subStart))
 							if(snp.type == SNPType.MULTISUBSTITUTION && subLen == snp.size()
 							&& snp.altAllele.equals(qSeq.substring(pos - subLen + 1, pos + 1))) // a matched multi-substitution
-								updatedStatus[i] = 'B';
+								Arrays.fill(updatedStatus, i - subLen + 1, i + 1, 'B'); // fill range with 'B' 
 					}
 				}
 				loc++;
@@ -636,7 +636,7 @@ public class SAMAlignFixer {
 						for(SNP snp : knownSnp.getAll(chr, insStart))
 							if(snp.type == SNPType.INSERTION && insLen == snp.size()
 							&& snp.altAllele.equals(qSeq.substring(pos - insLen + 1, pos + 1))) // a matched known insertion
-								updatedStatus[i] = '-'; // update status to known SNV
+								Arrays.fill(updatedStatus, i - insLen + 1, i + 1, '-'); // update status to known SNV
 					}
 				}
 				pos++; // insertion takes pos on read
@@ -649,7 +649,7 @@ public class SAMAlignFixer {
 					if(knownSnp.isOccupied(chr, delStart)) { // there is a known deletion
 						for(SNP snp : knownSnp.getAll(chr, delStart))
 							if(snp.type == SNPType.DELETION && delLen == snp.size()) // a matched known deletion
-								updatedStatus[i] = '-'; // update status to known SNV
+								Arrays.fill(updatedStatus, i - insLen + 1, i + 1, '-'); // update status to known SNV
 					}
 				}
 				loc++; // deletion takes loc on reference
