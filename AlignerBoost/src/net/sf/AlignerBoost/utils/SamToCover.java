@@ -218,7 +218,7 @@ public class SamToCover {
 				"<-i SAM|BAM-INFILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s strand to look at, 1 for plus, 2 for minus and 3 for both, default: 3" + newLine +
 				"            --norm-rpm normalize the coverage with RPM values of total mapped read number" + newLine +
-				"            --count-soft including soft-masked regions as covered region, excluding by default" + newLine +
+				"            --count-soft including soft-masked regions as covered region, excluded by default" + newLine +
 				"            -R genome regions to search provided as a BED file, the -i file must be a sorted BAM file with index pre-built" + newLine +
 				"            -v show verbose information"
 				);
