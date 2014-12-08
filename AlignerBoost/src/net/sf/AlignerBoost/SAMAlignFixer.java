@@ -712,8 +712,8 @@ public class SAMAlignFixer {
 			case 'V': // known SNP/SNV position, treat similar as match
 				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - KNOWN_SNP_PENALTY;
 				break;
-			case '-': // known SNP/SNV position
-				log10Lik += -KNOWN_INDEL_PENALTY;
+			case '-': // known in-del position
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - KNOWN_INDEL_PENALTY;
 				break;
 			case 'B': // known multi-substitution
 				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - KNOWN_MULTISUBSTITUTION_PENALTY;
