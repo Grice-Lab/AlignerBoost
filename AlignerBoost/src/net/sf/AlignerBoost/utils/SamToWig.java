@@ -226,7 +226,7 @@ public class SamToWig {
 				"            --no-track do not include the 'track-line' as the first line of the Wiggle file as the UCSC required" + newLine + 
 				"            -name the track name used to display in UCSC Genome Browser, default is to use the OUTFILE name" + newLine +
 				"            -desc the description of the track used to display in UCSC Genome Browser, default to use the track name" + newLine +
-				"            -R genome regions to search provided as a BED file, the -i file must be a sorted BAM file with index pre-built by samtoos index;" +
+				"            -R genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with index pre-built by samtoos index;" +
 				"            -v show verbose information"
 				);
 	}
