@@ -158,6 +158,9 @@ public class AlignerBoost {
 		case "bed2Wig":
 			Bed2Wig.main(opts);
 			break;*/
+		case "quickClassify":
+			QuickSamClassify.main(opts);
+			break;
 		default:
 			System.err.println("Unknown utils command '" + cmd + "'");
 			printUsage();
@@ -227,6 +230,7 @@ public class AlignerBoost {
 //				"                  utils    bed2Loc       convert UCSC bed files to AlignBoost tab-delimited alignment files" + newLine +
 //				"                  utils    bed2Cover     convert UCSC bed files to AlignBoost tab-delimited read-coverage files" + newLine +
 //				"                  utils    bed2Wig       convert UCSC bed files to UCSC Wiggle files" + newLine +
+				"                  utils    quickClassify quick classify SAM/BAM file alignments given genomic annotations" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
 				"                  run      NR            collapse NGS FASTQ reads/pairs to NR-tags/NR-pairs" + newLine +
 				"                  run      filterSE      boost single-end alignment accuracy using a Bayesian-based mapQ estimation method" + newLine +
