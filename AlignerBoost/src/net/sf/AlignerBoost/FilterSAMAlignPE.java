@@ -169,6 +169,8 @@ public class FilterSAMAlignPE {
 				}
 				// report remaining secondary alignments, up-to MAX_REPORT
 				for(int i = 0; i < alnPEList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
+					if(doUpdateBit)
+						alnPEList.get(i).setNotPrimaryAlignmentFlags(i != 0);
 					if(alnPEList.get(i).fwdRecord != null)
 						out.addAlignment(alnPEList.get(i).fwdRecord);
 					if(alnPEList.get(i).revRecord != null)
@@ -216,6 +218,16 @@ public class FilterSAMAlignPE {
 			return fwdRecord != null && revRecord != null;
 		}
 		
+		/** Set the secondary flag for both SAMRecord of this Pair
+		 * @param flag  flag to set
+		 */
+		public void setNotPrimaryAlignmentFlags(boolean flag) {
+			if(fwdRecord != null)
+				fwdRecord.setNotPrimaryAlignmentFlag(flag);
+			if(revRecord != null)
+				revRecord.setNotPrimaryAlignmentFlag(flag);
+		}
+
 		/** Get paired-end identity for a AlignmentPair
 		 * @return overall identity of the pair
 		 */
@@ -374,6 +386,7 @@ public class FilterSAMAlignPE {
 				"            --min-mapQ  min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
 				"            --max-best  max allowed best-stratum pairs to report for a given read, default 0 (no limit)" + newLine +
 				"            --max-report  max report pairs for all valid best stratum pairs determined by --min-mapQ and --max-best, default 0 (no limit)" + newLine +
+				"            --no-update-bit  do not update the secondary alignment bit (0x100) after filtering" + newLine +
 				"            --best-only  only report unique best hit, will set --max-best 1 --max-report 1" + newLine +
 				"            --best  report the best hit, ignore any secondary hit, will set --max-best 0 --max-report 1" + newLine +				
 				"            --sort-method  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none" + newLine +
@@ -429,6 +442,8 @@ public class FilterSAMAlignPE {
 				MAX_BEST = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--max-report"))
 				MAX_REPORT = Integer.parseInt(args[++i]);
+			else if(args[i].equals("--no-update-bit"))
+				doUpdateBit = false;
 			else if(args[i].equals("--best-only")) {
 				MAX_BEST = 1;
 				MAX_REPORT = 1;
@@ -648,6 +663,7 @@ public class FilterSAMAlignPE {
 	private static int MIN_MAPQ = 0; // max divergent
 	private static int MAX_BEST = 0; // no limits
 	private static int MAX_REPORT = 0;
+	private static boolean doUpdateBit = true;
 	private static int verbose; // verbose level
 	private static Set<String> chrFilter;
 	private static SNPTable knownSnp;

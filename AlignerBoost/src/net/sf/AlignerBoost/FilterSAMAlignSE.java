@@ -158,8 +158,11 @@ public class FilterSAMAlignSE {
 				if(MAX_BEST > 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
 					recordList.clear();
 				// report remaining alignments, up-to MAX_REPORT
-				for(int i = 0; i < recordList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++)
+				for(int i = 0; i < recordList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
+					if(doUpdateBit)
+						recordList.get(i).setNotPrimaryAlignmentFlag(i != 0);
 					out.addAlignment(recordList.get(i));
+				}
 				// reset list
 				recordList.clear();
 			}
@@ -218,6 +221,7 @@ public class FilterSAMAlignSE {
 				"            --min-mapQ  min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
 				"            --max-best  max allowed best-stratum hits to report for a given read, set to 0 for no limit, default 0 (no limit)" + newLine +
 				"            --max-report  max report hits for all valid best stratum hits determined by --min-mapQ and --max-best, default 0 (no limit)" + newLine +
+				"            --no-update-bit  do not update the secondary alignment bit (0x100) after filtering" + newLine +
 				"            --best-only  only report unique best hit, will set --max-best 1 --max-report 1" + newLine +
 				"            --best  report the best hit, ignore any secondary hit, will set --max-best 0 --max-report 1" + newLine +
 				"            --sort-method  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none" + newLine +
@@ -273,6 +277,8 @@ public class FilterSAMAlignSE {
 				MAX_BEST = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--max-report"))
 				MAX_REPORT = Integer.parseInt(args[++i]);
+			else if(args[i].equals("--no-update-bit"))
+				doUpdateBit = false;
 			else if(args[i].equals("--best-only")) {
 				MAX_BEST = 1;
 				MAX_REPORT = 1;
@@ -514,6 +520,7 @@ public class FilterSAMAlignSE {
 	private static int MIN_MAPQ = 0; // min map postP
 	private static int MAX_BEST = 0;
 	private static int MAX_REPORT = 0;
+	private static boolean doUpdateBit = true;
 	private static int verbose; // verbose level
 	private static SAMRecordMapQComparator recordComp = new SAMRecordMapQComparator();
 	private static Set<String> chrFilter;
