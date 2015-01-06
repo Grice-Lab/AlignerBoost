@@ -220,14 +220,14 @@ public class SamToWig {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils samToWig " +
 				"<-i SAM|BAM-INFILE> <-o OUTFILE> [options]" + newLine +
-				"Options:    -s strand to look at, 1 for plus, 2 for minus, 3 for both, default: 3" + newLine +
-				"            --norm-rpm normalize the coverage with RPM values of total mapped read number" + newLine +
-				"            --count-soft including soft-masked regions as covered region, excluded by default" + newLine +
-				"            --no-track do not include the 'track-line' as the first line of the Wiggle file as the UCSC required" + newLine + 
-				"            -name the track name used to display in UCSC Genome Browser, default is to use the OUTFILE name" + newLine +
-				"            -desc the description of the track used to display in UCSC Genome Browser, default to use the track name" + newLine +
-				"            -R genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with index pre-built by samtoos index;" +
-				"            -v show verbose information"
+				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [3]" + newLine +
+				"            --norm-rpm FLAG  normalize the coverage to RPM by total mapped read number" + newLine +
+				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            --no-track FLAG  do not include the 'track-line' as the first line of the Wiggle file as the UCSC required" + newLine + 
+				"            -name STRING  the track name used to display in UCSC Genome Browser [OUTFILE]" + newLine +
+				"            -desc STRING  the description of the track used to display in UCSC Genome Browser [track name]" + newLine +
+				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" +
+				"            -v FLAG  show verbose information"
 				);
 	}
 	

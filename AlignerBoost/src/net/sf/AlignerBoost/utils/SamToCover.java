@@ -219,7 +219,7 @@ public class SamToCover {
 				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [3]" + newLine +
 				"            --norm-rpm FLAG  normalize the coverage to RPM by total mapped read number" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
-				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with index pre-built" + newLine +
+				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
