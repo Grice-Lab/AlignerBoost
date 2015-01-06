@@ -203,8 +203,8 @@ public class QuickSamClassify {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils quickClassify " +
 				"<-i SAM|BAM-INFILE> <-gff GFF-FILE,[GFF-FILE2,...]> <-o OUT-FILE> [options]" + newLine +
-				"Options:    -R genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with index pre-built" + newLine +
-				"            -v show verbose information"
+				"Options:    -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
+				"            -v FLAG  show verbose information"
 				);
 	}
 	
