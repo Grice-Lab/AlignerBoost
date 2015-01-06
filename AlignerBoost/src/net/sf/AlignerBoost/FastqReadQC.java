@@ -226,13 +226,13 @@ public class FastqReadQC {
 				"Usage:    java -jar " + progFile + " run fastqQC <-in FASTQ-INFILE [FASTQ-INFILE2 ...]>" +
 						" [-mate <MATE-INFILE> [MATE-INFILE2 ...]] -<-out OUTFILE>" +
 						" [-Sanger] [-Illumina] [-qBase <int>] [-readLen <int>]" + newLine +
-						"Options:    -in FASTQ files for single-end or forward paired-end reads, multiple files must be separated by space (support .gz compressed files)" + newLine +
-						"            -mate FASTQ files for reverse paired-end reads, multiple files must be separated by space (support .gz compressed files)" + newLine +
-						"            -out OUTPUT file" + newLine + 
-						"            -Sanger use Sanger ascii offset, equivilent to set qBase=33; default is to auto-detect" + newLine +
-						"            -Illumina use Illumina 1.5x ascii offset, equivilent to set qBase=64; default is to auto-detect" + newLine +
-						"            -qBase int value of ascii offset, override -Sanger or -Illumina; default is to auto-detect" + newLine +
-						"            -readLen int value of read length, optional if inputs are of fixed length, mendatory if of variable length (i.e. Illumina trimmed or PacBio FASTQ files)"
+						"Options:    -in REQUIRED FILE  FASTQ files for single-end or forward paired-end reads, multiple files should be separated by space (support .gz compressed files)" + newLine +
+						"            -mate FASTQ FILE  files for reverse paired-end reads, multiple files should be separated by space (support .gz compressed files)" + newLine +
+						"            -out REQUIRED FILE  OUTPUT file" + newLine + 
+						"            -Sanger FLAG  use Sanger ascii offset, equivilent to set qBase=33; default is to auto-detect" + newLine +
+						"            -Illumina FLAG  use Illumina 1.5x ascii offset, equivilent to set qBase=64; default is to auto-detect" + newLine +
+						"            -qBase INT  ascii offset, override -Sanger or -Illumina [auto-detect]" + newLine +
+						"            -readLen INT  read length, REQUIRED if reads are of variable length (i.e. from Illumina MiSeq or PacBio)"
 				);
 	}
 
