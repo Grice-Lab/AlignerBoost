@@ -5,7 +5,7 @@ package net.sf.AlignerBoost.utils;
 import java.io.*;
 import java.util.*;
 
-import htsjdk.samtools.*;
+import net.sf.AlignerBoost.*;
 import static net.sf.AlignerBoost.EnvConstants.*;
 
 /** Format SAM/BAM file to simple tsv cover file
@@ -13,7 +13,7 @@ import static net.sf.AlignerBoost.EnvConstants.*;
  * @version 1.1
  * @since 1.1
  */
-public class QuickSamClassify {
+public class ClassifyVCF {
 	public static void main(String[] args) {
 		if(args.length == 0) {
 			printUsage();
@@ -30,64 +30,31 @@ public class QuickSamClassify {
 		}
 
 		chrIdx = new HashMap<String, int[]>();
-		SamReaderFactory factory = SamReaderFactory.makeDefault();
-		SamReader samIn = null;
+		BufferedReader vcfIn = null;
 		BufferedReader gffIn = null;
 		BufferedWriter out = null;
-		BufferedReader bedIn = null;
+		BufferedReader chrIn = null;
 		try {
 			// open all required files
-			samIn = factory.open(new File(samInFile));
+			vcfIn = new BufferedReader(new FileReader(vcfInFile));
+			chrIn = new BufferedReader(new FileReader(chrLenFile));
 			out = new BufferedWriter(new FileWriter(outFile));
 
-			SAMRecordIterator results = null;
-			Map<String, List<QueryInterval>> chrSeen = new HashMap<String, List<QueryInterval>>(); // chromosomes seen so far
-			if(bedFile == null) // no -R specified
-				results = samIn.iterator();
-			else {
-				bedIn = new BufferedReader(new FileReader(bedFile));
-				bedRegions = new ArrayList<QueryInterval>();
-				String line = null;
-				while((line = bedIn.readLine()) != null) {
-					String[] fields = line.split("\t");
-					if(fields.length < 3) // ignore header lines
-						continue;
-					String chr = fields[0];
-					int chrI = samIn.getFileHeader().getSequenceIndex(chr);
-					int start = Integer.parseInt(fields[1]) + 1; // bed start is 0-based
-					int end = Integer.parseInt(fields[2]);
-					if(chrI != -1) { // this Region is in the aligned chromosomes
-						QueryInterval interval = new QueryInterval(chrI, start, end);
-						bedRegions.add(interval);
-						if(!chrSeen.containsKey(chr))
-							chrSeen.put(chr, new ArrayList<QueryInterval>());
-						chrSeen.get(chr).add(interval);
-					}
-				}
-				if(verbose > 0)
-					System.err.println("Read in " + bedRegions.size() + " regions from BED file");
-				bedIn.close();
-				QueryInterval[] intervals = new QueryInterval[bedRegions.size()];
-				intervals = bedRegions.toArray(intervals); // dump List to array[]
-				intervals = QueryInterval.optimizeIntervals(intervals); // optimize and sort the query intervals
-				results = samIn.query(intervals, false);
-			}
-			
-			// Initialize chrom-index
+			// Read chrLenFile and initialize chrom-index
 			if(verbose > 0)
 				System.err.println("Initialize chrom-index ...");
-			for(SAMSequenceRecord headSeq : samIn.getFileHeader().getSequenceDictionary().getSequences()) {
-				String chr = headSeq.getSequenceName();
-				if(bedFile != null && !chrSeen.containsKey(chr)) // bed file specified and not in the regions
-					continue;
-				int len = headSeq.getSequenceLength();
+			String line = null;
+			while((line = chrIn.readLine()) != null) {
+				String[] fields = line.split("\t");
+				String chr = fields[0];
+				int len = Integer.parseInt(fields[1]);
 				if(verbose > 0)
 					System.err.println("  " + chr + ": " + len);
 				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
 			}
 
-			// Start the processMonitor to monitor the process
 			if(verbose > 0) {
+				// Start the processMonitor to monitor the process
 				processMonitor = new Timer();
 				// Start the ProcessStatusTask
 				statusTask = new ProcessStatusTask("GFF features read");
@@ -101,7 +68,6 @@ public class QuickSamClassify {
 			typeMask = new TreeMap<String, Integer>();
 			for(String gffFile : gffFiles) {
 				gffIn = new BufferedReader(new FileReader(gffFile));
-				String line = null;
 				while((line = gffIn.readLine()) != null) {
 					if(line.startsWith("#")) // comment line
 						continue;
@@ -117,11 +83,12 @@ public class QuickSamClassify {
 							System.err.println("QuickSamClassify doesn't support more than " + (Integer.SIZE - 1) + " types");
 							gffIn.close();
 							out.close();
+							chrIn.close();
 							return;
 						}
 						bitMask = initBit;
 						typeMask.put(type, bitMask);
-						initBit <<= 1; // use a higher bit for the next new type
+						initBit <<= 1; // use a higher bit for the next bit
 					}
 					else
 						bitMask = typeMask.get(type);
@@ -133,41 +100,48 @@ public class QuickSamClassify {
 				gffIn.close();
 			}
 			// reset statusTask
-			if(verbose > 0) {
-				statusTask.finish();
-				statusTask.reset();
-			}
+			statusTask.finish();
+			statusTask.reset();
 			
-			// Scan SAM/BAM file and output
-			if(verbose > 0) {
-				System.err.println("Scanning SAM/BAM file ...");
-				statusTask.setInfo("alignments scanned");
-			}
-			out.write("name\tchrom\tstrand\tstart\tend\ttype" + newLine);
-			while(results.hasNext()) {
-				SAMRecord record = results.next();
-				if(verbose > 0)
-					statusTask.updateStatus(); // Update status
-				int readLen = record.getReadLength();
-				if(record.getReadUnmappedFlag() || record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
-					continue;
-				int typeBit = 0;
-				String id = record.getReadName();
-				String chr = record.getReferenceName();
-				String strand = record.getReadNegativeStrandFlag() ? "-" : "+";
-				int start = record.getAlignmentStart();
-				int end = record.getAlignmentEnd();
-				int[] idx = chrIdx.get(chr);
-				// check each alignment block
-				for(AlignmentBlock block : record.getAlignmentBlocks()) {
-					int blockStart = block.getReferenceStart();
-					int blockLen = block.getLength();
-					// pad this region
-					for(int j = blockStart; j < blockStart + blockLen; j++)
-						typeBit |= idx[j];
+			// Scan VCF file and output
+			if(verbose > 0)
+				System.err.println("Scanning VCF file ...");
+			statusTask.setInfo("variants scanned");
+			boolean infoWritten = false;
+			String prevLine = "";
+			while((line = vcfIn.readLine()) != null) {
+				if(line.startsWith("##")) // comment line
+					out.write(line + "\n");
+				else if(prevLine.startsWith("##INFO") && !line.startsWith("##INFO") || // INFO field end
+						!infoWritten && line.startsWith("#CHROM")) { /// no INFO field found, header line found
+					out.write("##" + classInfo + "\n");
+					out.write(line + "\n");
+					infoWritten = true;
 				}
-				// output
-				out.write(id + "\t" + chr + "\t" + strand + "\t" + start + "\t" + end + "\t" + unmask(typeBit) + newLine);
+				else {
+					String[] fields = line.split("\t");
+					// contruct a SNP from this record
+					String chr = fields[0];
+					int loc = Integer.parseInt(fields[1]);
+					SNP snp = new SNP(chr, loc, fields[3], fields[4]);
+					if(doSimplify)
+						snp.simplify();
+					// get annotation bit
+					int typeBit = 0;
+					int[] idx = chrIdx.get(chr);
+					for(int i = snp.getLoc(); i < snp.getLoc() + snp.chrLen(); i++)
+						typeBit |= idx[i];
+					// Update old info and output
+					if(!fields[7].equals(".")) // a non-empty INFO field
+						fields[7] += ";" + classID + "=" + unmask(typeBit);
+					else
+						fields[7] = classID + "=" + unmask(typeBit);
+					// output
+					out.write(StringUtils.join("\t", fields) + "\n");
+					if(verbose > 0)
+						statusTask.updateStatus(); // Update status
+				}
+				prevLine = line;
 			} // end each record
 			out.close();
 			// Terminate the monitor task and monitor
@@ -185,14 +159,14 @@ public class QuickSamClassify {
 		}
 		finally {
 			try {
-				if(samIn != null)
-					samIn.close();
+				if(vcfIn != null)
+					vcfIn.close();
+				if(chrIn != null)
+					chrIn.close();
 				if(gffIn != null)
 					gffIn.close();
 				if(out != null)
 					out.close();
-				if(bedIn != null)
-					bedIn.close();
 			}
 			catch(IOException e) {
 				e.printStackTrace();
@@ -201,33 +175,37 @@ public class QuickSamClassify {
 	}
 
 	private static void printUsage() {
-		System.err.println("java -jar " + progFile + " utils quickClassify " +
-				"<-i SAM|BAM-INFILE> <-gff GFF-FILE,[GFF-FILE2,...]> <-o OUT-FILE> [options]" + newLine +
-				"Options:    -R genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with index pre-built" + newLine +
-				"            -v show verbose information"
+		System.err.println("java -jar " + progFile + " utils classifyVCF " +
+				"<-i SAM|BAM-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE,[GFF-FILE2,...]> <-o OUT-FILE> [options]" + newLine +
+				"Options:    -v  show verbose information" + newLine +
+				"            --no-simplify  do not try to simpify insertion/deletion/multi-substitution type of variations"
 				);
 	}
 	
 	private static void parseOptions(String[] args) throws IllegalArgumentException {
 		for(int i = 0; i < args.length; i++) {
 			if(args[i].equals("-i"))
-				samInFile = args[++i];
+				vcfInFile = args[++i];
 			else if(args[i].equals("-o"))
 				outFile = args[++i];
+			else if(args[i].equals("-g"))
+				chrLenFile = args[++i];
 			else if(args[i].equals("-gff"))
 				gffFiles = args[++i].split(",");
-			else if(args[i].equals("-R"))
-				bedFile = args[++i];
 			else if(args[i].equals("-v"))
 				verbose++;
+			else if(args[i].equals("--no-simplify"))
+				doSimplify = false;
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'.");
 		}
 		// Check required options
-		if(samInFile == null)
+		if(vcfInFile == null)
 			throw new IllegalArgumentException("-i must be specified");
 		if(outFile == null)
 			throw new IllegalArgumentException("-o must be specified");
+		if(chrLenFile == null)
+			throw new IllegalArgumentException("-g must be specified");
 		if(gffFiles == null)
 			throw new IllegalArgumentException("-gff must be specified");
 	}
@@ -254,12 +232,12 @@ public class QuickSamClassify {
 		return unmask(bit, "intergenic");
 	}
 
-	private static String samInFile;
+	private static String chrLenFile;
+	private static String vcfInFile;
 	private static String outFile;
 	private static String[] gffFiles;
-	private static String bedFile;
-	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 	private static int verbose;
+	private static boolean doSimplify = true;
 
 	private static Map<String, int[]> chrIdx;
 	private static Map<String, Integer> typeMask;
@@ -267,4 +245,6 @@ public class QuickSamClassify {
 	private static final int statusFreq = 30000;
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
+	private static final String classID = "TP";
+	private static final String classInfo = "INFO=<ID=TP,Number=.,Type=String,Description=\"Element Type\">";
 }
