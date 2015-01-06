@@ -216,11 +216,11 @@ public class SamToCover {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils samToCover " +
 				"<-i SAM|BAM-INFILE> <-o OUTFILE> [options]" + newLine +
-				"Options:    -s strand to look at, 1 for plus, 2 for minus and 3 for both, default: 3" + newLine +
-				"            --norm-rpm normalize the coverage with RPM values of total mapped read number" + newLine +
-				"            --count-soft including soft-masked regions as covered region, excluded by default" + newLine +
-				"            -R genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with index pre-built" + newLine +
-				"            -v show verbose information"
+				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [3]" + newLine +
+				"            --norm-rpm FLAG  normalize the coverage to RPM by total mapped read number" + newLine +
+				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with index pre-built" + newLine +
+				"            -v FLAG  show verbose information"
 				);
 	}
 	
