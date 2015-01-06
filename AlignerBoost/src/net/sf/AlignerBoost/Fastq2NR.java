@@ -201,12 +201,12 @@ public class Fastq2NR {
 		System.err.println(
 				"Usage:    java -jar " + progFile + " run NR <-in FASTQ-INFILE> <-out FAS-OUTFILE>" +
 						" [--mate-in <MATE-INFILE> <--mate-out MATE-FAS-OUTFILE> [-readLen <int>] [--ascii-offset <int>]" + newLine +
-						"Options:    -in FASTQ file for (forward) reads (support .gz compressed file)" + newLine +
-						"            --mate-in FASTQ file for reverse reads, optional" + newLine +
-						"            -out FASTQ OUTPUT file for (forward) reads (support .gz compressed file)" + newLine + 
-						"            --mate-out FASTQ OUTPUT file for reverse reads, optional" + newLine +
-						"            -readLen int value of read length, optional" + newLine +
-						"            --ascii-offset int value of the ascii-offset of this read, default 33"
+						"Options:    -in REQUIRED FILE  FASTQ file for (forward) reads (support .gz compressed file)" + newLine +
+						"            --mate-in FILE  FASTQ file for reverse reads" + newLine +
+						"            -out REQUIRED FILE  FASTQ OUTPUT file for (forward) reads (support .gz compressed file)" + newLine + 
+						"            --mate-out FILE  FASTQ OUTPUT file for reverse reads" + newLine +
+						"            -readLen INT  read length" + newLine +
+						"            --ascii-offset INT  ascii-offset of phred scores [33]"
 				);
 	}
 
