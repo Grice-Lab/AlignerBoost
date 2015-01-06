@@ -364,35 +364,35 @@ public class FilterSAMAlignPE {
 	}
 	
 	private static void printUsage() { 
-		System.err.println("Usage:   java -jar " + progFile + " run filterPE " +
+		System.err.println("Usage:   java -jar " + progFile + " run filterSE " +
 				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" + newLine +
-				"Options:    --min-insert  minimum insert length (excluding adapters) of a read to allow amabiguous alignment, default 15" + newLine +
-				"            --seed-len  seed length for Burrows-Wheeler algorithm dependent aligners, default 25" + newLine +
-				"            --seed-mis  %mismatches allowed in seed region, default 4" + newLine +
-				"            --all-mis  %mismatches allowed in the entire insert region (excluding masked regions and Ns), default 6" + newLine +
-				"            --all-indel  %in-dels allowed in the entire insert region, default 2" + newLine +
-				"            -i/--identity  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels), default 0" + newLine +
-				"            --1DP enable  1-dimentional dymamic programming (1DP) re-aligning, useful for non-local aligners, i.e. bowtie" + newLine +
-				"            --match-score  match score for 1DP, default 1" + newLine +
-				"            --mis-score  mismatch score for 1DP, default -2" + newLine +
-				"            --gap-open-penalty  gap open penalty for 1DP, default 4" + newLine +
-				"            --gap-ext-penalty  gap extension penalty, default 1" + newLine +
-				"            --clip-penalty  additional soft or hard clipped base penalty, used for calculating mapQ, default 0" + newLine +
-				"            --known-SNP-penalty  known SNP penalty for calculating mapQ, default 0" + newLine +
-				"            --known-INDEL-penalty  known IN-DEL penalty for calculating mapQ, default 1" + newLine +
-				"            --out-SAM  write SAM text output instead of BAM binary output" + newLine +
-				"            --silent  ignore certain SAM format errors such as empty reads" + newLine +
-				"            --no-mix  suppress unpaired alignments for paired reads, by default unpaired alignments are treated separately" + newLine +
-				"            --min-mapQ  min mapQ calculated with Bayesian method, default 0 (no limit)" + newLine +
-				"            --max-best  max allowed best-stratum pairs to report for a given read, default 0 (no limit)" + newLine +
-				"            --max-report  max report pairs for all valid best stratum pairs determined by --min-mapQ and --max-best, default 0 (no limit)" + newLine +
-				"            --no-update-bit  do not update the secondary alignment bit (0x100) after filtering" + newLine +
-				"            --best-only  only report unique best hit, will set --max-best 1 --max-report 1" + newLine +
-				"            --best  report the best hit, ignore any secondary hit, will set --max-best 0 --max-report 1" + newLine +				
-				"            --sort-method  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\", default none" + newLine +
-				"            --chrom-list  pre-filtering chromosome name file contains one chromosome name per-line" + newLine +
-				"            --known-SNP  optional known SNP file in vcf/gvcf format (v4.0+), used for calculating mapQ" + newLine +
-				"            -v  show verbose information"
+				"Options:    --min-insert INT  minimum insert length (excluding adapters) of a read for unamabiguous alignment [15]" + newLine +
+				"            --seed-len INT  seed length for Burrows-Wheeler algorithm dependent aligners [25]" + newLine +
+				"            --seed-mis DOUBLE  %mismatches allowed in seed region (by --seed-len) [4]" + newLine +
+				"            --all-mis  DOUBLE  %mismatches allowed in the entire insert region (excluding clipped/intron regions) [6]" + newLine +
+				"            --all-indel DOUBLE  %in-dels allowed in the entire insert region [2]" + newLine +
+				"            -i/--identity DOUBLE  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels) [0]" + newLine +
+				"            --1DP FLAG  enable 1-dimentional dymamic programming insert re-assesment, useful for non-local aligners, i.e. bowtie" + newLine +
+				"            --match-score INT  match score for 1DP and calculating mapQ [1]" + newLine +
+				"            --mis-score INT  mismatch score for 1DP and calculating mapQ [-2]" + newLine +
+				"            --gap-open-penalty INT  gap open penalty for 1DP and calculating mapQ [4]" + newLine +
+				"            --gap-ext-penalty INT  gap extension penalty for 1DP and calculating mapQ [1]" + newLine +
+				"            --clip-penalty INT  additional penalty for soft or hard clipped bases for calculating mapQ [0]" + newLine +
+				"            --known-SNP-penalty INT  known SNP penalty for calculating mapQ [1]" + newLine +
+				"            --known-INDEL-penalty INT  known IN-DEL penalty for calculating mapQ [2]" + newLine +
+				"            --known-MULTISUBSTITUTION-penalty INT  known large/multi-substitution penalty for calculating mapQ [3]" + newLine +
+				"            --out-SAM FLAG  write SAM text output instead of BAM binary output" + newLine +
+				"            --silent FLAG  ignore certain SAM format errors such as empty reads" + newLine +
+				"            --min-mapQ INT  min mapQ calculated with Bayesian method [0]" + newLine +
+				"            --max-best INT  max allowed best-stratum hits to report for a given read, 0 for no limit [0]" + newLine +
+				"            --max-report INT  max report hits for all valid best stratum hits determined by --min-mapQ and --max-best, 0 for no limit [0]" + newLine +
+				"            --no-update-bit FLAG  do not update the secondary alignment bit flag (0x100) after filtering" + newLine +
+				"            --best-only FLAG  only report unique best hit, equivelant to --max-best 1 --max-report 1" + newLine +
+				"            --best FLAG  report the best hit, ignore any secondary hit, equivelant to --max-best 0 --max-report 1" + newLine +
+				"            --sort-method STRING  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\" [none]" + newLine +
+				"            --chrom-list FILE  pre-filtering file containing one chromosome name per-line" + newLine +
+				"            --known-SNP FILE  known SNP file in vcf/gvcf format (v4.0+), will be used for calculating mapQ" + newLine +
+				"            -v FLAG  show verbose information"
 				);
 	}
 
