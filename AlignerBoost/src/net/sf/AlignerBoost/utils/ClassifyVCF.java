@@ -245,6 +245,6 @@ public class ClassifyVCF {
 	private static final int statusFreq = 30000;
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
-	private static final String classID = "TP";
-	private static final String classInfo = "INFO=<ID=TP,Number=.,Type=String,Description=\"Element Type\">";
+	private static final String classID = "GTYPE";
+	private static final String classInfo = "INFO=<ID=GTYPE,Number=.,Type=String,Description=\"Genetic Type\">";
 }
