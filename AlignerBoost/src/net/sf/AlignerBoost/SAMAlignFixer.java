@@ -149,15 +149,15 @@ public class SAMAlignFixer {
 		record.setAttribute("ZG", nAllIndel);
 
 		// set log-likelihood tag
-		if(knownSnp == null)
-			record.setAttribute("XH",
-					Double.toString(calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar))));
-		else { // knownSnps are provided, calculate based on updated status
+		double log10lik = calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar)); // w/o knownSnp
+		if(knownSnp != null) { // use the larger loglik, either w/ or w/o knownSnp
 			String qSeq = record.getReadString();
 			char[] updatedStatus = updateKnownSnv(status, record.getReferenceName(), record.getAlignmentStart(), alnLen, qSeq, knownSnp); // update known SNP/SNV, including in-dels)
-			record.setAttribute("XH",
-					Double.toString(calcAlignLik(updatedStatus, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar))));
+			double newLog10lik = calcAlignLik(updatedStatus, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar));
+			if(newLog10lik > log10lik)
+				log10lik = newLog10lik; // update
 		}
+		record.setAttribute("XH", Double.toString(log10lik));
 		return true;
 	}
 	
