@@ -35,7 +35,7 @@ public class ClassifyBED {
 		BufferedReader chrIn = null;
 		try {
 			// open all required files
-			bedIn = new BufferedReader(new FileReader(vcfInFile));
+			bedIn = new BufferedReader(new FileReader(bedInFile));
 			chrIn = new BufferedReader(new FileReader(chrLenFile));
 			out = new BufferedWriter(new FileWriter(outFile));
 
@@ -92,7 +92,7 @@ public class ClassifyBED {
 					else
 						bitMask = typeMask.get(type);
 					// mask this genome region
-					maskRegion(chrIdx.get(chr), chr, start, end, bitMask);
+					maskRegion(chrIdx.get(chr), start, end, bitMask);
 					if(verbose > 0)
 						statusTask.updateStatus();
 				}
@@ -110,11 +110,11 @@ public class ClassifyBED {
 			while((line = bedIn.readLine()) != null) {
 				if(isFirstLine) { // potential track line
 					if(line.startsWith("track")) { // track line exists
-						out.write(line + trackType);
+						out.write(line + trackType + "\n");
 						continue;
 					}
 					else
-						out.write("track" + trackType);
+						out.write("track" + trackType + "\n");
 					isFirstLine = false;
 				}
 						
@@ -122,13 +122,20 @@ public class ClassifyBED {
 				String chr = fields[0];
 				int start = Integer.parseInt(fields[1]) + 1; // start is 0-based
 				int end = Integer.parseInt(fields[2]);
+
 				// get annotation bit
 				int typeBit = 0;
 				int[] idx = chrIdx.get(chr);
+				if(fix) {
+					if(start < 1)
+						start = 1;
+					if(end > idx.length)
+						end = idx.length;
+				}
 				for(int i = start; i <= end; i++)
 					typeBit |= idx[i];
 				// get annotation and output
-				out.write(line + "\t" + typeBit + "\tType=" + unmask(typeBit));
+				out.write(line + "\t" + typeBit + "\tType=" + unmask(typeBit) + "\n");
 				if(verbose > 0)
 					statusTask.updateStatus(); // Update status
 			} // end each record
@@ -165,38 +172,41 @@ public class ClassifyBED {
 
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyBED " +
-				"<-i BED-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE,[GFF-FILE2,...]> <-o BED-DETAIL-OUTFILE> [options]" + newLine +
-				"Options:    -v FLAG  show verbose information"
+				"<-i BED-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o BED-DETAIL-OUTFILE> [options]" + newLine +
+				"Options:    -v FLAG  show verbose information" + newLine +
+				"            -fix try to fix BED coordinates instead of aborting execution"
 				);
 	}
 	
 	private static void parseOptions(String[] args) throws IllegalArgumentException {
 		for(int i = 0; i < args.length; i++) {
 			if(args[i].equals("-i"))
-				vcfInFile = args[++i];
+				bedInFile = args[++i];
 			else if(args[i].equals("-o"))
 				outFile = args[++i];
 			else if(args[i].equals("-g"))
 				chrLenFile = args[++i];
 			else if(args[i].equals("-gff"))
-				gffFiles = args[++i].split(",");
+				gffFiles.add(args[++i]);
 			else if(args[i].equals("-v"))
 				verbose++;
+			else if(args[i].equals("-fix"))
+				fix = true;
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'.");
 		}
 		// Check required options
-		if(vcfInFile == null)
+		if(bedInFile == null)
 			throw new IllegalArgumentException("-i must be specified");
 		if(outFile == null)
 			throw new IllegalArgumentException("-o must be specified");
 		if(chrLenFile == null)
 			throw new IllegalArgumentException("-g must be specified");
-		if(gffFiles == null)
+		if(gffFiles.isEmpty())
 			throw new IllegalArgumentException("-gff must be specified");
 	}
 
-	private static void maskRegion(int[] idx, String chr, int start, int end, int bitMask) {
+	private static void maskRegion(int[] idx, int start, int end, int bitMask) {
 		if(idx == null) // the region is outside of the alignment
 			return;
 		for(int i = start; i <= end; i++)
@@ -219,10 +229,11 @@ public class ClassifyBED {
 	}
 
 	private static String chrLenFile;
-	private static String vcfInFile;
+	private static String bedInFile;
 	private static String outFile;
-	private static String[] gffFiles;
+	private static List<String> gffFiles = new ArrayList<String>();
 	private static int verbose;
+	private static boolean fix;
 
 	private static Map<String, int[]> chrIdx;
 	private static Map<String, Integer> typeMask;

@@ -93,7 +93,7 @@ public class ClassifyVCF {
 					else
 						bitMask = typeMask.get(type);
 					// mask this genome region
-					maskRegion(chrIdx.get(chr), chr, start, end, bitMask);
+					maskRegion(chrIdx.get(chr), start, end, bitMask);
 					if(verbose > 0)
 						statusTask.updateStatus();
 				}
@@ -176,7 +176,7 @@ public class ClassifyVCF {
 
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyVCF " +
-				"<-i VCF-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE,[GFF-FILE2,...]> <-o OUT-FILE> [options]" + newLine +
+				"<-i VCF-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
 				"Options:    -v FLAG  show verbose information" + newLine +
 				"            --no-simplify FLAG  do not try to simpify insertion/deletion/multi-substitution type of variations for accurate positioning"
 				);
@@ -191,7 +191,7 @@ public class ClassifyVCF {
 			else if(args[i].equals("-g"))
 				chrLenFile = args[++i];
 			else if(args[i].equals("-gff"))
-				gffFiles = args[++i].split(",");
+				gffFiles.add(args[++i]);
 			else if(args[i].equals("-v"))
 				verbose++;
 			else if(args[i].equals("--no-simplify"))
@@ -206,11 +206,11 @@ public class ClassifyVCF {
 			throw new IllegalArgumentException("-o must be specified");
 		if(chrLenFile == null)
 			throw new IllegalArgumentException("-g must be specified");
-		if(gffFiles == null)
+		if(gffFiles.isEmpty())
 			throw new IllegalArgumentException("-gff must be specified");
 	}
 
-	private static void maskRegion(int[] idx, String chr, int start, int end, int bitMask) {
+	private static void maskRegion(int[] idx, int start, int end, int bitMask) {
 		if(idx == null) // the region is outside of the alignment
 			return;
 		for(int i = start; i <= end; i++)
@@ -235,7 +235,7 @@ public class ClassifyVCF {
 	private static String chrLenFile;
 	private static String vcfInFile;
 	private static String outFile;
-	private static String[] gffFiles;
+	private static List<String> gffFiles = new ArrayList<String>();
 	private static int verbose;
 	private static boolean doSimplify = true;
 

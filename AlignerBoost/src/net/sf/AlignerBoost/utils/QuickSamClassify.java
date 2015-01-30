@@ -126,7 +126,7 @@ public class QuickSamClassify {
 					else
 						bitMask = typeMask.get(type);
 					// mask this genome region
-					maskRegion(chrIdx.get(chr), chr, start, end, bitMask);
+					maskRegion(chrIdx.get(chr), start, end, bitMask);
 					if(verbose > 0)
 						statusTask.updateStatus();
 				}
@@ -202,7 +202,7 @@ public class QuickSamClassify {
 
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils quickClassify " +
-				"<-i SAM|BAM-INFILE> <-gff GFF-FILE,[GFF-FILE2,...]> <-o OUT-FILE> [options]" + newLine +
+				"<-i SAM|BAM-INFILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
 				"Options:    -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -v FLAG  show verbose information"
 				);
@@ -215,7 +215,7 @@ public class QuickSamClassify {
 			else if(args[i].equals("-o"))
 				outFile = args[++i];
 			else if(args[i].equals("-gff"))
-				gffFiles = args[++i].split(",");
+				gffFiles.add(args[++i]);
 			else if(args[i].equals("-R"))
 				bedFile = args[++i];
 			else if(args[i].equals("-v"))
@@ -228,11 +228,11 @@ public class QuickSamClassify {
 			throw new IllegalArgumentException("-i must be specified");
 		if(outFile == null)
 			throw new IllegalArgumentException("-o must be specified");
-		if(gffFiles == null)
+		if(gffFiles.isEmpty())
 			throw new IllegalArgumentException("-gff must be specified");
 	}
 
-	private static void maskRegion(int[] idx, String chr, int start, int end, int bitMask) {
+	private static void maskRegion(int[] idx, int start, int end, int bitMask) {
 		if(idx == null) // the region is outside of the alignment
 			return;
 		for(int i = start; i <= end; i++)
@@ -256,7 +256,7 @@ public class QuickSamClassify {
 
 	private static String samInFile;
 	private static String outFile;
-	private static String[] gffFiles;
+	private static List<String> gffFiles = new ArrayList<String>();
 	private static String bedFile;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 	private static int verbose;
