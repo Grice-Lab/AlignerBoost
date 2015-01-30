@@ -176,7 +176,7 @@ public class ClassifyVCF {
 
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyVCF " +
-				"<-i SAM|BAM-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE,[GFF-FILE2,...]> <-o OUT-FILE> [options]" + newLine +
+				"<-i VCF-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE,[GFF-FILE2,...]> <-o OUT-FILE> [options]" + newLine +
 				"Options:    -v FLAG  show verbose information" + newLine +
 				"            --no-simplify FLAG  do not try to simpify insertion/deletion/multi-substitution type of variations for accurate positioning"
 				);
