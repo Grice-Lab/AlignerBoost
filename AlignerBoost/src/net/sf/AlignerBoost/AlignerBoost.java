@@ -164,6 +164,9 @@ public class AlignerBoost {
 		case "classifyVCF":
 			ClassifyVCF.main(opts);
 			break;
+		case "classifyBED":
+			ClassifyBED.main(opts);
+			break;
 		default:
 			System.err.println("Unknown utils command '" + cmd + "'");
 			printUsage();
@@ -235,6 +238,7 @@ public class AlignerBoost {
 //				"                  utils    bed2Wig       convert UCSC bed files to UCSC Wiggle files" + newLine +
 				"                  utils    quickClassify quick classify SAM/BAM file alignments given genomic annotations" + newLine +
 				"                  utils    classifyVCF   quick classify VCF variation file given genomic annotations" + newLine +
+				"                  utils    classifyBED   quick classify BED file to BED detail file given genomic annotations" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
 				"                  run      NR            collapse NGS FASTQ reads/pairs to NR-tags/NR-pairs" + newLine +
 				"                  run      filterSE      boost single-end alignment accuracy using a Bayesian-based mapQ estimation method" + newLine +
