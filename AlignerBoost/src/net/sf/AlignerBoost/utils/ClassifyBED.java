@@ -106,19 +106,26 @@ public class ClassifyBED {
 			if(verbose > 0)
 				System.err.println("Scanning BED file ...");
 			statusTask.setInfo(" regions read");
-			boolean isFirstLine = true;
+			boolean hasTrackLine = false;
+			boolean isHeader = true;
+			long id = 0;
 			while((line = bedIn.readLine()) != null) {
-				if(isFirstLine) { // potential track line
-					if(line.startsWith("track")) { // track line exists
-						out.write(line + trackType + "\n");
-						continue;
-					}
-					else
-						out.write("track" + trackType + "\n");
-					isFirstLine = false;
-				}
-						
 				String[] fields = line.split("\t");
+				if(fields.length < MIN_N_FIELDS) { // non-record lines
+					if(line.startsWith("track")) { // track line exists
+						line = line.replaceFirst("name=(?:\\\"[^\"=]+\\\"|\\S+)", "name=\"" + trackName + "\"");
+						line = line.replaceFirst("description=(?:\\\"[^\"=]+\\\"|\\S+)", "description=\"" + trackDesc + "\"");
+						line = line.replaceFirst("type=\\w+", "type=" + trackType);
+						hasTrackLine = true;
+					}
+					out.write(line + "\n");
+					continue;
+				}
+				if(isHeader && !hasTrackLine) { // no track-line found
+					out.write("track name=\"" + trackName + "\" type=" + trackType + " description=\"" + trackDesc + "\"" + "\n");
+					isHeader = false;
+				}
+				
 				String chr = fields[0];
 				int start = Integer.parseInt(fields[1]) + 1; // start is 0-based
 				int end = Integer.parseInt(fields[2]);
@@ -135,7 +142,7 @@ public class ClassifyBED {
 				for(int i = start; i <= end; i++)
 					typeBit |= idx[i];
 				// get annotation and output
-				out.write(line + "\t" + typeBit + "\tType=" + unmask(typeBit) + "\n");
+				out.write(line + "\t" + (++id) + "\tType=" + unmask(typeBit) + "\n");
 				if(verbose > 0)
 					statusTask.updateStatus(); // Update status
 			} // end each record
@@ -173,7 +180,9 @@ public class ClassifyBED {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyBED " +
 				"<-i BED-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o BED-DETAIL-OUTFILE> [options]" + newLine +
-				"Options:    -v FLAG  show verbose information" + newLine +
+				"Options:    -name STRING name attribute of the track-line, will override the original value [outfile name]" + newLine +
+				"            -desc STRING description attribute of the track-line, will override the original value [-name]" + newLine +
+				"            -v FLAG  show verbose information" + newLine +
 				"            -fix try to fix BED coordinates instead of aborting execution"
 				);
 	}
@@ -188,6 +197,10 @@ public class ClassifyBED {
 				chrLenFile = args[++i];
 			else if(args[i].equals("-gff"))
 				gffFiles.add(args[++i]);
+			else if(args[i].equals("-name"))
+				trackName = args[++i];	
+			else if(args[i].equals("-desc"))
+				trackDesc = args[++i];			
 			else if(args[i].equals("-v"))
 				verbose++;
 			else if(args[i].equals("-fix"))
@@ -204,6 +217,11 @@ public class ClassifyBED {
 			throw new IllegalArgumentException("-g must be specified");
 		if(gffFiles.isEmpty())
 			throw new IllegalArgumentException("-gff must be specified");
+		// set default values
+		if(trackName == null)
+			trackName = outFile.replaceFirst("\\.bed$", "");
+		if(trackDesc == null)
+			trackDesc = trackName;
 	}
 
 	private static void maskRegion(int[] idx, int start, int end, int bitMask) {
@@ -228,6 +246,7 @@ public class ClassifyBED {
 		return unmask(bit, "intergenic");
 	}
 
+	private static final int MIN_N_FIELDS = 3; // MIN # of fields for a record line
 	private static String chrLenFile;
 	private static String bedInFile;
 	private static String outFile;
@@ -241,5 +260,7 @@ public class ClassifyBED {
 	private static final int statusFreq = 30000;
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
-	private static final String trackType = " type=bedDetail"; // required track line info
+	private static final String trackType = "bedDetail"; // required track line info
+	private static String trackName;
+	private static String trackDesc;
 }
