@@ -142,7 +142,7 @@ public class ClassifyBED {
 				if(!detail)
 					out.write(line + "\t" + (++id) + "\tType=" + unmask(idx, start, end) + "\n");
 				else
-					out.write(line + "\t" + (++id) + "\tType=" + unmaskDetail(idx, start, end) + "\n");
+					out.write(line + "\t" + (++id) + "\tOverlap=" + unmaskDetail(idx, start, end) + "\n");
 				if(verbose > 0)
 					statusTask.updateStatus(); // Update status
 			} // end each record
