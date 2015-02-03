@@ -5,6 +5,7 @@ package net.sf.AlignerBoost.utils;
 import java.io.*;
 import java.util.*;
 
+import net.sf.AlignerBoost.utils.StringUtils;
 import static net.sf.AlignerBoost.EnvConstants.*;
 
 /** Format SAM/BAM file to simple tsv cover file
@@ -131,7 +132,6 @@ public class ClassifyBED {
 				int end = Integer.parseInt(fields[2]);
 
 				// get annotation bit
-				int typeBit = 0;
 				int[] idx = chrIdx.get(chr);
 				if(fix) {
 					if(start < 1)
@@ -139,10 +139,10 @@ public class ClassifyBED {
 					if(end > idx.length)
 						end = idx.length;
 				}
-				for(int i = start; i <= end; i++)
-					typeBit |= idx[i];
-				// get annotation and output
-				out.write(line + "\t" + (++id) + "\tType=" + unmask(typeBit) + "\n");
+				if(!detail)
+					out.write(line + "\t" + (++id) + "\tType=" + unmask(idx, start, end) + "\n");
+				else
+					out.write(line + "\t" + (++id) + "\tType=" + unmaskDetail(idx, start, end) + "\n");
 				if(verbose > 0)
 					statusTask.updateStatus(); // Update status
 			} // end each record
@@ -182,6 +182,7 @@ public class ClassifyBED {
 				"<-i BED-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o BED-DETAIL-OUTFILE> [options]" + newLine +
 				"Options:    -name STRING name attribute of the track-line, will override the original value [outfile name]" + newLine +
 				"            -desc STRING description attribute of the track-line, will override the original value [-name]" + newLine +
+				"            -detail FLAG write detail type overlapping information [not-enable]" + newLine +
 				"            -v FLAG  show verbose information" + newLine +
 				"            -fix try to fix BED coordinates instead of aborting execution"
 				);
@@ -201,6 +202,8 @@ public class ClassifyBED {
 				trackName = args[++i];	
 			else if(args[i].equals("-desc"))
 				trackDesc = args[++i];			
+			else if(args[i].equals("-detail"))
+				detail = true;	
 			else if(args[i].equals("-v"))
 				verbose++;
 			else if(args[i].equals("-fix"))
@@ -231,7 +234,11 @@ public class ClassifyBED {
 			idx[i] |= bitMask;
 	}
 
-	private static String unmask(int bit, String unkName) {
+	private static String unmask(int[] idx, int start, int end, String unkName) {
+		assert start >= 0 && start < idx.length && end >= start && end < idx.length;
+		int bit = 0;
+		for(int i = start; i <= end; i++)
+			bit |= idx[i];
 		if(bit == 0)
 			return unkName;
 	    StringBuilder seqType = new StringBuilder();
@@ -242,15 +249,36 @@ public class ClassifyBED {
 	    return seqType.toString();
 	}
 	
-	private static String unmask(int bit) {
-		return unmask(bit, "intergenic");
+	private static String unmask(int[] idx, int start, int end) {
+		return unmask(idx, start, end, "intergenic");
 	}
 
+	private static String unmaskDetail(int[] idx, int start, int end, String unkName) {
+		assert start >= 0 && start < idx.length && end >= start && end < idx.length;
+		Map<String, Integer> overlapDetail = new TreeMap<String, Integer>();
+		for(String type : typeMask.keySet()) {
+			// Initiate
+			int mask = typeMask.get(type);
+			for(int i = start; i <= end; i++)
+				if((idx[i] & mask) != 0) {
+					if(!overlapDetail.containsKey(type))
+						overlapDetail.put(type, 0);
+					overlapDetail.put(type, overlapDetail.get(type) + 1);
+				}
+		}
+	    return overlapDetail.isEmpty() ? unkName + ":" + (end - start + 1) : StringUtils.join(overlapDetail);
+	}
+
+	private static String unmaskDetail(int[] idx, int start, int end) {
+	    return unmaskDetail(idx, start, end, "intergenic");
+	}
+	
 	private static final int MIN_N_FIELDS = 3; // MIN # of fields for a record line
 	private static String chrLenFile;
 	private static String bedInFile;
 	private static String outFile;
 	private static List<String> gffFiles = new ArrayList<String>();
+	private static boolean detail;
 	private static int verbose;
 	private static boolean fix;
 
