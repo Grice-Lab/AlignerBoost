@@ -201,7 +201,7 @@ public class ClassifySam {
 	}
 
 	private static void printUsage() {
-		System.err.println("java -jar " + progFile + " utils quickClassify " +
+		System.err.println("java -jar " + progFile + " utils ClassifySAM " +
 				"<-i SAM|BAM-INFILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
 				"Options:    -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -v FLAG  show verbose information"
