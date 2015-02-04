@@ -80,7 +80,7 @@ public class ClassifyBED {
 					int bitMask = 0;
 					if(!typeMask.containsKey(type)) { // a new type encountered
 						if(typeMask.size() >= Integer.SIZE) { // no more free bits available
-							System.err.println("QuickSamClassify doesn't support more than " + (Integer.SIZE - 1) + " types");
+							System.err.println("ClassifySam doesn't support more than " + (Integer.SIZE - 1) + " types");
 							gffIn.close();
 							out.close();
 							chrIn.close();
