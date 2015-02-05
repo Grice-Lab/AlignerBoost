@@ -64,6 +64,9 @@ public class SamToRelCover {
 					continue;
 				int regionStart = Integer.parseInt(fields[1]) + 1; // BED start is 0-based
 				int regionEnd = Integer.parseInt(fields[2]);
+				int regionLen = regionEnd - regionStart + 1;
+				if(regionLen <= 0)
+					continue;
 				int chrLen = samDict.getSequence(chrI).getSequenceLength();
 				String name = fields[3];
 				String regionStrand = fields[5];
