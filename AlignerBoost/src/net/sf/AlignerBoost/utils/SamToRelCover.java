@@ -1,0 +1,239 @@
+/**
+ * a util class to format SAM/BAM files to costomized tab-delimited cover file
+ */
+package net.sf.AlignerBoost.utils;
+import java.io.*;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import htsjdk.samtools.*;
+import static net.sf.AlignerBoost.EnvConstants.*;
+
+/** Format SAM/BAM file to simple tsv cover file
+ * @author Qi Zheng
+ * @version 1.2
+ * @since 1.2
+ */
+public class SamToRelCover {
+	public static void main(String[] args) {
+		if(args.length == 0) {
+			printUsage();
+			return;
+		}
+		// Parse options
+		try {
+			parseOptions(args);
+		}
+		catch(IllegalArgumentException e) {
+			System.err.println("Error: " + e.getMessage());
+			printUsage();
+			return;
+		}
+
+		SamReaderFactory factory = SamReaderFactory.makeDefault();
+		SamReader samIn = null;
+		BufferedWriter out = null;
+		BufferedReader bed6In = null;
+		try {
+			samIn = factory.open(new File(samInFile));
+			out = new BufferedWriter(new FileWriter(outFile));
+			SAMSequenceDictionary samDict = samIn.getFileHeader().getSequenceDictionary();
+
+			// check each region and output
+			bed6In = new BufferedReader(new FileReader(bed6File));
+			if(verbose > 0) {
+				// Start the processMonitor to monitor the process
+				processMonitor = new Timer();
+				// Start the ProcessStatusTask
+				statusTask = new ProcessStatusTask("regions scanned");
+				// Schedule to show the status every 1 second
+				processMonitor.scheduleAtFixedRate(statusTask, 0, 10000);
+				System.err.println("Scanning BED6 regions and output ...");
+			}
+			
+			out.write("chrom\tstart\tend\tname\tcover\tstrand\tfrom\tto\tcover_strand\n");
+			String line = null;
+			while((line = bed6In.readLine()) != null) {
+				String[] fields = line.split("\t");
+				if(fields.length < 6) // ignore header lines
+					continue;
+				String chr = fields[0];
+				int chrI = samIn.getFileHeader().getSequenceIndex(chr);
+				if(chrI == -1) // this Region is not in the aligned chromosomes
+					continue;
+				int regionStart = Integer.parseInt(fields[1]) + 1; // BED start is 0-based
+				int regionEnd = Integer.parseInt(fields[2]);
+				int chrLen = samDict.getSequence(chrI).getSequenceLength();
+				String name = fields[3];
+				String regionStrand = fields[5];
+
+				// Initialize scan-index
+				int scanStart = regionStart - maxFlank >= 1 ? regionStart - maxFlank : 1;
+				int scanEnd = regionEnd + maxFlank <= chrLen ? regionEnd + maxFlank : chrLen;
+				int scanLen = scanEnd - scanStart + 1;
+				int scanIdx[] = new int[scanLen];
+				// Query SAM file on the fly
+				SAMRecordIterator results = samIn.query(chr, regionStart, regionEnd, false);
+				while(results.hasNext()) {
+					SAMRecord record = results.next();
+					if(verbose > 0)
+						statusTask.updateStatus(); // Update status
+					int readLen = record.getReadLength();
+					if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
+						continue;
+					// check relative strand
+					String strand = record.getReadNegativeStrandFlag() ? "-" : "+";
+					int relStrand = regionStrand.equals(".") ? 3 /* unkown */ : strand.equals(regionStrand) ? 1 /* sense */ : 2 /* antisense */;
+					if((relStrand & myStrand) == 0) // unmatched strands
+						continue;
+					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
+					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+					
+					int start = record.getUnclippedStart();
+					Cigar cigar = record.getCigar();
+					int pos = start - scanStart; // relative pos to scanStart
+					for(CigarElement cigEle : cigar.getCigarElements()) {
+						int cigLen = cigEle.getLength();
+						CigarOperator cigOp = cigEle.getOperator();
+						switch(cigOp) {
+						case M: case EQ: case X: case D:
+							for(int i = 0; i < cigLen; i++) {
+								if(pos >= 0 && pos < scanLen)
+									scanIdx[pos] += clone;
+								pos++;
+							}
+							break;
+						case S: // soft clip included by default
+							if(countSoft) {
+								for(int i = 0; i < cigLen; i++) {
+									if(pos >= 0 && pos < scanLen)
+										scanIdx[pos] += clone;
+									pos++;
+								}
+							}
+							else
+								pos += cigLen; // ignore soft-clip
+							break;
+						case N: case H: // ignored bases
+							pos += cigLen;
+							break;
+							//case I: case P: // not present in reference at all
+							//  break; // do nothing
+						default: // case I or case P
+							break;
+						}
+					} // end each cigEle
+				} // end each record
+				results.close();
+				// output
+				if(regionStrand.equals("+") || regionStrand.equals(".")) { // unknown strand treat as plus
+					for(int i = scanStart; i <= scanEnd && i <= chrLen; i += step) {
+						int start = i;
+						int end = start + step - 1;
+						if(end > scanEnd)
+							end = scanEnd;
+						int from = start - regionStart;
+						int to = end - regionStart;
+						double val = Stats.mean(scanIdx, from, to);
+						out.write(chr + "\t" + start + "\t" + end + "\t" + name + "\t" +
+								(float) val + "\t" + regionStrand + "\t" + from + "\t" + to + "\t" + myStrand + "\n");
+					}
+				}
+				else { // minus strand region
+					for(int i = scanEnd; i >= scanStart && i >= 1; i -= step) {
+						int end = i;
+						int start = end - step + 1;
+						if(start < scanStart)
+							start = scanStart;
+						int from = regionEnd - end;
+						int to = regionEnd - start;
+						double val = Stats.mean(scanIdx, from, to);
+						out.write(chr + "\t" + start + "\t" + end + "\t" + name + "\t" +
+								(float) val + "\t" + regionStrand + "\t" + from + "\t" + to + "\t" + myStrand + "\n");
+					}
+				} // end output
+			} // end each region
+			// Terminate the monitor task and monitor
+			statusTask.cancel();
+			statusTask.finish();
+			processMonitor.cancel();
+		}
+		catch(IOException e) {
+			System.err.println(e.getMessage());
+		}
+		catch(IllegalArgumentException e) {
+			System.err.println(e.getMessage());
+		}
+		finally {
+			try {
+				if(samIn != null)
+					samIn.close();
+				if(out != null)
+					out.close();
+				if(bed6In != null)
+					bed6In.close();
+			}
+			catch(IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private static void printUsage() {
+		System.err.println("java -jar " + progFile + " utils samToAbsCover " +
+				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
+				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [both]" + newLine +
+				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
+				"            -flank INT max upsteam/downsteam positions to look at [0]" + newLine +
+				"            -v FLAG  show verbose information"
+				);
+	}
+	
+	private static void parseOptions(String[] args) throws IllegalArgumentException {
+		for(int i = 0; i < args.length; i++) {
+			if(args[i].equals("-i"))
+				samInFile = args[++i];
+			else if(args[i].equals("-o"))
+				outFile = args[++i];
+			else if(args[i].equals("-s"))
+				myStrand = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-R"))
+				bed6File = args[++i];
+			else if(args[i].equals("--count-soft"))
+				countSoft = true;
+			else if(args[i].equals("-step"))
+				step = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-flank"))
+				maxFlank = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-v"))
+				verbose++;
+			else
+				throw new IllegalArgumentException("Unknown option '" + args[i] + "'.");
+		}
+		// Check required options
+		if(samInFile == null)
+			throw new IllegalArgumentException("-i must be specified");
+		if(outFile == null)
+			throw new IllegalArgumentException("-o must be specified");
+		if(bed6File == null)
+			throw new IllegalArgumentException("-R must be specified");
+		// Reformat myStrand
+		if(!(myStrand >= 1 && myStrand <= 3))
+			throw new IllegalArgumentException("Unknown -s option, must be 1, 2 or 3");
+	}
+
+	private static String samInFile;
+	private static String outFile;
+	private static String bed6File;
+	private static int myStrand = 3;
+	private static boolean countSoft; // whether to count soft-clipped bases
+	private static int step = 1;
+	private static int maxFlank;
+	private static int verbose;
+
+	private static Timer processMonitor;
+	private static ProcessStatusTask statusTask;
+	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+}
