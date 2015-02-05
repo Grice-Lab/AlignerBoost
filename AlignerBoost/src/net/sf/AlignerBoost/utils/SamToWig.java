@@ -53,7 +53,7 @@ public class SamToWig {
 					if(fields.length < 3) // ignore header lines
 						continue;
 					String chr = fields[0];
-					int chrI = samIn.getFileHeader().getSequenceIndex(fields[0]);
+					int chrI = samIn.getFileHeader().getSequenceIndex(chr);
 					int start = Integer.parseInt(fields[1]);
 					int end = Integer.parseInt(fields[2]);
 					if(chrI != -1) { // this Region is in the aligned chromosomes
@@ -87,19 +87,20 @@ public class SamToWig {
 			}
 
 			// Start the processMonitor to monitor the process
-			processMonitor = new Timer();
-			// Start the ProcessStatusTask
-			statusTask = new ProcessStatusTask("alignment(s) processed");
+			if(verbose > 0) {
+				processMonitor = new Timer();
+				// Start the ProcessStatusTask
+				statusTask = new ProcessStatusTask("alignment(s) processed");
 
-			// Schedual to show the status every 1 second
-			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
-
-			// Scan SAM/BAM file
-			if(verbose > 0)
+				// Schedual to show the status every 1 second
+				processMonitor.scheduleAtFixedRate(statusTask, 0, 10000);
 				System.err.println("Scan SAM/BAM file ...");
+			}
+			
 			while(results.hasNext()) {
 				SAMRecord record = results.next();
-				statusTask.updateStatus(); // Update status
+				if(verbose > 0)
+					statusTask.updateStatus(); // Update status
 				int readLen = record.getReadLength();
 				if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 					continue;
@@ -156,41 +157,37 @@ public class SamToWig {
 			System.err.println("Output ...");
 			if(includeTrack) // output track line
 				out.write(trackHeader + "\n");
+			
 			for(Map.Entry<String, int[]> entry : chrIdx.entrySet()) {
 				String chr = entry.getKey();
 				int[] idx = entry.getValue();
+				QueryInterval[] intervals = null; // output intervals
 				if(bedFile == null) { // bedFile not specified
-					// Find all non-zero positions
-					for(int i = 1; i < idx.length; i++) {  // Position 0 is dummy
-						if(idx[i] != 0) {  // Set position
-							if(idx[i-1] == 0)  // Dummy position 0 is helpful to find the first occurence
-								out.write("fixedStep chrom=" + chr + " start=" + i + " step=1\n");
-							int val = idx[i];
-							if(normRPM) // do RPM normalization, if specified
-								out.write((float) val / totalNum * 1e6f + "\n");
-							else
-								out.write(val + "\n");
-						}
-					}
+					intervals = new QueryInterval[1]; // create a single-interval array
+					intervals[0] = new QueryInterval(samIn.getFileHeader().getSequenceIndex(chr), 1, idx.length - 1);
 				}
-				else { // bedFile provided, only output restricted regions
+				else {
 					if(!chrSeen.containsKey(chr))
 						continue; // ignore this chr if not in bedFile regions
-					QueryInterval[] intervals = new QueryInterval[chrSeen.get(chr).size()];
+					intervals = new QueryInterval[chrSeen.get(chr).size()];
 					intervals = chrSeen.get(chr).toArray(intervals); // dump List to array of QueryIntervals
 					intervals = QueryInterval.optimizeIntervals(intervals); // optimize intervals
-					// output coverage for each interval separately
-					for(QueryInterval interval : intervals) {
-						for(int i = interval.start; i <= interval.end && i < idx.length; i++) {
-							if(idx[i] != 0) { // position is covered
-								if(idx[i-1] == 0)  // Dummy position 0 is helpful to find the first occurence
-									out.write("fixedStep chrom=" + chr + " start=" + i + " step=1\n");
-								int val = idx[i];
-								if(normRPM) // do RPM normalization, if specified
-									out.write((float) val / totalNum * 1e6f + "\n");
-								else
-									out.write(val + "\n");
-							}
+				}
+				// output coverage for each interval separately
+				for(QueryInterval interval : intervals) {
+					int prevStart = 0; // prev start
+					for(int i = interval.start; i <= interval.end && i < idx.length; i += step) {
+						int start = i;
+						int end = start + step <= idx.length ? start + step : idx.length;
+
+						double val = Stats.mean(idx, start, end);
+						if(normRPM)
+							val /= totalNum * 1e6;
+						if(keep0 || val > 0) {
+							if(prevStart == 0 || start - prevStart != step) // write not consecutive loc			
+								out.write("fixedStep chrom=" + chr + " start=" + start + " step=" + step + "\n");
+							out.write((float) val + "\n");
+							prevStart = start;
 						}
 					}
 				}
@@ -223,10 +220,12 @@ public class SamToWig {
 				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [3]" + newLine +
 				"            --norm-rpm FLAG  normalize the coverage to RPM by total mapped read number" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
-				"            --no-track FLAG  do not include the 'track-line' as the first line of the Wiggle file as the UCSC required" + newLine + 
+				"            --no-track FLAG  do not include the 'track-line' as the first line of the Wiggle file as the UCSC required [false]" + newLine + 
 				"            -name STRING  the track name used to display in UCSC Genome Browser [OUTFILE]" + newLine +
 				"            -desc STRING  the description of the track used to display in UCSC Genome Browser [track name]" + newLine +
 				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" +
+				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
+				"            -k/--keep-uncover FLAG keep 0-covered regions in wigFile [false]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -251,6 +250,10 @@ public class SamToWig {
 				trackDesc = args[++i];
 			else if(args[i].equals("-count-soft"))
 				countSoft = true;
+			else if(args[i].equals("-step"))
+				step = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-k") || args[i].equals("--keep-uncover"))
+				keep0 = true;
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -266,7 +269,7 @@ public class SamToWig {
 			throw new IllegalArgumentException("Unknown -s option, must be 1, 2 or 3");
 		// Set track name and desc
 		if(trackName == null)
-			trackName = outFile;
+			trackName = outFile.replaceFirst("\\.wig$", "");
 		if(trackDesc == null)
 			trackDesc = trackName;
 		// Finalize track header
@@ -278,6 +281,8 @@ public class SamToWig {
 	private static String bedFile;
 	private static int myStrand = 3;
 	private static boolean normRPM;
+	private static int step = 1; // fixedWig step
+	private static boolean keep0;
 //	private static boolean isLog;
 	private static boolean includeTrack = true; // include track line by default
 	private static String trackName;
