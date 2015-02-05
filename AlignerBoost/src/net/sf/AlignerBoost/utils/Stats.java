@@ -83,7 +83,42 @@ public class Stats {
 		return x / array.length;
 	}
 
+	//	public static final int MAX_QUAL = 255; // max mapQ
+	/**
+	 * Get the mean value of a byte array
+	 * @param array  byte array
+	 * @param start  0-based start
+	 * @param end  1-based end
+	 * @return  mean value in double
+	 */
+	public static double mean(int[] array, int start, int end) {
+		if(array == null || array.length == 0)
+			return Double.NaN;
+		assert end > start;
+		double x = 0;
+		for(int i = start; i < end; i++)
+			x += array[i];
+		return x / (end - start);
+	}
+
+	//	public static final int MAX_QUAL = 255; // max mapQ
+	/**
+	 * Get the mean value of a byte array
+	 * @param array  byte array
+	 * @param start  0-based start
+	 * @param end  1-based end
+	 * @return  mean value in double
+	 */
+	public static double mean(float[] array, int start, int end) {
+		if(array == null || array.length == 0)
+			return Double.NaN;
+		assert end > start;
+		double x = 0;
+		for(int i = start; i < end; i++)
+			x += array[i];
+		return x / (end - start);
+	}
+
 	public static final double PHRED_SCALE = 10; // scaling factor for phred scores
 	public static final int ASCII_OFFSET = 33;
-//	public static final int MAX_QUAL = 255; // max mapQ
 }
