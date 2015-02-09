@@ -133,6 +133,11 @@ public class ClassifyBED {
 
 				// get annotation bit
 				int[] idx = chrIdx.get(chr);
+				if(idx == null) {
+					if(verbose > 0)
+						System.err.println("Ignoring out-of dictionary region: " + line);
+					continue;
+				}
 				if(fix) {
 					if(start < 1)
 						start = 1;
