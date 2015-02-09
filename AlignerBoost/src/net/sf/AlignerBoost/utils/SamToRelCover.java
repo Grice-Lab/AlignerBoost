@@ -52,12 +52,14 @@ public class SamToRelCover {
 				System.err.println("Scanning BED6 regions and output ...");
 			}
 			
-			out.write("chrom\tstart\tend\tname\tcover\tstrand\tfrom\tto\tcover_strand\n");
+			out.write("chrom\tstart\tend\tname\tcover\tstrand\tregion_length\tfrom\tto\tcover_strand\n");
 			String line = null;
 			while((line = bed6In.readLine()) != null) {
 				String[] fields = line.split("\t");
 				if(fields.length < 6) // ignore header lines
 					continue;
+				if(verbose > 0)
+					statusTask.updateStatus(); // Update status
 				String chr = fields[0];
 				int chrI = samIn.getFileHeader().getSequenceIndex(chr);
 				if(chrI == -1) // this Region is not in the aligned chromosomes
@@ -77,17 +79,15 @@ public class SamToRelCover {
 				int scanLen = scanEnd - scanStart + 1;
 				int scanIdx[] = new int[scanLen];
 				// Query SAM file on the fly
-				SAMRecordIterator results = samIn.query(chr, regionStart, regionEnd, false);
+				SAMRecordIterator results = samIn.query(chr, scanStart, scanEnd, false);
 				while(results.hasNext()) {
 					SAMRecord record = results.next();
-					if(verbose > 0)
-						statusTask.updateStatus(); // Update status
 					int readLen = record.getReadLength();
 					if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 						continue;
 					// check relative strand
 					String strand = record.getReadNegativeStrandFlag() ? "-" : "+";
-					int relStrand = regionStrand.equals(".") ? 3 /* unkown */ : strand.equals(regionStrand) ? 1 /* sense */ : 2 /* antisense */;
+					int relStrand = regionStrand.equals(".") ? 3 /* unknown */ : strand.equals(regionStrand) ? 1 /* sense */ : 2 /* antisense */;
 					if((relStrand & myStrand) == 0) // unmatched strands
 						continue;
 					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
@@ -131,29 +131,31 @@ public class SamToRelCover {
 				results.close();
 				// output
 				if(regionStrand.equals("+") || regionStrand.equals(".")) { // unknown strand treat as plus
-					for(int i = scanStart; i <= scanEnd && i <= chrLen; i += step) {
+					for(int i = scanStart; i < scanEnd && i <= chrLen; i += step) {
 						int start = i;
 						int end = start + step - 1;
 						if(end > scanEnd)
 							end = scanEnd;
 						int from = start - regionStart;
 						int to = end - regionStart;
-						double val = Stats.mean(scanIdx, from, to);
+						double val = Stats.mean(scanIdx, start - scanStart, end - scanStart + 1);
 						out.write(chr + "\t" + start + "\t" + end + "\t" + name + "\t" +
-								(float) val + "\t" + regionStrand + "\t" + from + "\t" + to + "\t" + myStrand + "\n");
+								(float) val + "\t" + regionStrand + "\t" + 
+								regionLen + "\t" + from + "\t" + to + "\t" + myStrand + "\n");
 					}
 				}
 				else { // minus strand region
-					for(int i = scanEnd; i >= scanStart && i >= 1; i -= step) {
+					for(int i = scanEnd; i > scanStart && i >= 1; i -= step) {
 						int end = i;
 						int start = end - step + 1;
 						if(start < scanStart)
 							start = scanStart;
 						int from = regionEnd - end;
 						int to = regionEnd - start;
-						double val = Stats.mean(scanIdx, from, to);
+						double val = Stats.mean(scanIdx, start - scanStart, end - scanStart + 1);
 						out.write(chr + "\t" + start + "\t" + end + "\t" + name + "\t" +
-								(float) val + "\t" + regionStrand + "\t" + from + "\t" + to + "\t" + myStrand + "\n");
+								(float) val + "\t" + regionStrand + "\t" + 
+								regionLen + "\t" + from + "\t" + to + "\t" + myStrand + "\n");
 					}
 				} // end output
 			} // end each region
