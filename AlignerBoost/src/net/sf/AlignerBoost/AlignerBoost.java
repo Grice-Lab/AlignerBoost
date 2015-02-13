@@ -140,8 +140,14 @@ public class AlignerBoost {
 /*		case "sam2Loc":
 			Sam2Loc.main(opts);
 			break;*/
-		case "sam2Cover":
-			SamToCover.main(opts);
+		case "sam2AbsCover":
+			SamToAbsCover.main(opts);
+			break;
+		case "sam2RelCover":
+			SamToRelCover.main(opts);
+			break;
+		case "sam2BinCover":
+			SamToBinCover.main(opts);
 			break;
 		case "sam2Wig":
 			SamToWig.main(opts);
@@ -158,8 +164,8 @@ public class AlignerBoost {
 		case "bed2Wig":
 			Bed2Wig.main(opts);
 			break;*/
-		case "quickClassify":
-			QuickSamClassify.main(opts);
+		case "classifySAM":
+			ClassifySAM.main(opts);
 			break;
 		case "classifyVCF":
 			ClassifyVCF.main(opts);
@@ -230,13 +236,15 @@ public class AlignerBoost {
 				"                  stats    NR            add/update NR tag stats" + newLine +
 				"                  stats    mapped        add/update final mapped unique reads that passed all the filters" + newLine +
 //				"                  utils    sam2Loc       convert SAM/BAM files to AlignBoost tab-delimited alignment files" + newLine +
-				"                  utils    sam2Cover     convert SAM/BAM files to AlignBoost tab-delimited read-coverage files" + newLine +
+				"                  utils    sam2AbsCover  convert SAM/BAM file to tab-delimited coverage file w/ absolute loc" + newLine +
+				"                  utils    sam2RelCover  convert SAM/BAM file to tab-delimited coverage file w/ relative pos" + newLine +
+				"                  utils    sam2BinCover  convert SAM/BAM file to tab-delimited coverage file w/ binned regions" + newLine +
 				"                  utils    sam2Wig       convert SAM/BAM files to UCSC Wiggle files" + newLine +
 				"                  utils    filterSamById filter SAM/BAM files with a given ID list" + newLine +
 //				"                  utils    bed2Loc       convert UCSC bed files to AlignBoost tab-delimited alignment files" + newLine +
 //				"                  utils    bed2Cover     convert UCSC bed files to AlignBoost tab-delimited read-coverage files" + newLine +
 //				"                  utils    bed2Wig       convert UCSC bed files to UCSC Wiggle files" + newLine +
-				"                  utils    quickClassify quick classify SAM/BAM file alignments given genomic annotations" + newLine +
+				"                  utils    classifySAM quick classify SAM/BAM file alignments given genomic annotations" + newLine +
 				"                  utils    classifyVCF   quick classify VCF variation file given genomic annotations" + newLine +
 				"                  utils    classifyBED   quick classify BED file to BED detail file given genomic annotations" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
