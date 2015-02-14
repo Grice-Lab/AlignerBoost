@@ -5,10 +5,12 @@ package net.sf.AlignerBoost;
 import java.util.Arrays;
 import java.util.regex.*;
 
-import net.sf.AlignerBoost.SNP.SNPType;
+import htsjdk.variant.variantcontext.*;
+import htsjdk.variant.vcf.*;
 import net.sf.AlignerBoost.utils.Stats;
 import static net.sf.AlignerBoost.utils.Stats.PHRED_SCALE;
 import htsjdk.samtools.*;
+import htsjdk.samtools.util.CloseableIterator;
 import static net.sf.AlignerBoost.EnvConstants.*;
 
 /** Parse SAM/BAM alignment file with Picard java packages in CLASSPATH
@@ -74,11 +76,11 @@ public class SAMAlignFixer {
 	/**
 	 * Fix a SAMRecord by adding the AlignerBoost-specific tags above, and optionally fix the alignment by 1DP 
 	 * @param record  SAMRecord alignment to be fixed
-	 * @param knownSnp  knownSnp to look at, ignored if null
+	 * @param knownVCF  knownSnp to look at, ignored if null
 	 * @param do1DP  whether do additional 1DP fixing?
 	 * @return  false if this SAMRecord does not need to be fixed because it is not-mapped or empty.
 	 */
-	public static boolean fixSAMRecord(SAMRecord record, SNPTable knownSnp, boolean do1DP) {
+	public static boolean fixSAMRecord(SAMRecord record, VCFFileReader knownVCF, boolean do1DP) {
 		int readLen = record.getReadLength();
 		if(record.getReadUnmappedFlag() || record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 			return false;
@@ -150,9 +152,9 @@ public class SAMAlignFixer {
 
 		// set log-likelihood tag
 		double log10lik = calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar)); // w/o knownSnp
-		if(knownSnp != null) { // use the larger loglik, either w/ or w/o knownSnp
+		if(knownVCF != null) { // use the larger loglik, either w/ or w/o knownSnp
 			String qSeq = record.getReadString();
-			char[] updatedStatus = updateKnownSnv(status, record.getReferenceName(), record.getAlignmentStart(), alnLen, qSeq, knownSnp); // update known SNP/SNV, including in-dels)
+			char[] updatedStatus = updateKnownSnv(status, record.getReferenceName(), record.getAlignmentStart(), alnLen, qSeq, knownVCF); // update known SNP/SNV, including in-dels)
 			double newLog10lik = calcAlignLik(updatedStatus, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar));
 			if(newLog10lik > log10lik)
 				log10lik = newLog10lik; // update
@@ -164,11 +166,11 @@ public class SAMAlignFixer {
 	/**
 	 * fix SAMRecord without doing 1DP
 	 * @param record  SAMRecord to be fixed
-	 * @param knownSnp  knownSnp to look at, ignored if null
+	 * @param knownVCF  knownSnp to look at, ignored if null
 	 * @return false if the record does not need to be fixed due to unmapped or empty
 	 */
-	public static boolean fixSAMRecord(SAMRecord record, SNPTable knownSnp) {
-		return fixSAMRecord(record, knownSnp, false);
+	public static boolean fixSAMRecord(SAMRecord record, VCFFileReader knownVCF) {
+		return fixSAMRecord(record, knownVCF, false);
 	}
 
 	/** test if a cigar length match the read length
@@ -581,18 +583,17 @@ public class SAMAlignFixer {
 	}*/
 
 	private static char[] updateKnownSnv(final char[] status, String chr, int alnStart,
-			int alnLen, String qSeq, SNPTable knownSnp) {
-		if(knownSnp == null)
-			return null;
+			int alnLen, String qSeq, VCFFileReader knownVCF) {
+		char[] updatedStatus = Arrays.copyOf(status, status.length); // make a copy
+		if(knownVCF == null)
+			return updatedStatus; // return unchanged status
 		assert status.length == alnLen;
 
-		char[] updatedStatus = Arrays.copyOf(status, status.length); // make a copy
-		int subStart = 0;
-		int subLen = 0;
-		int insStart = 0;
-		int insLen = 0;
-		int delStart = 0;
-		int delLen = 0;
+		int varStart = 0;
+		int varEnd = 0;
+		int varLen = 0;
+		String varAllele = null;
+		CloseableIterator<VariantContext> vars = null;
 		for(int i = 0, loc = alnStart, pos = 0; i < alnLen; i++) {
 			// loc is on reference
 			// pos is on read
@@ -607,50 +608,58 @@ public class SAMAlignFixer {
 				pos++;
 				break;
 			case 'X': // an SNV/SNP
-				// deal with SIMPLE SNP first
-				if(knownSnp.isOccupied(chr, loc)) { // this mapLoc is occupied
-					for(SNP snp : knownSnp.getAll(chr, loc))
-						if(snp.type == SNPType.SIMPLE && snp.altAllele.equals(qSeq.substring(pos, pos + 1))) // a matched known SNP
-							updatedStatus[i] = 'V'; // update status to known SNV
-				}
 				if(i == 0 || status[i-1] != 'X')
-					subStart = loc;
-				if(i == status.length - 1 || status[i+1] != 'X') { // a multi-substitution end
-					subLen = loc - subStart + 1;
-					if(subLen > 1 && knownSnp.isOccupied(chr, subStart)) {
-						for(SNP snp : knownSnp.getAll(chr, subStart))
-							if(snp.type == SNPType.MULTISUBSTITUTION && subLen == snp.size()
-							&& snp.altAllele.equals(qSeq.substring(pos - subLen + 1, pos + 1))) // a matched multi-substitution
-								Arrays.fill(updatedStatus, i - subLen + 1, i + 1, 'B'); // fill range with 'B' 
+					varStart = loc;
+				if(i == status.length - 1 || status[i+1] != 'X') {
+					varEnd = loc;
+					varLen = varEnd - varStart + 1;
+					varAllele = qSeq.substring(pos - varLen + 1, pos + 1);
+					// check each variant here
+					vars = knownVCF.query(chr, varStart, varEnd);
+					while(vars.hasNext()) {
+						VariantContext var = vars.next();
+						if( (varLen == 1 && var.isSNP() || varLen > 1 && var.isMNP()) // matched type
+								&& var.hasAlternateAllele(Allele.create(varAllele)))
+							Arrays.fill(updatedStatus, i - varLen + 1, i + 1, (varLen == 1 ? 'V' : 'B')); // a known SNV
 					}
+					vars.close();
 				}
 				loc++;
 				pos++;
 				break;
 			case 'I': // an insertion
 				if(i == 0 || status[i-1] != 'I') // an insert start
-					insStart = loc;
+					varStart = loc;
 				if(i == status.length - 1 || status[i+1] != 'I') { // an insert end
-					insLen = i - insStart + 1; // loc will not change
-					if(knownSnp.isOccupied(chr, insStart)) { // there is a known insertion
-						for(SNP snp : knownSnp.getAll(chr, insStart))
-							if(snp.type == SNPType.INSERTION && insLen == snp.size()
-							&& snp.altAllele.equals(qSeq.substring(pos - insLen + 1, pos + 1))) // a matched known insertion
-								Arrays.fill(updatedStatus, i - insLen + 1, i + 1, '-'); // update status to known SNV
+					varEnd = loc;
+					varLen = varEnd - varStart + 1;
+					varAllele = qSeq.substring(pos - varLen + 1, pos + 1);
+					// check each variant here
+					vars = knownVCF.query(chr, varStart, varEnd);
+					while(vars.hasNext()) {
+						VariantContext var = vars.next();
+						if(var.isIndel() && var.hasAlternateAllele(Allele.create(varAllele)))
+							Arrays.fill(updatedStatus, i - varLen + 1, i + 1, '-'); // a known insertion
 					}
+					vars.close();
 				}
 				pos++; // insertion takes pos on read
 				break;
 			case 'D': // a deletion
 				if(i == 0 || status[i-1] != 'D') // a deletion start
-					delStart = loc;
-				if(i == status.length - 1 || status[i+1] != 'D') { // an insert end
-					delLen = loc - delStart + 1;
-					if(knownSnp.isOccupied(chr, delStart)) { // there is a known deletion
-						for(SNP snp : knownSnp.getAll(chr, delStart))
-							if(snp.type == SNPType.DELETION && delLen == snp.size()) // a matched known deletion
-								Arrays.fill(updatedStatus, i - insLen + 1, i + 1, '-'); // update status to known SNV
+					varStart = loc;
+				if(i == status.length - 1 || status[i+1] != 'D') { // a deletion end
+					varEnd = loc;
+					varLen = varEnd - varStart + 1;
+					varAllele = qSeq.substring(pos - varLen + 1, pos + 1);
+					// check each variant here
+					vars = knownVCF.query(chr, varStart, varEnd);
+					while(vars.hasNext()) {
+						VariantContext var = vars.next();
+						if(var.isIndel() && var.getReference().length() == varLen) // a matched deltion length
+							Arrays.fill(updatedStatus, i - varLen + 1, i + 1, '-'); // a known deletion
 					}
+					vars.close();
 				}
 				loc++; // deletion takes loc on reference
 				break;

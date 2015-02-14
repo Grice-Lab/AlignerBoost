@@ -9,6 +9,7 @@ import net.sf.AlignerBoost.utils.Stats;
 import htsjdk.samtools.*;
 import htsjdk.samtools.SAMFileHeader.GroupOrder;
 import htsjdk.samtools.SAMFileHeader.SortOrder;
+import htsjdk.variant.vcf.VCFFileReader;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
  * @author Qi Zheng
@@ -59,41 +60,9 @@ public class FilterSAMAlignPE {
 		
 		// Read in known SNP file, if specified
 		if(knownSnpFile != null) {
-			if(verbose > 0) {
-				System.err.println("Reading in known SNPs from user specified file");
-				statusTask.setInfo("known SNPs read");
-			}
-			knownSnp = new SNPTable();
-			try {
-				BufferedReader knownSnpIn = new BufferedReader(new FileReader(knownSnpFile));
-				String line = null;
-				while((line = knownSnpIn.readLine()) != null) {
-					if(line.startsWith("#")) // comment line
-						continue;
-					String[] fields = line.split("\t");
-					String chr = fields[0];
-					int loc = Integer.parseInt(fields[1]);
-					String id = fields[2];
-					String refAllele = fields[3];
-					if(id.equals(".") || fields[4].equals(".")) // filtered SNP or monomorphic SNP 
-						continue;
-					for(String altAllele : fields[4].split(","))
-						knownSnp.add(chr, loc, refAllele, altAllele);
-					if(verbose > 0)
-						statusTask.updateStatus();
-				}
-				if(verbose > 0)
-					statusTask.finish();
-				knownSnpIn.close();
-			}
-			catch(IllegalArgumentException e) {
-				System.err.println("Error: " + e.getMessage() + " check your known SNP file to make sure it is in VCF format");
-				return;
-			}
-			catch(IOException e) {
-				System.err.println("Error: " + e.getMessage());
-				return;
-			}
+			if(verbose > 0)
+				System.err.println("Checking known SNPs from user specified file");
+			knownVCF = new VCFFileReader(new File(knownSnpFile));
 		}
 		
 		SamReaderFactory readerFac = SamReaderFactory.makeDefault();
@@ -142,7 +111,7 @@ public class FilterSAMAlignPE {
 				continue;
 			}
 			// fix alignment, ignore if failed (unmapped or empty)
-			if(!SAMAlignFixer.fixSAMRecord(record, knownSnp, DO_1DP)) {
+			if(!SAMAlignFixer.fixSAMRecord(record, knownVCF, DO_1DP)) {
 				prevID = ID;
 				prevRecord = record;
 				continue;
@@ -666,7 +635,7 @@ public class FilterSAMAlignPE {
 	private static boolean doUpdateBit = true;
 	private static int verbose; // verbose level
 	private static Set<String> chrFilter;
-	private static SNPTable knownSnp;
+	private static VCFFileReader knownVCF;
 	// general options
 	private static GroupOrder groupOrder = GroupOrder.none;
 	private static SortOrder sortOrder = SortOrder.unsorted;
