@@ -189,7 +189,7 @@ public class FilterSAMAlignSE {
 				"            --silent FLAG  ignore certain SAM format errors such as empty reads" + newLine +
 				"            --min-mapQ INT  min mapQ calculated with Bayesian method [0]" + newLine +
 				"            --max-best INT  max allowed best-stratum hits to report for a given read, 0 for no limit [0]" + newLine +
-				"            --max-report INT  max report hits for all valid best stratum hits determined by --min-mapQ and --max-best, 0 for no limit [0]" + newLine +
+				"            --max-report INT  max report valid hits determined by --min-mapQ and --max-best, 0 for no limit [0]" + newLine +
 				"            --no-update-bit FLAG  do not update the secondary alignment bit flag (0x100) after filtering" + newLine +
 				"            --best-only FLAG  only report unique best hit, equivelant to --max-best 1 --max-report 1" + newLine +
 				"            --best FLAG  report the best hit, ignore any secondary hit, equivelant to --max-best 0 --max-report 1" + newLine +
