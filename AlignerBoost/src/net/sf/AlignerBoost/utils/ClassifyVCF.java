@@ -5,8 +5,11 @@ package net.sf.AlignerBoost.utils;
 import java.io.*;
 import java.util.*;
 
-import net.sf.AlignerBoost.*;
 import static net.sf.AlignerBoost.EnvConstants.*;
+import htsjdk.variant.vcf.*;
+import htsjdk.variant.variantcontext.*;
+import htsjdk.variant.variantcontext.writer.*;
+
 
 /** Format SAM/BAM file to simple tsv cover file
  * @author Qi Zheng
@@ -30,15 +33,13 @@ public class ClassifyVCF {
 		}
 
 		chrIdx = new HashMap<String, int[]>();
-		BufferedReader vcfIn = null;
+		VCFFileReader vcfIn = new VCFFileReader(new File(vcfInFile), false);
 		BufferedReader gffIn = null;
-		BufferedWriter out = null;
+		VariantContextWriter out = (new VariantContextWriterBuilder()).unsetOption(Options.INDEX_ON_THE_FLY).setOutputFile(outFile).build();
 		BufferedReader chrIn = null;
 		try {
 			// open all required files
-			vcfIn = new BufferedReader(new FileReader(vcfInFile));
 			chrIn = new BufferedReader(new FileReader(chrLenFile));
-			out = new BufferedWriter(new FileWriter(outFile));
 
 			// Read chrLenFile and initialize chrom-index
 			if(verbose > 0)
@@ -107,41 +108,23 @@ public class ClassifyVCF {
 			if(verbose > 0)
 				System.err.println("Scanning VCF file ...");
 			statusTask.setInfo("variants scanned");
-			boolean infoWritten = false;
-			String prevLine = "";
-			while((line = vcfIn.readLine()) != null) {
-				if(line.startsWith("##")) // comment line
-					out.write(line + "\n");
-				else if(prevLine.startsWith("##INFO") && !line.startsWith("##INFO") || // INFO field end
-						!infoWritten && line.startsWith("#CHROM")) { /// no INFO field found, header line found
-					out.write("##" + classInfo + "\n");
-					out.write(line + "\n");
-					infoWritten = true;
-				}
-				else {
-					String[] fields = line.split("\t");
-					// contruct a SNP from this record
-					String chr = fields[0];
-					int loc = Integer.parseInt(fields[1]);
-					SNP snp = new SNP(chr, loc, fields[3], fields[4]);
-					if(doSimplify)
-						snp.simplify();
-					// get annotation bit
-					int typeBit = 0;
-					int[] idx = chrIdx.get(chr);
-					for(int i = snp.getLoc(); i < snp.getLoc() + snp.chrLen(); i++)
-						typeBit |= idx[i];
-					// Update old info and output
-					if(!fields[7].equals(".")) // a non-empty INFO field
-						fields[7] += ";" + classID + "=" + unmask(typeBit);
-					else
-						fields[7] = classID + "=" + unmask(typeBit);
-					// output
-					out.write(StringUtils.join("\t", fields) + "\n");
-					if(verbose > 0)
-						statusTask.updateStatus(); // Update status
-				}
-				prevLine = line;
+			VCFHeader outHeader = new VCFHeader(vcfIn.getFileHeader()); // use a deep copy of the vcfInFile header
+			// Add a new Info field
+			outHeader.addMetaDataLine(new VCFInfoHeaderLine("GTYPE", VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.String, "Genetic Type"));
+			out.writeHeader(outHeader);
+			// process each VariantContext record
+			for(VariantContext var : vcfIn) {
+				VariantContextBuilder varBuilder = new VariantContextBuilder(var);  // builder derived from old record
+				// get GTYPE
+				int typeBit = 0;
+				int[] idx = chrIdx.get(var.getChr());
+				for(int i = var.getStart(); i <= var.getEnd(); i++)
+					typeBit |= idx[i];
+				String gType = unmask(typeBit);
+				varBuilder.attribute("GTYPE", gType); // add the new attribute to the INFO field
+				out.add(varBuilder.make());
+				if(verbose > 0)
+					statusTask.updateStatus();
 			} // end each record
 			out.close();
 			// Terminate the monitor task and monitor
@@ -177,8 +160,7 @@ public class ClassifyVCF {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyVCF " +
 				"<-i VCF-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
-				"Options:    -v FLAG  show verbose information" + newLine +
-				"            --no-simplify FLAG  do not try to simpify insertion/deletion/multi-substitution type of variations for accurate positioning"
+				"Options:    -v FLAG  show verbose information"
 				);
 	}
 	
@@ -194,8 +176,6 @@ public class ClassifyVCF {
 				gffFiles.add(args[++i]);
 			else if(args[i].equals("-v"))
 				verbose++;
-			else if(args[i].equals("--no-simplify"))
-				doSimplify = false;
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'.");
 		}
@@ -237,7 +217,6 @@ public class ClassifyVCF {
 	private static String outFile;
 	private static List<String> gffFiles = new ArrayList<String>();
 	private static int verbose;
-	private static boolean doSimplify = true;
 
 	private static Map<String, int[]> chrIdx;
 	private static Map<String, Integer> typeMask;
@@ -245,6 +224,4 @@ public class ClassifyVCF {
 	private static final int statusFreq = 30000;
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
-	private static final String classID = "GTYPE";
-	private static final String classInfo = "INFO=<ID=GTYPE,Number=.,Type=String,Description=\"Genetic Type\">";
 }
