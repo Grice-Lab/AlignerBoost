@@ -92,7 +92,7 @@ public class SamToAbsCover {
 			statusTask = new ProcessStatusTask("alignment(s) processed");
 
 			// Schedule to show the status every 1 second
-			processMonitor.scheduleAtFixedRate(statusTask, 0, 1000);
+			processMonitor.scheduleAtFixedRate(statusTask, 0, 10000);
 			
 			// Scan SAM/BAM file
 			if(verbose > 0)

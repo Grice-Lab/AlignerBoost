@@ -21,6 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import htsjdk.samtools.*;
+import htsjdk.samtools.SAMFileHeader.GroupOrder;
 
 /**
  * @author Qi Zheng
@@ -81,19 +82,29 @@ public class UpdateMappedStats {
 					out.write(libInfo.get(conf.libName) + "\tNA" + newLine);
 					continue;
 				}
-				// check trimmed FASTQ file
+				// check alignments
 				int totalMapped = 0;
-				Set<String> readSeen = new HashSet<String>();
+				String prevID = "";
+				Set<String> readSeen = null;
 				SamReaderFactory readerFac = SamReaderFactory.makeDefault();
 				samIn = readerFac.open(new File(conf.getAlignFilteredFileName()));
+				GroupOrder inOrder = samIn.getFileHeader().getGroupOrder();
+				if(inOrder != GroupOrder.query) {
+					System.err.println("Warning: none-query ordered SAM/BAM file will take large RAM for finding mapped stats");
+					readSeen = new HashSet<String>();
+				}
 				for(SAMRecord record : samIn) {
 					String id = record.getReadName();
 					Matcher match = nrPat.matcher(id);
 					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
-					if(!readSeen.contains(id)) { // is a NR id
+					if(inOrder == GroupOrder.query && !id.equals(prevID)) // query-ordered, new ID found
+						totalMapped += clone;
+					else if(!readSeen.contains(id)) { // not query-ordered
 						totalMapped += clone;
 						readSeen.add(id);
 					}
+					else {} // do nothing
+					prevID = id;
 				}
 				samIn.close();
 				out.write(libInfo.get(conf.libName) + "\t" + totalMapped + newLine);
