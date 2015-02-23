@@ -92,7 +92,7 @@ public class SamToAbsCover {
 			statusTask = new ProcessStatusTask("alignment(s) processed");
 
 			// Schedule to show the status every 1 second
-			processMonitor.scheduleAtFixedRate(statusTask, 0, 10000);
+			processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
 			
 			// Scan SAM/BAM file
 			if(verbose > 0)
@@ -270,4 +270,5 @@ public class SamToAbsCover {
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
 	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+	private static final int statusFreq = 10000;
 }

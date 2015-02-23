@@ -642,5 +642,5 @@ public class FilterSAMAlignPE {
 	private static boolean OUT_IS_SAM; // outFile is SAM format?
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
-	private static final int statusFreq = 30000;
+	private static final int statusFreq = 10000;
 }

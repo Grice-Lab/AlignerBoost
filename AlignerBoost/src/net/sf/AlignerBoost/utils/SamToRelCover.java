@@ -48,7 +48,7 @@ public class SamToRelCover {
 				// Start the ProcessStatusTask
 				statusTask = new ProcessStatusTask("regions scanned");
 				// Schedule to show the status every 1 second
-				processMonitor.scheduleAtFixedRate(statusTask, 0, 10000);
+				processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
 				System.err.println("Scanning BED6 regions and output ...");
 			}
 			
@@ -241,4 +241,5 @@ public class SamToRelCover {
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
 	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+	private static final int statusFreq = 10000;
 }
