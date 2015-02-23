@@ -221,7 +221,7 @@ public class ClassifyVCF {
 	private static Map<String, int[]> chrIdx;
 	private static Map<String, Integer> typeMask;
 
-	private static final int statusFreq = 30000;
+	private static final int statusFreq = 10000;
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
 }
