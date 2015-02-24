@@ -188,7 +188,7 @@ public class SamToRelCover {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils samToRelCover " +
 				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
-				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [both]" + newLine +
+				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
 				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
 				"            -flank INT max upsteam/downsteam positions to look at [0]" + newLine +
