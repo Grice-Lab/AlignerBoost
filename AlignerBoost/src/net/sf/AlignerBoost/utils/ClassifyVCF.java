@@ -35,7 +35,12 @@ public class ClassifyVCF {
 		chrIdx = new HashMap<String, int[]>();
 		VCFFileReader vcfIn = new VCFFileReader(new File(vcfInFile), false);
 		BufferedReader gffIn = null;
-		VariantContextWriter out = (new VariantContextWriterBuilder()).unsetOption(Options.INDEX_ON_THE_FLY).setOutputFile(outFile).build();
+		VariantContextWriterBuilder outBuilder = (new VariantContextWriterBuilder()).setOutputFile(outFile);
+		if(buildIndex)
+			outBuilder.setOption(Options.INDEX_ON_THE_FLY);
+		else
+			outBuilder.unsetOption(Options.INDEX_ON_THE_FLY);
+		VariantContextWriter out = outBuilder.build();
 		BufferedReader chrIn = null;
 		try {
 			// open all required files
@@ -160,7 +165,8 @@ public class ClassifyVCF {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyVCF " +
 				"<-i VCF-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
-				"Options:    -v FLAG  show verbose information"
+				"Options:    -v          FLAG  show verbose information" + newLine +
+				"            --no-index  FLAG  do not build VCF index on-the-fly"
 				);
 	}
 	
@@ -176,6 +182,8 @@ public class ClassifyVCF {
 				gffFiles.add(args[++i]);
 			else if(args[i].equals("-v"))
 				verbose++;
+			else if(args[i].equals("--no-index"))
+				buildIndex = false;
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'.");
 		}
@@ -217,6 +225,7 @@ public class ClassifyVCF {
 	private static String outFile;
 	private static List<String> gffFiles = new ArrayList<String>();
 	private static int verbose;
+	private static boolean buildIndex = true;
 
 	private static Map<String, int[]> chrIdx;
 	private static Map<String, Integer> typeMask;
