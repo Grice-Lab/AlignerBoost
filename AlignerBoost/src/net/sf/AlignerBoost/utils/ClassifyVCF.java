@@ -6,6 +6,7 @@ import java.io.*;
 import java.util.*;
 
 import static net.sf.AlignerBoost.EnvConstants.*;
+import htsjdk.variant.utils.SAMSequenceDictionaryExtractor;
 import htsjdk.variant.vcf.*;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.variantcontext.writer.*;
@@ -37,7 +38,7 @@ public class ClassifyVCF {
 		BufferedReader gffIn = null;
 		VariantContextWriterBuilder outBuilder = (new VariantContextWriterBuilder()).setOutputFile(outFile);
 		if(buildIndex)
-			outBuilder.setOption(Options.INDEX_ON_THE_FLY);
+			outBuilder.setReferenceDictionary(SAMSequenceDictionaryExtractor.extractDictionary(dictFile)).setOption(Options.INDEX_ON_THE_FLY);
 		else
 			outBuilder.unsetOption(Options.INDEX_ON_THE_FLY);
 		VariantContextWriter out = outBuilder.build();
@@ -67,7 +68,7 @@ public class ClassifyVCF {
 
 				// Schedule to show the status every 1 second
 				processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
-			}
+			}	
 			
 			// Read and index GFF files
 			int initBit = 01;
@@ -112,7 +113,7 @@ public class ClassifyVCF {
 			// Scan VCF file and output
 			if(verbose > 0)
 				System.err.println("Scanning VCF file ...");
-			statusTask.setInfo("variants scanned");
+			statusTask.setInfo("variants scanned");	
 			VCFHeader outHeader = new VCFHeader(vcfIn.getFileHeader()); // use a deep copy of the vcfInFile header
 			// Add a new Info field
 			outHeader.addMetaDataLine(new VCFInfoHeaderLine("GTYPE", VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.String, "Genetic Type"));
@@ -166,7 +167,8 @@ public class ClassifyVCF {
 		System.err.println("java -jar " + progFile + " utils classifyVCF " +
 				"<-i VCF-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
 				"Options:    -v          FLAG  show verbose information" + newLine +
-				"            --no-index  FLAG  do not build VCF index on-the-fly"
+				"            --no-index  FLAG  do not build VCF index on-the-fly" + newLine +
+				"            -d          FILE  SAM reference dictionary file, required unless --no-index"
 				);
 	}
 	
@@ -184,6 +186,8 @@ public class ClassifyVCF {
 				verbose++;
 			else if(args[i].equals("--no-index"))
 				buildIndex = false;
+			else if(args[i].equals("-d"))
+				dictFile = new File(args[++i]);
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'.");
 		}
@@ -196,6 +200,8 @@ public class ClassifyVCF {
 			throw new IllegalArgumentException("-g must be specified");
 		if(gffFiles.isEmpty())
 			throw new IllegalArgumentException("-gff must be specified");
+		if(buildIndex && dictFile == null)
+			throw new IllegalArgumentException("-d must be specified unless use --no-index");
 	}
 
 	private static void maskRegion(int[] idx, int start, int end, int bitMask) {
@@ -226,6 +232,7 @@ public class ClassifyVCF {
 	private static List<String> gffFiles = new ArrayList<String>();
 	private static int verbose;
 	private static boolean buildIndex = true;
+	private static File dictFile;
 
 	private static Map<String, int[]> chrIdx;
 	private static Map<String, Integer> typeMask;
