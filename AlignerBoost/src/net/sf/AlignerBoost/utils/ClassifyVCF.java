@@ -34,7 +34,7 @@ public class ClassifyVCF {
 		}
 
 		chrIdx = new HashMap<String, int[]>();
-		VCFFileReader vcfIn = new VCFFileReader(new File(vcfInFile), false);
+		VCFFileReader vcfIn = new VCFFileReader(new File(vcfInFile), false); // do not require index
 		BufferedReader gffIn = null;
 		VariantContextWriterBuilder outBuilder = (new VariantContextWriterBuilder()).setOutputFile(outFile);
 		if(buildIndex)
