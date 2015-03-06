@@ -14,7 +14,7 @@ import htsjdk.variant.variantcontext.writer.*;
 
 /** Format SAM/BAM file to simple tsv cover file
  * @author Qi Zheng
- * @version 1.1
+ * @version 1.2
  * @since 1.1
  */
 public class ClassifyVCF {

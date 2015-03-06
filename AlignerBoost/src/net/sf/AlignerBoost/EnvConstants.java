@@ -12,7 +12,7 @@ package net.sf.AlignerBoost;
 public class EnvConstants {
 	// prog versions
 	public static final String progName = "AlignerBoost";
-	public static final String progVer = "v1.3.1";
+	public static final String progVer = "v1.3.2";
 	public static final String progDesc = "A tool for boosting the accuracy of NextGen-seq aligner";
 	public static final String progFile = "AlignerBoost.jar";
 	// environment variables
