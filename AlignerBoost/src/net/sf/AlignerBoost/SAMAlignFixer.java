@@ -23,6 +23,7 @@ import static net.sf.AlignerBoost.EnvConstants.*;
  * XF   i     actual insert from (start) relative to reference
  * XI   f     alignment identity as 1 - (YX + YG) / XL
  * XH   Z     alignment likelihood given this mapping loc and quality, in string format to preserve double precision
+ * XV   i     known SNVs found in this alignment
  * YL	i     seed length for calculating seed mismatches and indels
  * YX   i     # of seed mismatches
  * YG   i     # of seed indels
@@ -151,15 +152,19 @@ public class SAMAlignFixer {
 		record.setAttribute("ZG", nAllIndel);
 
 		// set log-likelihood tag
-		double log10lik = calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar)); // w/o knownSnp
+		int nKnownSNV = 0;
+		double log10lik = calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar)); // liklihood w/o knownSnp
 		if(knownVCF != null) { // use the larger loglik, either w/ or w/o knownSnp
 			String qSeq = record.getReadString();
-			char[] updatedStatus = updateKnownSnv(status, record.getReferenceName(), record.getAlignmentStart(), alnLen, qSeq, knownVCF); // update known SNP/SNV, including in-dels)
-			double newLog10lik = calcAlignLik(updatedStatus, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar));
+			int[] penaltyScore = new int[status.length];
+			Arrays.fill(penaltyScore, -1); // indicating default value
+			nKnownSNV = updateKnownSnv(status, penaltyScore, record.getReferenceName(), record.getAlignmentStart(), alnLen, qSeq, knownVCF); // update known SNP/SNV, including in-dels)
+			double newLog10lik = calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar));
 			if(newLog10lik > log10lik)
 				log10lik = newLog10lik; // update
 		}
 		record.setAttribute("XH", Double.toString(log10lik));
+		record.setAttribute("XV", nKnownSNV);
 		return true;
 	}
 	
@@ -545,7 +550,7 @@ public class SAMAlignFixer {
 	}
 
 	/** calculate Alignment score
-	 * @param status  status index
+	 * @param oldStatus  status index
 	 * @param chr 
 	 * @param qual  quality scores in Phred scale
 	 * @return  MAPQ style score in phred scale
@@ -582,13 +587,14 @@ public class SAMAlignFixer {
 		return alnScore;
 	}*/
 
-	private static char[] updateKnownSnv(final char[] status, String chr, int alnStart,
+	private static int updateKnownSnv(char[] status, int penaltyScore[], String chr, int alnStart,
 			int alnLen, String qSeq, VCFFileReader knownVCF) {
-		char[] updatedStatus = Arrays.copyOf(status, status.length); // make a copy
+		assert status.length == penaltyScore.length;
+		char[] oldStatus = Arrays.copyOf(status, status.length); // make a copy of old status
 		if(knownVCF == null)
-			return updatedStatus; // return unchanged status
-		assert status.length == alnLen;
-
+			return 0; // no SNV used
+		assert oldStatus.length == alnLen;
+		int nKnownSNV = 0;
 		int varStart = 0;
 		int varEnd = 0;
 		int varLen = 0;
@@ -597,7 +603,7 @@ public class SAMAlignFixer {
 		for(int i = 0, loc = alnStart, pos = 0; i < alnLen; i++) {
 			// loc is on reference
 			// pos is on read
-			switch(status[i]) {
+			switch(oldStatus[i]) {
 			case 'N':
 				loc++;
 				break;
@@ -608,9 +614,9 @@ public class SAMAlignFixer {
 				pos++;
 				break;
 			case 'X': // an SNV/SNP
-				if(i == 0 || status[i-1] != 'X')
+				if(i == 0 || oldStatus[i-1] != 'X')
 					varStart = loc;
-				if(i == status.length - 1 || status[i+1] != 'X') {
+				if(i == oldStatus.length - 1 || oldStatus[i+1] != 'X') {
 					varEnd = loc;
 					varLen = varEnd - varStart + 1;
 					varAllele = qSeq.substring(pos - varLen + 1, pos + 1);
@@ -618,9 +624,14 @@ public class SAMAlignFixer {
 					vars = knownVCF.query(chr, varStart, varEnd);
 					while(vars.hasNext()) {
 						VariantContext var = vars.next();
-						if( (varLen == 1 && var.isSNP() || varLen > 1 && var.isMNP()) // matched type
-								&& var.hasAlternateAllele(Allele.create(varAllele)))
-							Arrays.fill(updatedStatus, i - varLen + 1, i + 1, (varLen == 1 ? 'V' : 'B')); // a known SNV
+						if( !var.isFiltered() && (varLen == 1 && var.isSNP() || varLen > 1 && var.isMNP()) // matched SNV or MNP found
+								&& var.hasAlternateAllele(Allele.create(varAllele))) {
+							nKnownSNV++;
+							if(useKnownSnp) {
+								Arrays.fill(status, i - varLen + 1, i + 1, (varLen == 1 ? 'V' : 'B')); // a known SNP/MNP
+								Arrays.fill(penaltyScore, i - varLen + 1, i + 1, getPenaltyScoreFromInfo(var, varAllele, AFTag));
+							}
+						}
 					}
 					vars.close();
 				}
@@ -628,9 +639,9 @@ public class SAMAlignFixer {
 				pos++;
 				break;
 			case 'I': // an insertion
-				if(i == 0 || status[i-1] != 'I') // an insert start
+				if(i == 0 || oldStatus[i-1] != 'I') // an insert start
 					varStart = loc;
-				if(i == status.length - 1 || status[i+1] != 'I') { // an insert end
+				if(i == oldStatus.length - 1 || oldStatus[i+1] != 'I') { // an insert end
 					varEnd = loc;
 					varLen = varEnd - varStart + 1;
 					varAllele = qSeq.substring(pos - varLen + 1, pos + 1);
@@ -638,17 +649,22 @@ public class SAMAlignFixer {
 					vars = knownVCF.query(chr, varStart, varEnd);
 					while(vars.hasNext()) {
 						VariantContext var = vars.next();
-						if(var.isIndel() && var.hasAlternateAllele(Allele.create(varAllele)))
-							Arrays.fill(updatedStatus, i - varLen + 1, i + 1, '-'); // a known insertion
+						if(!var.isFiltered() && var.isIndel() && var.hasAlternateAllele(Allele.create(varAllele))) { // known insertion
+							nKnownSNV++;
+							if(useKnownSnp) {
+								Arrays.fill(status, i - varLen + 1, i + 1, '-');
+								Arrays.fill(penaltyScore, i - varLen + 1, i + 1, getPenaltyScoreFromInfo(var, varAllele, AFTag));
+							}
+						}
 					}
 					vars.close();
 				}
 				pos++; // insertion takes pos on read
 				break;
 			case 'D': // a deletion
-				if(i == 0 || status[i-1] != 'D') // a deletion start
+				if(i == 0 || oldStatus[i-1] != 'D') // a deletion start
 					varStart = loc;
-				if(i == status.length - 1 || status[i+1] != 'D') { // a deletion end
+				if(i == oldStatus.length - 1 || oldStatus[i+1] != 'D') { // a deletion end
 					varEnd = loc;
 					varLen = varEnd - varStart + 1;
 					varAllele = qSeq.substring(pos - varLen + 1, pos + 1);
@@ -656,8 +672,13 @@ public class SAMAlignFixer {
 					vars = knownVCF.query(chr, varStart, varEnd);
 					while(vars.hasNext()) {
 						VariantContext var = vars.next();
-						if(var.isIndel() && var.getReference().length() == varLen) // a matched deltion length
-							Arrays.fill(updatedStatus, i - varLen + 1, i + 1, '-'); // a known deletion
+						if(!var.isFiltered() && var.isIndel() && var.getReference().length() == varLen) { // a known deletion
+							nKnownSNV++;
+							if(useKnownSnp) {
+								Arrays.fill(status, i - varLen + 1, i + 1, '-');
+								Arrays.fill(penaltyScore, i - varLen + 1, i + 1, getPenaltyScoreFromInfo(var, varAllele, AFTag));
+							}
+						}
 					}
 					vars.close();
 				}
@@ -667,18 +688,20 @@ public class SAMAlignFixer {
 				break;
 			} // end switch
 		} // end for
-		return updatedStatus;
+		return nKnownSNV;
 	}
 
 	/** calculate Alignment log-likelihood given the alignment status and quality
 	 * @param status  status index
 	 * @param qual  quality scores in Phred scale
+	 * @param hClipLen  hard-clipped length
+	 * @param penaltyScore  customized penaltyScores for known SNPs
 	 * @return  log-likelihood of this alignment
 	 */
-	private static double calcAlignLik(char[] status, byte[] qual, int hClipLen) {
+	private static double calcAlignLik(char[] status, byte[] qual, int hClipLen, int[] penaltyScore) {
 		if(status == null)
 			return Double.NaN;
-		assert qual == null || status.length >= qual.length;
+		assert qual == null || status.length >= qual.length && (penaltyScore == null || status.length == penaltyScore.length);
 		// make local copy of qual, or dummy array if no qual available
 		byte[] baseQ;
 		if(qual != null) {
@@ -719,13 +742,16 @@ public class SAMAlignFixer {
 				log10Lik -= GAP_EXT_PENALTY;
 				break;
 			case 'V': // known SNP/SNV position, treat similar as match
-				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - KNOWN_SNP_PENALTY;
+				int snpPenalty = penaltyScore != null && penaltyScore[i] >= 0 ? penaltyScore[i] : KNOWN_SNP_PENALTY;  
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - snpPenalty;
 				break;
 			case '-': // known in-del position
-				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - KNOWN_INDEL_PENALTY;
+				int indelPenalty = penaltyScore != null && penaltyScore[i] >= 0 ? penaltyScore[i] : KNOWN_INDEL_PENALTY;
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - indelPenalty;
 				break;
 			case 'B': // known multi-substitution
-				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - KNOWN_MULTISUBSTITUTION_PENALTY;
+				int mnpPenalty = penaltyScore != null && penaltyScore[i] >= 0 ? penaltyScore[i] : KNOWN_MULTISUBSTITUTION_PENALTY;
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - mnpPenalty;
 			default:
 				break; // do nothing
 			}
@@ -735,6 +761,16 @@ public class SAMAlignFixer {
 		return log10Lik;
 	}
 
+	/** calculate Alignment log-likelihood given the alignment status and quality, using default penalties
+	 * @param status  status index
+	 * @param qual  quality scores in Phred scale
+	 * @param hClipLen  hard-clipped length
+	 * @return  log-likelihood of this alignment
+	 */
+	private static double calcAlignLik(char[] status, byte[] qual, int hClipLen) {
+		return calcAlignLik(status, qual, hClipLen, null);
+	}
+	
 /*	*//** calculate Alignment log-likelihood given only alignment status with no quality (from a FASTA alignment)
 	 * @param status  status index
 	 * @return  log-likelihood of this alignment
@@ -771,6 +807,26 @@ public class SAMAlignFixer {
 	}
 */
 	
+	private static int getPenaltyScoreFromInfo(VariantContext var, String varAllele, String tag) {
+		if(!var.hasAttribute(tag))
+			return -1; // use -1 indicator
+		String[] afVals = var.getAttributeAsString(tag, "").split(",");
+		assert var.getNAlleles() == afVals.length + 1; // afVals only contains altAlleles
+		// check each allele of this variations
+		int alleleIdx = var.getAlleleIndex(Allele.create(varAllele));
+		if(alleleIdx != -1) {
+			String val = afVals[alleleIdx - 1];
+			if(val.startsWith("["))
+				val = val.substring(1);
+			if(val.endsWith("]"))
+				val = val.substring(0, val.length() - 1);
+			double logLik = - Math.log10(Double.parseDouble(val));
+			if(!Double.isInfinite(logLik) && logLik >= 0)
+				return (int) Math.round(logLik);
+		}
+		return -1;
+	}
+
 	/**
 	 * @return the sEED_LEN
 	 */
@@ -914,6 +970,20 @@ public class SAMAlignFixer {
 	}
 
 	/**
+	 * @return the AFTag
+	 */
+	public static String getAFTag() {
+		return AFTag;
+	}
+
+	/**
+	 * @param AFTag the AFTag to set
+	 */
+	public static void setAFTag(String tag) {
+		AFTag = tag;
+	}
+
+	/**
 	 * a nested static class member holding POD of a insertRegion
 	 * @author Qi Zheng
 	 */
@@ -942,6 +1012,22 @@ public class SAMAlignFixer {
 	static int KNOWN_SNP_PENALTY = 0;
 	static int KNOWN_INDEL_PENALTY = 1;
 	static int KNOWN_MULTISUBSTITUTION_PENALTY = 2;
+	static String AFTag = "AF"; // alleleFrequency tag
+	static boolean useKnownSnp = true; // use knownSnp if provided
+
+	/**
+	 * @return the useKnownSnp
+	 */
+	public static boolean isUseKnownSnp() {
+		return useKnownSnp;
+	}
+
+	/**
+	 * @param useKnownSnp the useKnownSnp to set
+	 */
+	public static void setUseKnownSnp(boolean useKnownSnp) {
+		SAMAlignFixer.useKnownSnp = useKnownSnp;
+	}
 	private static final byte REF_QUAL = 40; // reference quality for deletions
 //	private static final byte AVG_READ_QUAL = 25;
 	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf

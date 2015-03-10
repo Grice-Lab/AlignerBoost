@@ -196,6 +196,8 @@ public class FilterSAMAlignSE {
 				"            --sort-method STRING  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\" [none]" + newLine +
 				"            --chrom-list FILE  pre-filtering file containing one chromosome name per-line" + newLine +
 				"            --known-SNP FILE  known SNP file in vcf/gvcf format (v4.0+), will be used for calculating mapQ" + newLine +
+				"            --AF-tag STRING  Allele Frequency Tag in VCF file to check/use for determining penaltyScores for known SNPs, use NULL to disable [AF]" + newLine +
+				"            --check-SNP-only FLAG  only check how many known SNPs in alignments and stored in VN:i tags even if --known-SNP provided, but do not calculate alternative mapQ [false]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -278,6 +280,10 @@ public class FilterSAMAlignSE {
 				chrFile = args[++i];
 			else if(args[i].equals("--known-SNP"))
 				knownSnpFile = args[++i];
+			else if(args[i].equals("--AF-tag"))
+				SAMAlignFixer.setAFTag(args[++i]);
+			else if(args[i].equals("--check-SNP-only"))
+				SAMAlignFixer.setUseKnownSnp(false);
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
