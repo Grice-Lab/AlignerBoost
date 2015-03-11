@@ -360,7 +360,7 @@ public class FilterSAMAlignPE {
 				"            --best FLAG  report the best hit, ignore any secondary hit, equivelant to --max-best 0 --max-report 1" + newLine +
 				"            --sort-method STRING  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\" [none]" + newLine +
 				"            --chrom-list FILE  pre-filtering file containing one chromosome name per-line" + newLine +
-				"            --known-SNP FILE  known SNP file in vcf/gvcf format (v4.0+), will be used for calculating mapQ" + newLine +
+				"            --known-SNP FILE  known SNP file in vcf/gvcf format (v4.0+, .gz supported), used for calculating mapQ" + newLine +
 				"            --AF-tag STRING  Allele Frequency Tag in VCF file to check/use for determining penaltyScores for known SNPs, use NULL to disable [AF]" + newLine +
 				"            --check-SNP-only FLAG  only check how many known SNPs in alignments and stored in VN:i tags even if --known-SNP provided, but do not calculate alternative mapQ [false]" + newLine +
 				"            -v FLAG  show verbose information"
