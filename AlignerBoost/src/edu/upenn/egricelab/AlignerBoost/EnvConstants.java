@@ -30,9 +30,9 @@ package edu.upenn.egricelab.AlignerBoost;
 public class EnvConstants {
 	// prog versions
 	public static final String progName = "AlignerBoost";
-	public static final String progVer = "v1.3.2";
+	public static final String progVer = "v1.3.3";
 	public static final String progDesc = "A tool for boosting the accuracy of NextGen-seq aligner";
-	public static final String progFile = "AlignerBoost.jar";
+	public static final String progFile = progName + "-" + progVer;
 	// environment variables
 	public static final String newLine = System.getProperty("line.separator", "\n");
 	public static final String osName = System.getProperty("os.name");
