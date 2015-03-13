@@ -17,7 +17,7 @@
  *     along with AlignerBoost.  If not, see <http://www.gnu.org/licenses/>.
  *******************************************************************************/
 /**
- * a util class to format SAM/BAM files to costomized tab-delimited cover file
+ * A util class to count reads from SAM/BAM files in given BED regions 
  */
 package net.sf.AlignerBoost.utils;
 import java.io.*;
@@ -33,7 +33,7 @@ import static net.sf.AlignerBoost.EnvConstants.*;
  * @version 1.2
  * @since 1.2
  */
-public class SamToBinCover {
+public class SamToRegionCount {
 	public static void main(String[] args) {
 		if(args.length == 0) {
 			printUsage();
@@ -70,7 +70,7 @@ public class SamToBinCover {
 				System.err.println("Scanning BED6 regions and output ...");
 			}
 			
-			out.write("chrom\tstart\tend\tname\tcover\tstrand\tbin\tfrom\tto\tcover_strand\n");
+			out.write("chrom\tstart\tend\tname\tcount\tstrand\n");
 			String line = null;
 			while((line = bed6In.readLine()) != null) {
 				String[] fields = line.split("\t");
@@ -87,110 +87,44 @@ public class SamToBinCover {
 				int regionLen = regionEnd - regionStart + 1;
 				if(regionLen <= 0)
 					continue;
-				float binWidth = (float) regionLen / nBin;
-				//System.err.println("binWIdth:" + binWidth);
 				int chrLen = samDict.getSequence(chrI).getSequenceLength();
 				String name = fields[3];
 				String regionStrand = fields[5];
 
-				// Initialize scan-index
-				int scanStart = regionStart - (int) Math.ceil(maxFlank * binWidth);
-				int scanEnd = regionEnd + (int) Math.ceil(maxFlank * binWidth);
-				if(scanStart < 1)
-					scanStart = 1;
-				if(scanEnd > chrLen)
-					scanEnd = chrLen;
-				int scanLen = scanEnd - scanStart + 1;
-				int scanIdx[] = new int[scanLen];
+				// Initialize scan-region
+				int scanStart = regionStart - maxFlank >= 1 ? regionStart - maxFlank : 1;
+				int scanEnd = regionEnd + maxFlank <= chrLen ? regionEnd + maxFlank : chrLen;
 				// Query SAM file on the fly
+				int count = 0;
 				SAMRecordIterator results = samIn.query(chr, scanStart, scanEnd, false);
 				while(results.hasNext()) {
 					SAMRecord record = results.next();
-
 					int readLen = record.getReadLength();
 					if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 						continue;
 					// check relative strand
 					String strand = record.getReadNegativeStrandFlag() ? "-" : "+";
-					int relStrand = regionStrand.equals(".") ? 3 /* unkown */ : strand.equals(regionStrand) ? 1 /* sense */ : 2 /* antisense */;
+					int relStrand = regionStrand.equals(".") ? 3 /* unknown */ : strand.equals(regionStrand) ? 1 /* sense */ : 2 /* antisense */;
 					if((relStrand & myStrand) == 0) // unmatched strands
 						continue;
 					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
 					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
 					
-					int start = record.getUnclippedStart();
-					Cigar cigar = record.getCigar();
-					int pos = start - scanStart; // relative pos to scanStart
-					for(CigarElement cigEle : cigar.getCigarElements()) {
-						int cigLen = cigEle.getLength();
-						CigarOperator cigOp = cigEle.getOperator();
-						switch(cigOp) {
-						case M: case EQ: case X: case D:
-							for(int i = 0; i < cigLen; i++) {
-								if(pos >= 0 && pos < scanLen)
-									scanIdx[pos] += clone;
-								pos++;
-							}
-							break;
-						case S: // soft clip included by default
-							if(countSoft) {
-								for(int i = 0; i < cigLen; i++) {
-									if(pos >= 0 && pos < scanLen)
-										scanIdx[pos] += clone;
-									pos++;
-								}
-							}
-							else
-								pos += cigLen; // ignore soft-clip
-							break;
-						case N: case H: // ignored bases
-							pos += cigLen;
-							break;
-							//case I: case P: // not present in reference at all
-							//  break; // do nothing
-						default: // case I or case P
-							break;
-						}
-					} // end each cigEle
+					int start = record.getAlignmentStart();
+					int end = record.getAlignmentEnd();
+					if(overlapRate(scanStart, scanEnd, start, end) >= minRate)
+						count += clone;
 				} // end each record
 				results.close();
 				// output
-				for(int i = - maxFlank; i < nBin + maxFlank; i++) {
-					int start, end, from, to;
-					if(regionStrand.equals("+") || regionStrand.equals(".")) { // unknown strand treat as plus
-						start = (int) Math.floor(regionStart + i * binWidth);
-						end = (int) Math.floor(regionStart + (i + 1) * binWidth) - 1;
-						if(!(start <= scanEnd && end >= scanStart)) // out side range
-							continue;
-						if(start < scanStart)
-							start = scanStart;
-						if(start > scanEnd)
-							start = scanEnd;
-						from = start - regionStart;
-						to = end - regionStart;
-					}
-					else {
-						end = (int) Math.floor(regionEnd - i * binWidth);
-						start = (int) Math.floor(regionEnd - (i + 1) * binWidth) + 1;
-						if(!(start <= scanEnd && end >= scanStart)) // out side range
-							continue;
-						if(start < scanStart)
-							start = scanStart;
-						if(start > scanEnd)
-							start = scanEnd;
-						from = regionEnd - end;
-						to = regionEnd - start;
-					}
-
-					double val = Stats.mean(scanIdx, start - scanStart, end - scanStart + 1);
-					out.write(chr + "\t" + start + "\t" + end + "\t" + name + "\t" +
-							(float) val + "\t" + regionStrand + "\t" + i + "\t" + from + "\t" + to + "\t" + myStrand + "\n");
-				} // end output
+				out.write(chr + "\t" + regionStart + "\t" + regionEnd + "\t" + name + "\t" + count + "\t" + regionStrand + "\n");
 			} // end each region
 			// Terminate the monitor task and monitor
-			statusTask.cancel();
-			statusTask.finish();
-			processMonitor.cancel();
+			if(verbose > 0) {
+				statusTask.cancel();
+				statusTask.finish();
+				processMonitor.cancel();
+			}
 		}
 		catch(IOException e) {
 			System.err.println(e.getMessage());
@@ -213,13 +147,24 @@ public class SamToBinCover {
 		}
 	}
 
+	private static double overlapRate(int start1, int end1, int start2, int end2) {
+		// calculate overlap rate between two regions, relative to region1
+		// both regions are in 1-based coordinates
+		assert start1 <= end1 && start2 <= end2;
+		if(!(start1 <= end2 && end1 >= start2)) // no overlap
+			return 0;
+		int overStart = start1 > start2 ? start1 : start2;
+		int overEnd = end1 < end2 ? end1 : end2;
+		return (double) (overEnd - overStart + 1) / (end1 - start1 + 1); 
+	}
+
 	private static void printUsage() {
-		System.err.println("java -jar " + progFile + " utils samToBinCover " +
+		System.err.println("java -jar " + progFile + " utils samToRelCover " +
 				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
-				"            -N INT # of bins for calculating the average coverages [100]" + newLine +
-				"            -flank INT max upsteam/downsteam bins to look at [0]" + newLine +
+				"            -f FLOAT minimum proportion of overlap to the region [1e-9]" + newLine +
+				"            -flank INT max upsteam/downsteam positions to look at [0]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -234,10 +179,8 @@ public class SamToBinCover {
 				myStrand = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-R"))
 				bed6File = args[++i];
-			else if(args[i].equals("--count-soft"))
-				countSoft = true;
-			else if(args[i].equals("-N"))
-				nBin = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-f"))
+				minRate = Double.parseDouble(args[++i]);
 			else if(args[i].equals("-flank"))
 				maxFlank = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-v"))
@@ -261,8 +204,7 @@ public class SamToBinCover {
 	private static String outFile;
 	private static String bed6File;
 	private static int myStrand = 3;
-	private static boolean countSoft; // whether to count soft-clipped bases
-	private static int nBin = 100;
+	private static double minRate = 1e-9;
 	private static int maxFlank;
 	private static int verbose;
 
