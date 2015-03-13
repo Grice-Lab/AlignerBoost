@@ -267,13 +267,13 @@ public class AlignerBoost {
 //				"                  utils    bed2Loc       convert UCSC bed files to AlignBoost tab-delimited alignment files" + newLine +
 //				"                  utils    bed2Cover     convert UCSC bed files to AlignBoost tab-delimited read-coverage files" + newLine +
 //				"                  utils    bed2Wig       convert UCSC bed files to UCSC Wiggle files" + newLine +
-				"                  utils    classifySAM quick classify SAM/BAM file alignments given genomic annotations" + newLine +
+				"                  utils    classifySAM   quick classify SAM/BAM file alignments given genomic annotations" + newLine +
 				"                  utils    classifyVCF   quick classify VCF variation file given genomic annotations" + newLine +
 				"                  utils    classifyBED   quick classify BED file to BED detail file given genomic annotations" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
 				"                  run      NR            collapse NGS FASTQ reads/pairs to NR-tags/NR-pairs" + newLine +
-				"                  run      filterSE      boost single-end alignment accuracy using a Bayesian-based mapQ estimation method" + newLine +
-				"                  run      filterPE      boost paired-end alignment accuracy using a Bayesian-based mapQ estimation method"
+				"                  run      filterSE      boost SE mapping precision by calculating and filtering alignment mapQ" + newLine +
+				"                  run      filterPE      boost PE mapping precision by calculating and filtering alignment mapQ"
 				);
 	}
 }
