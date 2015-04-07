@@ -25,6 +25,6 @@ AlignerBoost is pure Java based, and you can run it without the need for install
 Dependencies
 ------------
 AlignerBoost does not dependent on any 3rd party library directly. However, if you are using AlignerBoost's
-pipeline function to generate executable shell scripts, you do need to have your NGS aligner
-of choice available in the PATH to able to run these scripts. You might also need 3rd party programs in PATH
+best practice to generate executable shell scripts, you do need to have your NGS aligner
+of choice available in the PATH to be able to run these scripts. You might also need other programs in PATH
 for additional AlignerBoost pre-processing, QC, and utility function. See "Best Practice" below for details.
