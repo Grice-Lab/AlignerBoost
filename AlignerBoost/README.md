@@ -1,5 +1,8 @@
-AlignerBoost is a generalized software toolkit for boosting Next-Gen sequencing mapping precision using a Bayesian based mapping quality framework.
-=============================================================== 
+AlignerBoost manual
+===================
+
+AlignerBoost is a generalized software toolkit for boosting Next-Gen sequencing
+mapping precision using a Bayesian based mapping quality framework.
 
 AlignerBoost works with any NGS aligners that can produce standard SAM/BAM alignment outputs,
 i.e. Bowtie, Bowtie2, BWA, SOAP2, YOABS, YA, and also supports RNA-seq aligners (i.e. Tophat/Tophat2, STAR). 
@@ -21,3 +24,7 @@ AlignerBoost is pure Java based, and you can run it without the need for install
 
 Dependencies
 ------------
+AlignerBoost does not dependent on any 3rd party library directly. However, if you are using AlignerBoost's
+pipeline function to generate executable shell scripts, you do need to have your NGS aligner
+of choice available in the PATH to able to run these scripts. You might also need 3rd party programs in PATH
+for additional AlignerBoost pre-processing, QC, and utility function. See "Best Practice" below for details.
