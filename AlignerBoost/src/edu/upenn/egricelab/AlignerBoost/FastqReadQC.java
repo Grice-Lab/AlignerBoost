@@ -67,22 +67,45 @@ public class FastqReadQC {
 				readIn = !readFile.endsWith(".gz") ? new BufferedReader(new FileReader(readFile)) :
 					new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(readFile))));
 				String line = null;
+				if(readLen != 0) { // readLen specified
+					N1 = new long[readLen];
+					qualS_1 = new long[readLen];
+					qualSS_1 = new long[readLen];
+					qualMin_1 = new int[readLen];
+					qualMax_1 = new int[readLen];
+					// Init the min and max -1
+					for(int i = 0; i < readLen; i++) {
+						qualMin_1[i] = -1;
+						qualMax_1[i] = -1;
+					}
+					N2 = new long[mateLen];
+					qualS_2 = new long[mateLen];
+					qualSS_2 = new long[mateLen];
+					qualMin_2 = new int[mateLen];
+					qualMax_2 = new int[mateLen];
+					// Init the min and max with -1
+					for(int i = 0; i < mateLen; i++) {
+						qualMin_2[i] = -1;
+						qualMax_2[i] = -1;
+					}
+				}
 				while((line = readIn.readLine()) != null) {
 					if(line.startsWith("+")) { // will always meet the + first, even a qual line starts with a + addidentally
 						String qual = readIn.readLine(); // Get next qual line
 						if(isFirst) {
 							isFirst = false;
-							if(readLen == 0) // readLen not specified
+							if(readLen == 0) { // readLen not specified
 								readLen = qual.length();
-							N1 = new long[readLen];
-							qualS_1 = new long[readLen];
-							qualSS_1 = new long[readLen];
-							qualMin_1 = new int[readLen];
-							qualMax_1 = new int[readLen];
-							// Init the min and max -1
-							for(int i = 0; i < readLen; i++) {
-								qualMin_1[i] = -1;
-								qualMax_1[i] = -1;
+								N1 = new long[readLen];
+								qualS_1 = new long[readLen];
+								qualSS_1 = new long[readLen];
+								qualMin_1 = new int[readLen];
+								qualMax_1 = new int[readLen];
+								// Init the min and max -1
+								for(int i = 0; i < readLen; i++) {
+									qualMin_1[i] = -1;
+									qualMax_1[i] = -1;
+								}
 							}
 						}
 						for(int i = 0; i < qual.length(); i++) {
@@ -119,15 +142,17 @@ public class FastqReadQC {
 								out.close();
 								throw new IllegalArgumentException("Mate length '" + mateLen + "' is different to the read length '" + readLen + "' in mateFile: '" + mateFile + "'");
 							}
-							N2 = new long[mateLen];
-							qualS_2 = new long[mateLen];
-							qualSS_2 = new long[mateLen];
-							qualMin_2 = new int[mateLen];
-							qualMax_2 = new int[mateLen];
-							// Init the min and max with -1
-							for(int i = 0; i < mateLen; i++) {
-								qualMin_2[i] = -1;
-								qualMax_2[i] = -1;
+							if(readLen == 0) {
+								N2 = new long[mateLen];
+								qualS_2 = new long[mateLen];
+								qualSS_2 = new long[mateLen];
+								qualMin_2 = new int[mateLen];
+								qualMax_2 = new int[mateLen];
+								// Init the min and max with -1
+								for(int i = 0; i < mateLen; i++) {
+									qualMin_2[i] = -1;
+									qualMax_2[i] = -1;
+								}
 							}
 						}
 						for(int i = 0; i < qual.length(); i++) {
