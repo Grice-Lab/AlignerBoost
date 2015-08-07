@@ -252,8 +252,12 @@ public class FastqReadQC {
 				doAutoDetect = false;
 			}
 			else if(args[i].equals("-readLen")) {
-				readLen = mateLen = Integer.parseInt(args[++i]);
+				readLen = Integer.parseInt(args[++i]);
+				if(mateLen == 0)
+					mateLen = readLen;
 			}
+			else if(args[i].equals("-mateLen"))
+				mateLen = Integer.parseInt(args[++i]);
 			else
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'");
 		}
@@ -268,14 +272,15 @@ public class FastqReadQC {
 		System.err.println(
 				"Usage:    java -jar " + progFile + " run fastqQC <-in FASTQ-INFILE [FASTQ-INFILE2 ...]>" +
 						" [-mate <MATE-INFILE> [MATE-INFILE2 ...]] -<-out OUTFILE>" +
-						" [-Sanger] [-Illumina] [-qBase <int>] [-readLen <int>]" + newLine +
+						" [-Sanger] [-Illumina] [-qBase <int>] [-readLen <int>] [-mateLen <int>]" + newLine +
 						"Options:    -in REQUIRED FILE  FASTQ files for single-end or forward paired-end reads, multiple files should be separated by space (support .gz compressed files)" + newLine +
 						"            -mate FASTQ FILE  files for reverse paired-end reads, multiple files should be separated by space (support .gz compressed files)" + newLine +
 						"            -out REQUIRED FILE  OUTPUT file" + newLine + 
 						"            -Sanger FLAG  use Sanger ascii offset, equivilent to set qBase=33; default is to auto-detect" + newLine +
 						"            -Illumina FLAG  use Illumina 1.5x ascii offset, equivilent to set qBase=64; default is to auto-detect" + newLine +
 						"            -qBase INT  ascii offset, override -Sanger or -Illumina [auto-detect]" + newLine +
-						"            -readLen INT  read length, REQUIRED if reads are of variable length (i.e. from Illumina MiSeq or PacBio)"
+						"            -readLen INT  read length, REQUIRED if reads are of variable length (i.e. from Illumina MiSeq or PacBio)" + newLine +
+						"            -mateLen INT  mate length, default is to use mateLen"
 				);
 	}
 

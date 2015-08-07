@@ -120,6 +120,11 @@ public class NGSExpDesign {
 					case "mate_file":
 						design.mateFile = value;
 						break;
+					case "mate_len":
+						design.mateLen = Integer.parseInt(value);
+						if(design.mateLen == 0)
+							design.mateLen = design.readLen; // default mate_len == read_len
+						break;
 					case "strand_type":
 						design.strandType = Integer.parseInt(value);
 						break;
@@ -345,6 +350,12 @@ public class NGSExpDesign {
 		return mateFile;
 	}
 	
+	/**
+	 * @return the mateLen
+	 */
+	public int getMateLen() {
+		return mateLen;
+	}
 
 	/**
 	 * @return the strandType
@@ -644,6 +655,7 @@ public class NGSExpDesign {
 	int asciiOffset = 33;
 	boolean isPaired;
 	String mateFile;
+	int mateLen;
 	int strandType;
 	boolean hasSpliced;
 	// trimming options
