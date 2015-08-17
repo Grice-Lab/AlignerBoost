@@ -16,16 +16,6 @@
 	</natures>
 	<linkedResources>
 		<link>
-			<name>ant</name>
-			<type>2</type>
-			<location>/usr/local/src/GitHub/picard/lib/ant</location>
-		</link>
-		<link>
-			<name>commons-math3-3.3</name>
-			<type>2</type>
-			<location>/usr/java/apache/commons-math3-3.3</location>
-		</link>
-		<link>
 			<name>picard-tools-1.122</name>
 			<type>2</type>
 			<location>/usr/java/picard-tools-1.122</location>

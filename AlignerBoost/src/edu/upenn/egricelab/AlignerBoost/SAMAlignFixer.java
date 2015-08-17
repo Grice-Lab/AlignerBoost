@@ -155,9 +155,9 @@ public class SAMAlignFixer {
 				}
 			} // end each var
 			vars.close();
-			record.setAttribute("XH", Double.toString(log10lik)); // use the best likelihood
 		}
-		
+		record.setAttribute("XH", Double.toString(log10lik)); // use the best likelihood
+
 		// calculate mismatches and indels
 		boolean isMinus = record.getReadNegativeStrandFlag();
 		int nSeedMis = 0;
