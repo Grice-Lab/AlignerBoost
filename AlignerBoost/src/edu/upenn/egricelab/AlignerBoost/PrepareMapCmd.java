@@ -141,6 +141,14 @@ public class PrepareMapCmd {
 				    cmd = prog + " -t " + MAX_PROC + " -T " + minScoreSW + " -z " + zBest + " " + conf.otherAlignerOpts +
 				    		" " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
 				    break;
+				case "novoalign":
+					prog = "novoalign";
+					inFn = !conf.isPaired ? readIn : readIn + " " + mateIn;
+					String format = !conf.doNR ? "STDFQ" : "FA"; 
+					cmd = prog + " -d " + conf.refIndex + " -f " + inFn + " -F " + format + " -r all " + conf.maxHit +
+							" -c " + MAX_PROC + " " + " -o SAM " + conf.otherAlignerOpts +
+							" | samtools view -S -b - -o " + outFn;
+					break;
 				case "bwa-aln":
 				    prog = "bwa aln";
 				    float maxEdit = conf.allMis / 100 + conf.allIndel / 100;
