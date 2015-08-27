@@ -126,7 +126,7 @@ public class Fastq2NR {
 	 * @return  map of seqCounts
 	 * @throws IOException
 	 */
-	@SuppressWarnings("resource")
+	//@SuppressWarnings("resource")
 	public static Map<String, NRTag> extractNRFromRead(String readInFile)
 			throws IOException {
 		readIn = !readInFile.endsWith(".gz") ? new BufferedReader(new FileReader(readInFile)) :
@@ -155,7 +155,7 @@ public class Fastq2NR {
 	 * @return  map of seqCounts
 	 * @throws IOException
 	 */
-	@SuppressWarnings("resource")
+	//@SuppressWarnings("resource")
 	public static Map<String, NRPair> extractNRFromRead(String readInFile, String mateInFile)
 			throws IOException {
 		readIn = !readInFile.endsWith(".gz") ? new BufferedReader(new FileReader(readInFile)) :

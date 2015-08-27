@@ -105,6 +105,7 @@ public class UpdateMappedStats {
 				String prevID = "";
 				Set<String> readSeen = null;
 				SamReaderFactory readerFac = SamReaderFactory.makeDefault();
+				readerFac.validationStringency(ValidationStringency.SILENT); // set validation level to silent
 				samIn = readerFac.open(new File(conf.getAlignFilteredFileName()));
 				GroupOrder inOrder = samIn.getFileHeader().getGroupOrder();
 				if(inOrder != GroupOrder.query) {
