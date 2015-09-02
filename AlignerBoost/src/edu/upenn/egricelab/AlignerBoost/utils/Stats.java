@@ -88,17 +88,29 @@ public class Stats {
 	}
 	
 	/**
+	 * Get the mean value of a byte array of given region
+	 * @param array  byte array
+	 * @param start  0-based start index
+	 * @param end  1-based end index
+	 * @return  mean value in double
+	 */
+	public static double mean(byte[] array, int start, int end) {
+		assert(start <= end);
+		if(array == null)
+			return Double.NaN;
+		double x = 0;
+		for(int i = start; i < end; i++)
+			x += array[i];
+		return x / (end - start);
+	}
+	
+	/**
 	 * Get the mean value of a byte array
 	 * @param array  byte array
 	 * @return  mean value in double
 	 */
 	public static double mean(byte[] array) {
-		if(array == null || array.length == 0)
-			return Double.NaN;
-		double x = 0;
-		for(byte b : array)
-			x += b;
-		return x / array.length;
+		return mean(array, 0, array.length);
 	}
 
 	//	public static final int MAX_QUAL = 255; // max mapQ

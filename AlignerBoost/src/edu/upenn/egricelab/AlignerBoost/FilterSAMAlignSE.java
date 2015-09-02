@@ -120,7 +120,7 @@ public class FilterSAMAlignSE {
 			String ID = record.getReadName();
 
 			// fix read and quality string for this read, if is a secondary hit from multiple hits, used for BWA alignment
-			if(ID.equals(prevID) && record.getReadLength() == 0)
+			if(record.getReadLength() == 0 && ID.equals(prevID))
 				SAMAlignFixer.fixSAMRecordRead(record, prevRecord);
 			if(chrFilter != null && !chrFilter.contains(record.getReferenceName())) {
 				prevID = ID;
@@ -153,7 +153,7 @@ public class FilterSAMAlignSE {
 				// reset list
 				recordList.clear();
 			}
-			// update
+			// update only when ID changes
 			if(!ID.equals(prevID)) {
 				prevID = ID;
 				prevRecord = record;

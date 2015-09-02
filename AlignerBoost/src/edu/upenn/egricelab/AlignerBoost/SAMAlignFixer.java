@@ -134,7 +134,7 @@ public class SAMAlignFixer {
 
 
 		// set log-likelihood tag
-		double log10lik = calcAlignLik(status, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar)); // likelihood w/o knownSnp
+		double log10lik = calcAlignLik(status, record.getBaseQualities(), cigar); // likelihood w/o knownSnp
 		char[] bestStatus = status; // record the best likelihood status
 		if(knownVCF != null) { // try every alternative alignment w/ known varation
 			String qSeq = record.getReadString();
@@ -146,7 +146,7 @@ public class SAMAlignFixer {
 				int[] penaltyScore = new int[status.length];
 				Arrays.fill(penaltyScore, -1); // indicating default value
 				if(updateKnownSnv(updatedStatus, penaltyScore, record.getReferenceName(), record.getAlignmentStart(), alnLen, qSeq, var) > 0) { // is a ready known SNP
-					double updatedLog10lik = calcAlignLik(updatedStatus, record.getBaseQualities(), calcSAMRecordHardClippedLenByCigar(cigar), penaltyScore);
+					double updatedLog10lik = calcAlignLik(updatedStatus, record.getBaseQualities(), cigar, penaltyScore);
 					if(updatedLog10lik > log10lik) { // a better likelihood
 						record.setAttribute("XV", var.getChr() + ":" + var.getStart() + "-" + var.getEnd() + ":" + var.getID());
 						log10lik = updatedLog10lik; // update
@@ -249,7 +249,7 @@ public class SAMAlignFixer {
 	 * @param cigar  cigar to use to calculate hard-clipped length
 	 * @return hard-clipped length (H)
 	 */
-	private static int calcSAMRecordHardClippedLenByCigar(Cigar cigar) {
+/*	private static int calcSAMRecordHardClippedLenByCigar(Cigar cigar) {
 		int hClipLen = 0;
 		for(CigarElement cigEle : cigar.getCigarElements()) {
 			switch(cigEle.getOperator()) {
@@ -261,7 +261,7 @@ public class SAMAlignFixer {
 			}
 		}
 		return hClipLen;
-	}
+	}*/
 
 	/** get align status ('M', '=', 'X', 'I', 'S') given cigar and mismatch tag, if exists
 	 * @return a char array index with length = alnLen, and always in the reference orientation
@@ -710,7 +710,7 @@ public class SAMAlignFixer {
 	 * @param penaltyScore  customized penaltyScores for known SNPs
 	 * @return  log-likelihood of this alignment
 	 */
-	private static double calcAlignLik(char[] status, byte[] qual, int hClipLen, int[] penaltyScore) {
+	private static double calcAlignLik(char[] status, byte[] qual, Cigar cigar, int[] penaltyScore) {
 		if(status == null)
 			return Double.NaN;
 		assert qual == null || status.length >= qual.length && (penaltyScore == null || status.length == penaltyScore.length);
@@ -768,8 +768,10 @@ public class SAMAlignFixer {
 				break; // do nothing
 			}
 		}
-		if(hClipLen > 0) // hard-clips exist
-			log10Lik += hClipLen * Stats.mean(qual) / -PHRED_SCALE * CLIP_PENALTY; // use average quality of the read
+		if(cigar.getCigarElement(0).getOperator() == CigarOperator.H) // hard-clips exist at the beginning
+			log10Lik += cigar.getCigarElement(0).getLength() * (Stats.mean(qual, 0, HCLIP_SAMPLE_LEN) / -PHRED_SCALE - CLIP_PENALTY); // use average quality at 5'
+		if(cigar.getCigarElement(cigar.numCigarElements()-1).getOperator() == CigarOperator.H) // hard-clips exist at the end
+			log10Lik += cigar.getCigarElement(cigar.numCigarElements()-1).getLength() * (Stats.mean(qual, qual.length - HCLIP_SAMPLE_LEN, qual.length) / -PHRED_SCALE - CLIP_PENALTY); // use average quality at 5'
 		return log10Lik;
 	}
 
@@ -779,8 +781,8 @@ public class SAMAlignFixer {
 	 * @param hClipLen  hard-clipped length
 	 * @return  log-likelihood of this alignment
 	 */
-	private static double calcAlignLik(char[] status, byte[] qual, int hClipLen) {
-		return calcAlignLik(status, qual, hClipLen, null);
+	private static double calcAlignLik(char[] status, byte[] qual, Cigar cigar) {
+		return calcAlignLik(status, qual, cigar, null);
 	}
 	
 /*	*//** calculate Alignment log-likelihood given only alignment status with no quality (from a FASTA alignment)
@@ -1029,6 +1031,7 @@ public class SAMAlignFixer {
 	private static final byte REF_QUAL = 40; // reference quality for deletions
 //	private static final byte AVG_READ_QUAL = 25;
 	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf
+	private static final int HCLIP_SAMPLE_LEN = 5; // sampling length for estimating the average quality of hard-clipped regions
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(\\d+)(.*)");
 	private static final Pattern misPat2 = Pattern.compile("([A-Z]|\\^[A-Z]+)(\\d+)");
