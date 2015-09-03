@@ -128,7 +128,7 @@ public class PrepareMapCmd {
 				    	minScoreBWA = 0;
 				    inFn = !conf.isPaired ? " " + readIn : " " + readIn + " " + mateIn;
 				    cmd = prog + " -t " + MAX_PROC + " -k " + conf.seedLen + " -T " + minScoreBWA + " " + conf.otherAlignerOpts + 
-				    		" -a " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
+				    		" -a -Y " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
 				    break;
 				case "bwa-sw":
 				    prog = "bwa bwasw";
