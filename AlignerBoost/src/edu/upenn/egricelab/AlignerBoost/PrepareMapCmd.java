@@ -145,7 +145,7 @@ public class PrepareMapCmd {
 					prog = "novoalign";
 					inFn = !conf.isPaired ? readIn : readIn + " " + mateIn;
 					String format = !conf.doNR ? "STDFQ" : "FA"; 
-					cmd = prog + " -d " + conf.refIndex + " -f " + inFn + " -F " + format + " -r all " + conf.maxHit +
+					cmd = prog + " -d " + conf.refIndex + " -f " + inFn + " -F " + format + " -R 256 -r all " + conf.maxHit +
 							" -c " + MAX_PROC + " " + " -o SAM " + conf.otherAlignerOpts +
 							" | samtools view -S -b - -o " + outFn;
 					break;

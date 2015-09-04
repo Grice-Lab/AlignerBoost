@@ -1,0 +1,107 @@
+#### A project to test the performance of the developing tool AlingerBoost
+### 1. Collect resources
+## program
+ln -s /home/zhengqi/software/AlignerBoost.jar .
+ln -s /data/genomes/hsa/hg19/chromosomes/ hg19/
+# Bowtie genome index
+ln -s /data/genomes/hsa/hg19/bowtie hg19/
+# Bowtie2 genome index
+ln -s /data/genomes/hsa/hg19/bowtie2 hg19/
+# BWA genome index
+ln -s /data/genomes/hsa/hg19/bwa hg19/
+# SOAP2 index
+ln -s /data/genomes/hsa/hg19/soap2 hg19/
+# novoalign
+ln -s /data/genomes/hsa/hg19/novoalign hg19/
+# STAR genome index
+ln -s /data/genomes/hsa/hg19/STAR hg19/
+# NCBI-BLAST index
+ln -s /data/genomes/hsa/hg19/db hg19/blastdb
+# genome size file (used for read classification/annotation)
+ln -s /data/genomes/hsa/hg19/hg19_chr_len.txt hg19/
+# refGenome
+ln -s /data/genomes/hsa/hg19/hg19.fa hg19/
+# refGene GFF
+ln -s /data/UCSC/hg19/database/refGene.gff hg19/
+
+## human genome and annotations
+mkdir hg19/
+ln -s /project/grice/data2/pub_data/UCSC/hg19/chromosomes/ hg19/  # genome
+ln -s /project/grice/data2/pub_data/UCSC/hg19/database/refGene.txt hg19/ # refGene
+ln -s /project/grice/data2/pub_data/UCSC/hg19/database/refGene_exon.txt hg19/ # refExon
+ln -s ln -s /project/grice/data2/pub_data/UCSC/hg19/database/vegaPseudoGene.txt hg19/ # pseudogene
+ln -s /project/grice/data2/pub_data/UCSC/hg19/database/rmsk.txt hg19/    # rmsk
+
+
+### 2. Manually prepare experiment configuration files from template
+hg19_test_simulated_SE.conf
+
+## Init lib summary
+java -jar AlignerBoost.jar stats total hg19_test_simulated_SE.conf hg19_test_simulated_SE_stats.txt
+      ||
+      \/
+hg19_test_simulated_SE_stats.txt
+
+
+### 3. QC check of read quality
+java -jar AlignerBoost.jar prepare readQC hg19_test_simulated_SE.conf check_QC_SE.sh
+./check_QC_SE.sh
+      ||
+      \/
+simulated_SE/*QC.txt
+
+
+### 4. Trim the 3'-adapter sequence by Cutadapt, if requested
+java -jar AlignerBoost.jar prepare trim hg19_test_simulated_SE.conf trim_SE.sh
+./trim_SE.sh
+      ||
+      \/
+# none
+# Add trimmed read summary
+java -jar AlignerBoost.jar stats trimmed hg19_test_simulated_SE.conf hg19_test_simulated_SE_stats.txt
+      ||
+      \/
+hg19_test_simulated_SE_stats.txt
+
+
+### 5. Get NR-seq from trimmed/untrimmed reads, if requested
+java -jar AlignerBoost.jar prepare NR hg19_test_simulated_SE.conf get_NR_SE.sh
+./get_NR_SE.sh
+      ||
+      \/
+# none
+# Add NR-tag summary
+java -jar AlignerBoost.jar stats NR hg19_test_simulated_SE.conf hg19_test_simulated_SE_stats.txt
+      ||
+      \/
+hg19_test_simulated_SE_stats.txt
+
+
+### 6. Map read to genome
+java -jar AlignerBoost.jar prepare align hg19_test_simulated_SE.conf map_SE.sh
+./map_SE.sh
+      ||
+      \/
+simulated_SE/work/*_hg19_raw.bam
+
+## Map the reads by default parameters
+# generate bash scripts based on automatic scripts
+perl get_default_map_sh.pl map_SE.sh map_SE_default.sh
+./map_SE_default.sh
+      ||
+      \/
+simulated_SE/work/*_hg19_default.bam
+
+
+### 7. Filter alignments
+java -jar AlignerBoost.jar prepare filter hg19_test_simulated_SE.conf filter_SE.sh
+./filter_SE.sh
+      ||
+      \/
+simulated_SE/hg19_*filtered.bam
+
+# Add mapped read summary
+java -jar AlignerBoost.jar stats mapped hg19_test_simulated_SE.conf hg19_test_simulated_SE_stats.txt
+      ||
+      \/
+hg19_test_simulated_SE_stats.txt
