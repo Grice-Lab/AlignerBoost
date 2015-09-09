@@ -62,16 +62,17 @@ public class PrepareFilterAlnCmd {
 					continue;
 				String inFn = conf.getAlignRawFileName();
 				String outFn = conf.getAlignFilteredFileName();
-				String dp = conf.hasSpliced && conf.aligner.equals("bowtie") ? " --1DP " : " ";
+				String dp = conf.aligner.equals("bowtie") ? " --1DP " : " "; // always enable 1DP for non-SW supported aligners
 				String silent = conf.isPaired ? " --silent " : " ";
 				String prog = !conf.isPaired ? "filterSE" : "filterPE";
 				String minIns = conf.hasSpliced && conf.aligner.equals("bowtie") ? " --min-insert " + conf.minInsert + " " : " ";
 				String knownSnp = conf.knownSnpFile != null ? " --known-SNP " + conf.knownSnpFile + " " : " ";
+				String fixMD = conf.aligner.equals("seqalto") ? " --fix-MD " : " ";
 				String cmd = "java -jar " + progFile + " run " + prog + minIns +
 						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis +
 						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent +
 						" --min-mapQ " + conf.minMapQ + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
-						" --sort-method " + conf.sortMethod + " " + knownSnp + conf.otherFilterOpts + " -in " + inFn + " -out " + outFn;
+						" --sort-method " + conf.sortMethod + " " + knownSnp + fixMD + conf.otherFilterOpts + " -in " + inFn + " -out " + outFn;
 
 				if(!(new File(outFn)).exists())
 					out.write(cmd + newLine);

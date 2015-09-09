@@ -141,14 +141,7 @@ public class PrepareMapCmd {
 				    cmd = prog + " -t " + MAX_PROC + " -T " + minScoreSW + " -z " + zBest + " " + conf.otherAlignerOpts +
 				    		" " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
 				    break;
-				case "novoalign":
-					prog = "novoalign";
-					inFn = !conf.isPaired ? readIn : readIn + " " + mateIn;
-					String format = !conf.doNR ? "STDFQ" : "FA"; 
-					cmd = prog + " -d " + conf.refIndex + " -f " + inFn + " -F " + format + " -R 256 -r all " + conf.maxHit +
-							" -c " + MAX_PROC + " " + " -o SAM " + conf.otherAlignerOpts +
-							" | samtools view -S -b - -o " + outFn;
-					break;
+
 				case "bwa-aln":
 				    prog = "bwa aln";
 				    float maxEdit = conf.allMis / 100 + conf.allIndel / 100;
@@ -184,8 +177,26 @@ public class PrepareMapCmd {
 				    		  readIn + " " + mateIn + " | samtools view -S -b -o " + outFn + " -";
 				      break;
 				    }
+				case "novoalign":
+					prog = "novoalign";
+					inFn = !conf.isPaired ? readIn : readIn + " " + mateIn;
+					String format = !conf.doNR ? "STDFQ" : "FA"; 
+					cmd = prog + " -d " + conf.refIndex + " -f " + inFn + " -F " + format + " -R 256 -r all " + conf.maxHit +
+							" -c " + MAX_PROC + " " + " -o SAM " + conf.otherAlignerOpts +
+							" | samtools view -S -b - -o " + outFn;
+					break;
+				case "seqalto":
+					prog = "seqalto_basic align";
+					inFn = " -1 " + readIn + " ";
+					if(conf.isPaired)
+						inFn += "-2 " + mateIn + " ";
+					String allHits = !conf.isPaired ? " --all_hits " : " ";
+					cmd = prog + " " + conf.refIndex + inFn + " -p " + MAX_PROC + " -n " + conf.maxHit + allHits +
+							" -r " + conf.allMis / 100 + " -o " + conf.allIndel / 100 + " " + conf.otherAlignerOpts +
+							" | samtools view -S -b - -o " + outFn;
+					break;
 				case "tophat1": case "tophat2":
-				    prog = "tophat2";
+					prog = "tophat2";
 				    // fix options
 				    if(conf.aligner.equals("tophat1")) {
 				    		if(seedNMis > MAX_BOWTIE_SEED_NMIS)
