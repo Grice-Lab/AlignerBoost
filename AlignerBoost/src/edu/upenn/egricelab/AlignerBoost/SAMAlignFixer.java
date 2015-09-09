@@ -390,7 +390,7 @@ public class SAMAlignFixer {
 				score = MIS_SCORE;
 				break;
 			case 'I': case 'D': // indel
-				score = i == 0 || status[i - 1] != 'I' && status[i - 1] != 'D' ? -GAP_OPEN_PENALTY : -GAP_EXT_PENALTY;
+				score = i == 0 || status[i - 1] != 'I' && status[i - 1] != 'D' ? -GAP_OPEN_PENALTY - GAP_EXT_PENALTY : -GAP_EXT_PENALTY;
 				break;
 			case 'S':
 				score = 0;
@@ -1063,11 +1063,11 @@ public class SAMAlignFixer {
 	private static int SEED_LEN = 25;
 	private static int MATCH_SCORE = 1;
 	private static int MIS_SCORE = -2;
-	private static int GAP_OPEN_PENALTY = 4;
-	private static int GAP_EXT_PENALTY = 1;
+	private static int GAP_OPEN_PENALTY = 5;
+	private static int GAP_EXT_PENALTY = 2;
 	static int CLIP_PENALTY = 0; // additional CLIP_PENALTY except for the mismatch penalty
 	static int KNOWN_SNP_PENALTY = 0;
-	static int KNOWN_INDEL_PENALTY = 1;
+	static int KNOWN_INDEL_PENALTY = 2;
 	static int KNOWN_MULTISUBSTITUTION_PENALTY = 2;
 	static String AFTag = "AF"; // alleleFrequency tag
 
