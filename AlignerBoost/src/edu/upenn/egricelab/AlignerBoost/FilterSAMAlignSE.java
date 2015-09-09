@@ -127,6 +127,10 @@ public class FilterSAMAlignSE {
 				prevRecord = record;
 				continue;
 			}
+
+			// fix MD:Z string for certain aligners with invalid format (i.e. seqAlto)
+			if(fixMD)
+				SAMAlignFixer.fixMisStr(record);
 			
 			// fix alignment, ignore if failed (unmapped or empty)
 			if(!SAMAlignFixer.fixSAMRecord(record, knownVCF, DO_1DP)) {
@@ -215,6 +219,7 @@ public class FilterSAMAlignSE {
 				"            --chrom-list FILE  pre-filtering file containing one chromosome name per-line" + newLine +
 				"            --known-SNP FILE  known SNP file in vcf/gvcf format (v4.0+, .gz supported), used for calculating mapQ" + newLine +
 				"            --AF-tag STRING  Allele Frequency Tag in VCF file to check/use for determining penaltyScores for known SNPs, use NULL to disable [AF]" + newLine +
+				"            --fix-MD FLAG  try to fix the MD:Z string format for certain NGS aligners that generate invalid tags" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -299,6 +304,8 @@ public class FilterSAMAlignSE {
 				knownSnpFile = args[++i];
 			else if(args[i].equals("--AF-tag"))
 				SAMAlignFixer.setAFTag(args[++i]);
+			else if(args[i].equals("--fix-MD"))
+				fixMD = true;
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -511,6 +518,7 @@ public class FilterSAMAlignSE {
 	private static int MAX_BEST = 0;
 	private static int MAX_REPORT = 0;
 	private static boolean doUpdateBit = true;
+	private static boolean fixMD = false;
 	private static int verbose; // verbose level
 	private static SAMRecordMapQComparator recordComp = new SAMRecordMapQComparator();
 	private static Set<String> chrFilter;

@@ -437,6 +437,46 @@ public class SAMAlignFixer {
 		return refTo;
 	}
 
+	/** Fix the MD:Z string, if it is not in the correct format
+	 * @param record  a SAMRecord with MD:Z string to be fixed
+	 * @return true  if the format of the MD:Z string is wrong but fixable, or false if not
+	 */
+	static boolean fixMisStr(SAMRecord record) {
+		String misStr = record.getStringAttribute("MD");
+		if(misStr == null)
+			return false;
+		Matcher match4 = misPat4.matcher(misStr); // parse the entire misStr
+		StringBuilder newMisStr = new StringBuilder();
+		boolean fixedFlag = false;
+		while(match4.find()) {
+			String word = match4.group();
+			if(word.length() > 1 && !Character.isDigit(word.charAt(0)) && word.charAt(0) != '^') { // a consecutive mismatch string, not a valid format
+				for(int i = 0; i < word.length(); i++) {
+					newMisStr.append(word.charAt(i));
+					if(i != word.length() - 1)
+						newMisStr.append(0);
+				}
+				fixedFlag = true;
+			}
+			else
+				newMisStr.append(word);
+		}
+		/* fixed the misStr start and end */
+		if(Character.isLetter(newMisStr.charAt(0))) {
+			newMisStr.insert(0, '0');
+			fixedFlag = true;
+		}
+		if(Character.isLetter(newMisStr.charAt(newMisStr.length() - 1))) {
+			newMisStr.append(0);
+			fixedFlag = true;
+		}
+		if(fixedFlag) {
+			//System.err.println("oldMisStr:" + misStr + " newMisStr:" + newMisStr);
+			record.setAttribute("MD", newMisStr.toString());
+		}
+		return fixedFlag;
+	}
+	
 	/** Fix SAMRecord Cigar and mismatch tag (MD:Z), given the insert from and insert length
 	 *
 	 */
@@ -732,6 +772,9 @@ public class SAMAlignFixer {
 		for(int i = 0; i < status.length; i++) {
 			switch(status[i]) {
 			case 'M': case '=': // treat as match
+				if(pos >= baseQ.length){
+					System.err.println("pos:" + pos + " baseQ:" + baseQ.length + " cigar:" + cigar.toString() + " status:" + String.valueOf(status));
+				}
 				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1); // use non-error prob
 				break;
 			case 'X': // mismatch
@@ -1033,7 +1076,8 @@ public class SAMAlignFixer {
 	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf
 	private static final int HCLIP_SAMPLE_LEN = 5; // sampling length for estimating the average quality of hard-clipped regions
 	// mismatch string patterns
-	private static final Pattern misPat1 = Pattern.compile("(\\d+)(.*)");
+	private static final Pattern misPat1 = Pattern.compile("(^\\d+)(.*)");
 	private static final Pattern misPat2 = Pattern.compile("([A-Z]|\\^[A-Z]+)(\\d+)");
 	private static final Pattern misPat3 = Pattern.compile("\\d+|[A-Z]|\\^[A-Z]+");
+	private static final Pattern misPat4 = Pattern.compile("\\d+|[A-Z]+|\\^[A-Z]+");
 }
