@@ -1064,7 +1064,7 @@ public class SAMAlignFixer {
 	private static int MATCH_SCORE = 1;
 	private static int MIS_SCORE = -2;
 	private static int GAP_OPEN_PENALTY = 4;
-	private static int GAP_EXT_PENALTY = 2;
+	private static int GAP_EXT_PENALTY = 1;
 	static int CLIP_PENALTY = 0; // additional CLIP_PENALTY except for the mismatch penalty
 	static int KNOWN_SNP_PENALTY = 0;
 	static int KNOWN_INDEL_PENALTY = 2;

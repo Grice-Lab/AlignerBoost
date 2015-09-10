@@ -20,7 +20,7 @@
  * A class to represent the NGS experimental design file information for a given library
  */
 package edu.upenn.egricelab.AlignerBoost;
-import static edu.upenn.egricelab.AlignerBoost.EnvConstants.newLine;
+import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -60,6 +60,11 @@ public class NGSExpDesign {
 				if(match.find()) { // a global opt line
 					String name = match.group(1);
 					switch(name) {
+					case "VERSION":
+						VERSION = match.group(2);
+						if(cmpVersion(VERSION, progVer) > 0)
+							throw new IllegalArgumentException("Config file version is newer than the progVersion, please download the latest " + progName);
+						break;
 					case "MAX_PROC":
 						MAX_PROC = Integer.parseInt(match.group(2));
 						break;
@@ -157,6 +162,9 @@ public class NGSExpDesign {
 						break;
 					case "seed_mis":
 						design.seedMis = Float.parseFloat(value);
+						break;
+					case "seed_indel":
+						design.seedIndel = Float.parseFloat(value);
 						break;
 					case "all_mis":
 						design.allMis = Float.parseFloat(value);
@@ -641,6 +649,7 @@ public class NGSExpDesign {
 	
 
 	// global options
+	static String VERSION = EnvConstants.progVer;
 	static int MAX_PROC = 6; // maximum processors to use
 	static String INIT_MEM = "4G";
 	static String MAX_MEM = "16G";
@@ -670,6 +679,7 @@ public class NGSExpDesign {
 	String aligner;
 	int seedLen = 25;
 	float seedMis = 4;
+	float seedIndel = 0;
 	float allMis = 6;
 	float allIndel = 0;
 	int minInsert = 15;

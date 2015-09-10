@@ -69,7 +69,7 @@ public class PrepareFilterAlnCmd {
 				String knownSnp = conf.knownSnpFile != null ? " --known-SNP " + conf.knownSnpFile + " " : " ";
 				String fixMD = conf.aligner.equals("seqalto") ? " --fix-MD " : " ";
 				String cmd = "java -jar " + progFile + " run " + prog + minIns +
-						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis +
+						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis + " --seed-indel " + conf.seedIndel +
 						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent +
 						" --min-mapQ " + conf.minMapQ + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
 						" --sort-method " + conf.sortMethod + " " + knownSnp + fixMD + conf.otherFilterOpts + " -in " + inFn + " -out " + outFn;

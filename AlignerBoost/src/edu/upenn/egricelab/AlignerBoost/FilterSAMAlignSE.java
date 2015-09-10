@@ -140,14 +140,17 @@ public class FilterSAMAlignSE {
 			}
 
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
+				// filter highly unlikely hits
+				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_IDENTITY);
 				// calculate Bayesian based posterior probabilities
 				calcHitPostP(recordList);
-				// filter hits
-				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_IDENTITY, MIN_MAPQ);
+				// filter hits by mapQ
+				if(MIN_MAPQ > 0)
+					filterHits(recordList, MIN_MAPQ);
+				if(MAX_BEST != 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
+					recordList.clear();
 				// sort the list using the mapQ, using DESCREASING order
 				Collections.sort(recordList, Collections.reverseOrder(recordComp));
-				if(MAX_BEST > 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
-					recordList.clear();
 				// report remaining alignments, up-to MAX_REPORT
 				for(int i = 0; i < recordList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
 					if(doUpdateBit)
@@ -192,12 +195,13 @@ public class FilterSAMAlignSE {
 	private static void printUsage() { 
 		System.err.println("Usage:   java -jar " + progFile + " run filterSE " +
 				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" + newLine +
-				"Options:    --min-insert INT  minimum insert length (excluding adapters) of a read for unamabiguous alignment [15]" + newLine +
+				"Options:    --min-insert INT  minimum insert length (excluding adapters) of a read for unamabiguous alignment [" + MIN_INSERT + "]" + newLine +
 				"            --seed-len INT  seed length for Burrows-Wheeler algorithm dependent aligners [" + SAMAlignFixer.getSEED_LEN() + "]" + newLine +
-				"            --seed-mis DOUBLE  %mismatches allowed in seed region (by --seed-len) [4]" + newLine +
-				"            --all-mis  DOUBLE  %mismatches allowed in the entire insert region (excluding clipped/intron regions) [6]" + newLine +
-				"            --all-indel DOUBLE  %in-dels allowed in the entire insert region [2]" + newLine +
-				"            -i/--identity DOUBLE  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels) [0]" + newLine +
+				"            --seed-mis DOUBLE  %mismatches allowed in seed region [" + MAX_SEED_MIS + "]" + newLine +
+				"            --seed-indel DOUBLE  %indels allowed in seed region [" + MAX_SEED_INDEL + "0]" + newLine +
+				"            --all-mis  DOUBLE  %mismatches allowed in the entire insert region (excluding clipped/intron regions) [" + MAX_ALL_MIS + "]" + newLine +
+				"            --all-indel DOUBLE  %in-dels allowed in the entire insert region [" + MAX_ALL_INDEL + "]" + newLine +
+				"            -i/--identity DOUBLE  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels) [" + MIN_IDENTITY + "]" + newLine +
 				"            --1DP FLAG  enable 1-dimentional dymamic programming insert re-assesment, useful for non-local aligners, i.e. bowtie" + newLine +
 				"            --match-score INT  match score for 1DP and calculating mapQ [" + SAMAlignFixer.getMATCH_SCORE() + "]" + newLine +
 				"            --mis-score INT  mismatch score for 1DP and calculating mapQ [" + SAMAlignFixer.getMIS_SCORE() + "]" + newLine +
@@ -236,6 +240,8 @@ public class FilterSAMAlignSE {
 				SAMAlignFixer.setSEED_LEN(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--seed-mis"))
 				MAX_SEED_MIS = Double.parseDouble(args[++i]);
+			else if(args[i].equals("--seed-indel"))
+				MAX_SEED_INDEL = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--all-mis"))
 				MAX_ALL_MIS = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--all-indel"))
@@ -320,6 +326,8 @@ public class FilterSAMAlignSE {
 			throw new IllegalArgumentException("--seed-mis must be between 0 to 100");
 		if(MAX_ALL_MIS < 0 || MAX_ALL_MIS > 100)
 			throw new IllegalArgumentException("--all-mis must be between 0 to 100");
+		if(MAX_SEED_INDEL < 0 || MAX_SEED_INDEL > 100)
+			throw new IllegalArgumentException("--seed-indel must be between 0 to 100");
 		if(MAX_ALL_INDEL < 0 || MAX_ALL_INDEL > 100)
 			throw new IllegalArgumentException("--all-indel must be between 0 to 100");
 		if(!(MIN_IDENTITY >= 0 && MIN_IDENTITY <= 100))
@@ -330,6 +338,8 @@ public class FilterSAMAlignSE {
 			System.err.println("Warning: output file '" + outFile + "' might not be SAM format");
 		if(MIN_MAPQ < 0)
 			throw new IllegalArgumentException("--min-mapQ must be non negative integer");
+		if(MAX_BEST != 0 && MIN_MAPQ < MIN_UNIQ_MAPQ)
+			MIN_MAPQ = MIN_UNIQ_MAPQ;
 		if(MAX_BEST < 0)
 			throw new IllegalArgumentException("--max-best must be non negative integer");
 		if(MAX_REPORT < 0)
@@ -402,7 +412,7 @@ public class FilterSAMAlignSE {
 	}
 
 	/**
-	 * Filter hits by removing hits not satisfying the user-specified criteria
+	 * Filter unlikely hits by removing hits not satisfying the user-specified criteria
 	 * @param recordList  an array of ALignRecord
 	 * @param minInsert  min insert length
 	 * @param maxSeedMis  max %seed-mismatches
@@ -410,10 +420,9 @@ public class FilterSAMAlignSE {
 	 * @param maxAllMis  max %all-mismatches
 	 * @param maxAllIndel  max %all-indels
 	 * @param minIdentity  min identity 
-	 * @param minQ 
 	 */
 	private static int filterHits(List<SAMRecord> recordList, int minInsert,
-			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, double minIdentity, int minQ) {
+			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, double minIdentity) {
 		int n = recordList.size();
 		int removed = 0;
 		for(int i = n - 1; i >= 0; i--) { // search backward for maximum performance
@@ -421,14 +430,32 @@ public class FilterSAMAlignSE {
 			if(!(getSAMRecordInsertLen(record) >= minInsert
 					&& getSAMRecordPercentSeedMis(record) <= maxSeedMis && getSAMRecordPercentSeedIndel(record) <= maxSeedIndel
 					&& getSAMRecordPercentAllMis(record) <= maxAllMis && getSAMRecordPercentAllIndel(record) <= maxAllIndel
-					&& getSAMRecordIdentity(record) >= minIdentity && record.getMappingQuality() >= minQ)) {
+					&& getSAMRecordIdentity(record) >= minIdentity)) {
 				recordList.remove(i);
 				removed++;
 			}
 		}
 		return removed;
 	}
-
+	
+	/**
+	 * Filter hits by mapQ criterial only
+	 * @param recordList  an array of AlignRecord
+	 * @param minMapQ  min mapQ cutoff
+	 * @return  number of removed hits
+	 */
+	private static int filterHits(List<SAMRecord> recordList, int minMapQ) {
+		int n = recordList.size();
+		int removed = 0;
+		for(int i = n - 1; i >= 0; i--) { // search backward
+			if(recordList.get(i).getMappingQuality() < minMapQ) {
+				recordList.remove(i);
+				removed++;
+			}
+		}
+		return removed;
+	}
+	
 	/**
 	 * Calculate the posterior probability mapQ value (in phred scale) using the Bayesian method
 	 * @param recordList
@@ -507,7 +534,7 @@ public class FilterSAMAlignSE {
 	// filter options
 	private static int MIN_INSERT = 15;
 	private static double MAX_SEED_MIS = 4; // max % seed mismatch
-	private static final double MAX_SEED_INDEL = 0; // seed indel is always not allowed
+	private static double MAX_SEED_INDEL = 0; // max % seed indel
 	private static double MAX_ALL_MIS = 6; // max % all mismatch
 	private static double MAX_ALL_INDEL = 0; // max % all indel
 	private static double MIN_IDENTITY = 0; // min identity
@@ -530,4 +557,5 @@ public class FilterSAMAlignSE {
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
 	private static final int statusFreq = 10000;
+	private static final int MIN_UNIQ_MAPQ = 3;
 }
