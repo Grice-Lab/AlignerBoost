@@ -618,11 +618,11 @@ public class FilterSAMAlignPE {
 		// reset the mapQ values
 		for(int i = 0; i < nPairs; i++) {
 			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
-			double mapQ = Math.round(Stats.phredP2Q(1 - postP[i]));
-			if(Double.isNaN(mapQ) || Double.isInfinite(mapQ)) // is NaN or isInfinite
+			double mapQ = Stats.phredP2Q(1 - postP[i]);
+			if(Double.isNaN(mapQ)) // is NaN
 				alnPEList.get(i).setPEMapQ(INVALID_MAPQ);
 			else
-				alnPEList.get(i).setPEMapQ(mapQ > MAX_MAPQ ? MAX_MAPQ : (int) mapQ);
+				alnPEList.get(i).setPEMapQ(mapQ > MAX_MAPQ ? MAX_MAPQ : (int) Math.round(mapQ));
 		}
 		return postP;
 	}

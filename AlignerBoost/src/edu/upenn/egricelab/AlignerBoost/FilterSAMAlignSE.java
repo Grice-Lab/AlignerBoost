@@ -500,7 +500,7 @@ public class FilterSAMAlignSE {
 			else {
 				if(mapQ > MAX_MAPQ)
 					mapQ = MAX_MAPQ;
-				recordList.get(i).setMappingQuality((int) mapQ);
+				recordList.get(i).setMappingQuality((int) Math.round(mapQ));
 				//System.err.println(recordList.get(i).getSAMString());
 			}
 		}
