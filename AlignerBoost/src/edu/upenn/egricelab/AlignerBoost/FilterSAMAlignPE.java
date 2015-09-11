@@ -159,14 +159,23 @@ public class FilterSAMAlignPE {
 				if(MIN_MAPQ > 0)
 					filterPEHits(alnPEList, MIN_MAPQ);
 				
-				// control max-best
-				if(MAX_BEST != 0 && alnPEList.size() > MAX_BEST) {// too much best hits, ignore this read
-					alnList.clear();
-					alnPEList.clear();
-				}
-				
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
-				Collections.sort(alnPEList, Collections.reverseOrder());
+				
+				Collections.sort(alnPEList, Collections.reverseOrder());				
+				// control max-best
+				if(MAX_BEST != 0 && alnPEList.size() > MAX_BEST) { // potential too much best hits
+					int nBestStratum = 0;
+					int bestMapQ = alnPEList.get(0).getPEMapQ();
+					for(SAMRecordPair pr : alnPEList)
+						if(pr.getPEMapQ() == bestMapQ)
+							nBestStratum++;
+						else
+							break; // stop searching for sorted list
+					if(nBestStratum > MAX_BEST) {
+						alnList.clear();
+						alnPEList.clear();
+					}
+				}
 
 				// report remaining secondary alignments, up-to MAX_REPORT
 				for(int i = 0; i < alnPEList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
@@ -385,9 +394,9 @@ public class FilterSAMAlignPE {
 				"            --known-MULTISUBSTITUTION-penalty INT  known large/multi-substitution penalty for calculating mapQ [" + SAMAlignFixer.getKNOWN_MULTISUBSTITUTION_PENALT() + "]" + newLine +
 				"            --out-SAM FLAG  write SAM text output instead of BAM binary output" + newLine +
 				"            --silent FLAG  ignore certain SAM format errors such as empty reads" + newLine +
-				"            --min-mapQ INT  min mapQ calculated with Bayesian method [0]" + newLine +
-				"            --max-best INT  max allowed best-stratum hits to report for a given read, 0 for no limit [0]" + newLine +
-				"            --max-report INT  max report valid hits determined by --min-mapQ and --max-best, 0 for no limit [0]" + newLine +
+				"            --min-mapQ INT  min mapQ calculated with Bayesian method [" + MIN_MAPQ + "]" + newLine +
+				"            --max-best INT  max allowed best-stratum hits to report for a given read, 0 for no limit [" + MAX_BEST + "]" + newLine +
+				"            --max-report INT  max report valid hits determined by --min-mapQ and --max-best, 0 for no limit [" + MAX_REPORT + "]" + newLine +
 				"            --no-update-bit FLAG  do not update the secondary alignment bit flag (0x100) after filtering" + newLine +
 				"            --best-only FLAG  only report unique best hit, equivelant to --max-best 1 --max-report 1" + newLine +
 				"            --best FLAG  report the best hit, ignore any secondary hit, equivelant to --max-best 0 --max-report 1" + newLine +
@@ -510,8 +519,6 @@ public class FilterSAMAlignPE {
 			System.err.println("Warning: output file '" + outFile + "' might not be SAM format");
 		if(MIN_MAPQ < 0)
 			throw new IllegalArgumentException("--max-div must be non negative");
-		if(MAX_BEST != 0 && MIN_MAPQ < MIN_UNIQ_MAPQ)
-			MIN_MAPQ = MIN_UNIQ_MAPQ;
 		if(MAX_BEST < 0)
 			throw new IllegalArgumentException("--max-best must be non negative integer");
 		if(MAX_REPORT < 0)
@@ -597,6 +604,12 @@ public class FilterSAMAlignPE {
 		int nPairs = alnPEList.size();
 		// get un-normalized posterior probs
 		double[] postP = new double[nPairs];
+		if(nPairs == 1) {
+			postP[0] = UNIQ_MAPQ;
+			alnPEList.get(0).setPEMapQ(UNIQ_MAPQ);
+			return postP;
+		}
+		
 		for(int i = 0; i < nPairs; i++)
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
 			postP[i] = alnPEList.get(i).getPEInsertLen() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
@@ -669,7 +682,8 @@ public class FilterSAMAlignPE {
 	}
 	
 	private static final int INVALID_MAPQ = 255;
-	private static final int MAX_MAPQ = 250; // MAX meaniful mapQ value, if not 255
+	private static final int MAX_MAPQ = 200; // MAX meaniful mapQ value, if not 255
+	private static final int UNIQ_MAPQ = 250;
 	private static String inFile;
 	private static String outFile;
 	private static String chrFile;
@@ -685,9 +699,9 @@ public class FilterSAMAlignPE {
 	private static boolean isSilent; // ignore SAM warnings?
 	private static boolean noMix; // do not allow unpaired alignments for paired reads?
 	// best stratum options
-	private static int MIN_MAPQ = 0; // max divergent
-	private static int MAX_BEST = 0; // no limits
-	private static int MAX_REPORT = 0;
+	private static int MIN_MAPQ = 10;
+	private static int MAX_BEST = 1;
+	private static int MAX_REPORT = 1;
 	private static boolean doUpdateBit = true;
 	private static int verbose; // verbose level
 	private static boolean fixMD = false;
@@ -700,5 +714,4 @@ public class FilterSAMAlignPE {
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
 	private static final int statusFreq = 10000;
-	private static final int MIN_UNIQ_MAPQ = 3;
 }

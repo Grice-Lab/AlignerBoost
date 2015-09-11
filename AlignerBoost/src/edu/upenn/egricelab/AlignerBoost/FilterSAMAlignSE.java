@@ -147,10 +147,20 @@ public class FilterSAMAlignSE {
 				// filter hits by mapQ
 				if(MIN_MAPQ > 0)
 					filterHits(recordList, MIN_MAPQ);
-				if(MAX_BEST != 0 && recordList.size() > MAX_BEST) // too much best hits, ignore this read
-					recordList.clear();
 				// sort the list using the mapQ, using DESCREASING order
 				Collections.sort(recordList, Collections.reverseOrder(recordComp));
+				
+				if(MAX_BEST != 0 && recordList.size() > MAX_BEST) { // potential too much best hits
+					int nBestStratum = 0;
+					int bestMapQ = recordList.get(0).getMappingQuality();
+					for(SAMRecord rec : recordList)
+						if(rec.getMappingQuality() == bestMapQ)
+							nBestStratum++;
+						else
+							break; // no need search for sorted list
+					if(nBestStratum > MAX_BEST)
+						recordList.clear();
+				}
 				// report remaining alignments, up-to MAX_REPORT
 				for(int i = 0; i < recordList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
 					if(doUpdateBit)
@@ -213,9 +223,9 @@ public class FilterSAMAlignSE {
 				"            --known-MULTISUBSTITUTION-penalty INT  known large/multi-substitution penalty for calculating mapQ [" + SAMAlignFixer.getKNOWN_MULTISUBSTITUTION_PENALT() + "]" + newLine +
 				"            --out-SAM FLAG  write SAM text output instead of BAM binary output" + newLine +
 				"            --silent FLAG  ignore certain SAM format errors such as empty reads" + newLine +
-				"            --min-mapQ INT  min mapQ calculated with Bayesian method [0]" + newLine +
-				"            --max-best INT  max allowed best-stratum hits to report for a given read, 0 for no limit [0]" + newLine +
-				"            --max-report INT  max report valid hits determined by --min-mapQ and --max-best, 0 for no limit [0]" + newLine +
+				"            --min-mapQ INT  min mapQ calculated with Bayesian method [" + MIN_MAPQ + "]" + newLine +
+				"            --max-best INT  max allowed best-stratum hits to report for a given read, 0 for no limit [" + MAX_BEST + "]" + newLine +
+				"            --max-report INT  max report valid hits determined by --min-mapQ and --max-best, 0 for no limit [" + MAX_REPORT + "]" + newLine +
 				"            --no-update-bit FLAG  do not update the secondary alignment bit flag (0x100) after filtering" + newLine +
 				"            --best-only FLAG  only report unique best hit, equivelant to --max-best 1 --max-report 1" + newLine +
 				"            --best FLAG  report the best hit, ignore any secondary hit, equivelant to --max-best 0 --max-report 1" + newLine +
@@ -338,8 +348,6 @@ public class FilterSAMAlignSE {
 			System.err.println("Warning: output file '" + outFile + "' might not be SAM format");
 		if(MIN_MAPQ < 0)
 			throw new IllegalArgumentException("--min-mapQ must be non negative integer");
-		if(MAX_BEST != 0 && MIN_MAPQ < MIN_UNIQ_MAPQ)
-			MIN_MAPQ = MIN_UNIQ_MAPQ;
 		if(MAX_BEST < 0)
 			throw new IllegalArgumentException("--max-best must be non negative integer");
 		if(MAX_REPORT < 0)
@@ -470,6 +478,13 @@ public class FilterSAMAlignSE {
 		int nHits = recordList.size();
 		// get un-normalized posterior probs
 		double[] postP = new double[nHits];
+		
+		if(nHits == 1) { // uniq mapping
+			postP[0] = UNIQ_MAPQ;
+			recordList.get(0).setMappingQuality(UNIQ_MAPQ);
+			return postP;
+		}
+
 		for(int i = 0; i < nHits; i++)
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
 			postP[i] = getSAMRecordAlignLen(recordList.get(i)) * Math.pow(10.0,  getSAMRecordAlignLikelihood(recordList.get(i)));
@@ -479,8 +494,8 @@ public class FilterSAMAlignSE {
 		for(int i = 0; i < nHits; i++) {
 			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
 			// add the "XP" flag showing the mapQ value
-			double mapQ = Math.round(Stats.phredP2Q(1 - postP[i]));
-			if(Double.isNaN(mapQ) || Double.isInfinite(mapQ)) // is NaN or isInfinite
+			double mapQ = Stats.phredP2Q(1 - postP[i]);
+			if(Double.isNaN(mapQ)) // is NaN
 				recordList.get(i).setMappingQuality(INVALID_MAPQ);
 			else {
 				if(mapQ > MAX_MAPQ)
@@ -526,7 +541,8 @@ public class FilterSAMAlignSE {
 	}*/
 	
 	static final int INVALID_MAPQ = 255;
-	static final double MAX_MAPQ = 250; // MAX meaniful mapQ value, if not 255
+	static final int MAX_MAPQ = 200; // MAX meaniful mapQ value, if not 255
+	static final int UNIQ_MAPQ = 250;
 	private static String inFile;
 	private static String outFile;
 	private static String chrFile;
@@ -541,9 +557,9 @@ public class FilterSAMAlignSE {
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	// best stratum options
-	private static int MIN_MAPQ = 0; // min map postP
-	private static int MAX_BEST = 0;
-	private static int MAX_REPORT = 0;
+	private static int MIN_MAPQ = 10; // min map postP
+	private static int MAX_BEST = 1;
+	private static int MAX_REPORT = 1;
 	private static boolean doUpdateBit = true;
 	private static boolean fixMD = false;
 	private static int verbose; // verbose level
@@ -557,5 +573,4 @@ public class FilterSAMAlignSE {
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
 	private static final int statusFreq = 10000;
-	private static final int MIN_UNIQ_MAPQ = 3;
 }
