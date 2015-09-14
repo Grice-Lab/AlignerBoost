@@ -111,11 +111,11 @@ public class PrepareMapCmd {
 				    	conf.seedLen = MAX_BOWTIE2_SEED_LEN;
 				    float maxScoreBowtie2 = maxInsert * BOWTIE2_MATCH_SCORE;
 				    float slope = - conf.allMis / 100 * BOWTIE2_MISMATCH_PENALTY - conf.allIndel / 100 * BOWTIE2_GAP_PENALTY;
-				    String scoreFunc = !conf.hasSpliced ? "L," + maxScoreBowtie2 + "," + slope : "";
+				    String scoreFunc = !conf.hasSpliced ? " --score-min L," + maxScoreBowtie2 + "," + slope : "";
 				    quiet = conf.doTrim && conf.isPaired ? " --quiet " : " ";
 				    inFn = !conf.isPaired ? " -U " + readIn : " -1 " + readIn + " -2 " + mateIn;
 				    cmd = prog + inType + mode + qual + " -N " + seedNMis + " -L " + conf.seedLen + hit + frag +
-				    		" -p " + MAX_PROC + " --score-min " + scoreFunc + quiet + conf.otherAlignerOpts +
+				    		" -p " + MAX_PROC + scoreFunc + quiet + conf.otherAlignerOpts +
 				    		" -x " + conf.refIndex + inFn + " | samtools view -S -b -o " + outFn + " -";
 				    break;
 				case "bwa-mem": case "bwa":
@@ -238,7 +238,7 @@ public class PrepareMapCmd {
 				      juncSearch = " --no-novel-juncs --no-gtf-juncs --no-coverage-search --no-novel-indels ";
 				    }
 				    inFn = !conf.isPaired ? " " + readIn : " " + readIn + " " + mateIn;
-				    String dir = conf.libName + "_" + conf.refGenome + "_" + conf.aligner;
+				    String dir = NGSExpDesign.WORK_DIR + "/" + conf.libName + "_" + conf.refGenome + "_" + conf.aligner;
 				    String transcriptome = conf.transcriptomeGFF != null ?
 				    		" -G " + conf.transcriptomeGFF + " --transcriptome-index " + conf.transcriptomeIndex : " ";
 				    if(conf.aligner.equals("tophat1"))
