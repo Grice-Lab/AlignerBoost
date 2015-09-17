@@ -173,14 +173,21 @@ public class SAMAlignFixer {
 		int nAllMis = 0;
 		int nAllIndel = 0;
 		int nCigars = cigar.numCigarElements();
+		CigarElement firstCigar = cigar.getCigarElement(0);
+		CigarElement lastCigar = cigar.getCigarElement(nCigars - 1);
+		int n5HClip = firstCigar.getOperator() == CigarOperator.H ? firstCigar.getLength() : 0;
+		int n3HClip = lastCigar.getOperator() == CigarOperator.H ? lastCigar.getLength() : 0;
+		int alnTotalLen = alnLen + n5HClip + n3HClip;
+		
 		for(int i = insertFrom; i < insertTo; i++) {
+			int pos = i + n5HClip;
 			if(bestStatus[i] == 'X') { // mismatch
-				if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
+				if(!isMinus && pos < SEED_LEN || isMinus && pos >= alnTotalLen - SEED_LEN)
 					nSeedMis++;
 				nAllMis++;
 			}
 			else if(bestStatus[i] == 'I' || bestStatus[i] == 'D') { // indel 
-				if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
+				if(!isMinus && pos < SEED_LEN || isMinus && pos >= alnTotalLen - SEED_LEN)
 					nSeedIndel++;
 				nAllIndel++;
 			}
@@ -190,28 +197,28 @@ public class SAMAlignFixer {
 		// check soft-clips in a second pass
 		if(CLIP_MODE != ClipHandlingMode.IGNORE) {
 			for(int i = 0; i < alnLen && bestStatus[i] == 'S'; i++) {
+				int pos = i + n5HClip;
 				boolean clipFlag = CLIP_MODE == ClipHandlingMode.USE ||
 						!isMinus && CLIP_MODE == ClipHandlingMode.END5 ||
 						isMinus && CLIP_MODE == ClipHandlingMode.END3;
 				if(clipFlag) {
-					if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
+					if(!isMinus && pos < SEED_LEN || isMinus && pos >= alnTotalLen - SEED_LEN)
 						nSeedMis++;
 					nAllMis++;
 				}
 			}
 			for(int i = alnLen - 1; i >= 0 && bestStatus[i] == 'S'; i--) {
+				int pos = i + n5HClip;
 				boolean clipFlag = CLIP_MODE == ClipHandlingMode.USE ||
 						!isMinus && CLIP_MODE == ClipHandlingMode.END3 ||
 						isMinus && CLIP_MODE == ClipHandlingMode.END5;
 				if(clipFlag) {
-					if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
+					if(!isMinus && pos < SEED_LEN || isMinus && pos >= alnTotalLen - SEED_LEN)
 						nSeedMis++;
 					nAllMis++;
 				}
 			}
-			// add hard-clipped bases if neccessary
-			CigarElement firstCigar = cigar.getCigarElement(0);
-			CigarElement lastCigar = cigar.getCigarElement(nCigars - 1);
+			// add hard-clipped bases if necessary
 			if(firstCigar.getOperator() == CigarOperator.H && (CLIP_MODE == ClipHandlingMode.USE ||
 					!isMinus && CLIP_MODE == ClipHandlingMode.END5 ||
 					isMinus && CLIP_MODE == ClipHandlingMode.END3)) {
