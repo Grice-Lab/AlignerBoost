@@ -23,7 +23,6 @@ package edu.upenn.egricelab.AlignerBoost;
 
 import static edu.upenn.egricelab.AlignerBoost.EnvConstants.newLine;
 import static edu.upenn.egricelab.AlignerBoost.EnvConstants.progFile;
-import static edu.upenn.egricelab.AlignerBoost.SAMAlignFixer.ClipHandlingMode;
 
 import java.io.BufferedWriter;
 import java.io.File;
