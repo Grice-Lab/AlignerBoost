@@ -51,6 +51,14 @@ import htsjdk.samtools.util.CloseableIterator;
  * @version 1.2
  */
 public class SAMAlignFixer {
+	/* Nested types and enums */
+	public static enum ClipHandlingMode {
+		USE, // count clipped bases as mismatches
+		IGNORE, // ignore clipped bases
+		END5, // only count 5' clipped bases
+		END3; // only count 3' clipped bases
+	}
+	
 	/**
 	 * Fix a SAMRecord read sequence and quality, according to its previous record (with read and quality provided)
 	 * @param record  the record to be fixed
@@ -164,6 +172,7 @@ public class SAMAlignFixer {
 		int nSeedIndel = 0;
 		int nAllMis = 0;
 		int nAllIndel = 0;
+		int nCigars = cigar.numCigarElements();
 		for(int i = insertFrom; i < insertTo; i++) {
 			if(bestStatus[i] == 'X') { // mismatch
 				if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
@@ -177,6 +186,44 @@ public class SAMAlignFixer {
 			}
 			else
 				continue;
+		}
+		// check soft-clips in a second pass
+		if(clipMode != ClipHandlingMode.IGNORE) {
+			for(int i = 0; i < alnLen && bestStatus[i] == 'S'; i++) {
+				boolean clipFlag = clipMode == ClipHandlingMode.USE ||
+						!isMinus && clipMode == ClipHandlingMode.END5 ||
+						isMinus && clipMode == ClipHandlingMode.END3;
+				if(clipFlag) {
+					if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
+						nSeedMis++;
+					nAllMis++;
+				}
+			}
+			for(int i = alnLen - 1; i >= 0 && bestStatus[i] == 'S'; i--) {
+				boolean clipFlag = clipMode == ClipHandlingMode.USE ||
+						!isMinus && clipMode == ClipHandlingMode.END3 ||
+						isMinus && clipMode == ClipHandlingMode.END5;
+				if(clipFlag) {
+					if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
+						nSeedMis++;
+					nAllMis++;
+				}
+			}
+			// add hard-clipped bases if neccessary
+			CigarElement firstCigar = cigar.getCigarElement(0);
+			CigarElement lastCigar = cigar.getCigarElement(nCigars - 1);
+			if(firstCigar.getOperator() == CigarOperator.H && (clipMode == ClipHandlingMode.USE ||
+					!isMinus && clipMode == ClipHandlingMode.END5 ||
+					isMinus && clipMode == ClipHandlingMode.END3)) {
+				nAllMis += firstCigar.getLength();
+				nSeedMis += Math.min(firstCigar.getLength(), SEED_LEN);
+			}
+			if(lastCigar.getOperator() == CigarOperator.H && (clipMode == ClipHandlingMode.USE ||
+					!isMinus && clipMode == ClipHandlingMode.END3 ||
+					isMinus && clipMode == ClipHandlingMode.END5)) {
+				nAllMis += lastCigar.getLength();
+				nSeedMis += Math.min(lastCigar.getLength(), SEED_LEN);
+			}
 		}
 		
 		// add additional customized tags
@@ -1059,13 +1106,13 @@ public class SAMAlignFixer {
 		int to;
 	}
 	
-	// default 1DP parameters
-	private static int SEED_LEN = 25;
-	private static int MATCH_SCORE = 1;
-	private static int MIS_SCORE = -2;
-	private static int GAP_OPEN_PENALTY = 4;
-	private static int GAP_EXT_PENALTY = 1;
+	static int SEED_LEN = 25;
+	static int MATCH_SCORE = 1;
+	static int MIS_SCORE = -2;
+	static int GAP_OPEN_PENALTY = 4;
+	static int GAP_EXT_PENALTY = 1;
 	static int CLIP_PENALTY = 0; // additional CLIP_PENALTY except for the mismatch penalty
+	static ClipHandlingMode clipMode = ClipHandlingMode.END5;
 	static int KNOWN_SNP_PENALTY = 0;
 	static int KNOWN_INDEL_PENALTY = 2;
 	static int KNOWN_MULTISUBSTITUTION_PENALTY = 2;
