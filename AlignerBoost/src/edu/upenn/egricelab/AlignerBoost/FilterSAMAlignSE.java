@@ -206,21 +206,22 @@ public class FilterSAMAlignSE {
 		System.err.println("Usage:   java -jar " + progFile + " run filterSE " +
 				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" + newLine +
 				"Options:    --min-insert INT  minimum insert length (excluding adapters) of a read for unamabiguous alignment [" + MIN_INSERT + "]" + newLine +
-				"            --seed-len INT  seed length for Burrows-Wheeler algorithm dependent aligners [" + SAMAlignFixer.getSEED_LEN() + "]" + newLine +
+				"            --seed-len INT  seed length for Burrows-Wheeler algorithm dependent aligners [" + SAMAlignFixer.SEED_LEN + "]" + newLine +
 				"            --seed-mis DOUBLE  %mismatches allowed in seed region [" + MAX_SEED_MIS + "]" + newLine +
 				"            --seed-indel DOUBLE  %indels allowed in seed region [" + MAX_SEED_INDEL + "0]" + newLine +
 				"            --all-mis  DOUBLE  %mismatches allowed in the entire insert region (excluding clipped/intron regions) [" + MAX_ALL_MIS + "]" + newLine +
 				"            --all-indel DOUBLE  %in-dels allowed in the entire insert region [" + MAX_ALL_INDEL + "]" + newLine +
 				"            -i/--identity DOUBLE  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels) [" + MIN_IDENTITY + "]" + newLine +
+				"            --clip-handle STRING  how to treat soft/hard-clipped bases as mismathes, USE for use all, IGNORE for ignore, END5 for only use 5' clipped, END3 for only use 3' clipped [" + SAMAlignFixer.CLIP_MODE + "]" + newLine +
 				"            --1DP FLAG  enable 1-dimentional dymamic programming insert re-assesment, useful for non-local aligners, i.e. bowtie" + newLine +
-				"            --match-score INT  match score for 1DP and calculating mapQ [" + SAMAlignFixer.getMATCH_SCORE() + "]" + newLine +
-				"            --mis-score INT  mismatch score for 1DP and calculating mapQ [" + SAMAlignFixer.getMIS_SCORE() + "]" + newLine +
-				"            --gap-open-penalty INT  gap open penalty for 1DP and calculating mapQ [" + SAMAlignFixer.getGAP_OPEN_PENALTY() + "]" + newLine +
-				"            --gap-ext-penalty INT  gap extension penalty for 1DP and calculating mapQ [" + SAMAlignFixer.getGAP_EXT_PENALTY() + "]" + newLine +
-				"            --clip-penalty INT  additional penalty for soft or hard clipped bases for calculating mapQ [" + SAMAlignFixer.getCLIP_PENALTY() + "]" + newLine +
-				"            --known-SNP-penalty INT  known SNP penalty for calculating mapQ [" + SAMAlignFixer.getKNOWN_SNP_PENALTY() + "]" + newLine +
-				"            --known-INDEL-penalty INT  known IN-DEL penalty for calculating mapQ [" + SAMAlignFixer.getKNOWN_INDEL_PENALTY() + "]" + newLine +
-				"            --known-MULTISUBSTITUTION-penalty INT  known large/multi-substitution penalty for calculating mapQ [" + SAMAlignFixer.getKNOWN_MULTISUBSTITUTION_PENALT() + "]" + newLine +
+				"            --match-score INT  match score for 1DP and calculating mapQ [" + SAMAlignFixer.MATCH_SCORE + "]" + newLine +
+				"            --mis-score INT  mismatch score for 1DP and calculating mapQ [" + SAMAlignFixer.MIS_SCORE + "]" + newLine +
+				"            --gap-open-penalty INT  gap open penalty for 1DP and calculating mapQ [" + SAMAlignFixer.GAP_OPEN_PENALTY + "]" + newLine +
+				"            --gap-ext-penalty INT  gap extension penalty for 1DP and calculating mapQ [" + SAMAlignFixer.GAP_EXT_PENALTY + "]" + newLine +
+				"            --clip-penalty INT  additional penalty for soft or hard clipped bases for calculating mapQ [" + SAMAlignFixer.CLIP_PENALTY + "]" + newLine +
+				"            --known-SNP-penalty INT  known SNP penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_SNP_PENALTY + "]" + newLine +
+				"            --known-INDEL-penalty INT  known IN-DEL penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_INDEL_PENALTY + "]" + newLine +
+				"            --known-MULTISUBSTITUTION-penalty INT  known large/multi-substitution penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_MULTISUBSTITUTION_PENALTY + "]" + newLine +
 				"            --out-SAM FLAG  write SAM text output instead of BAM binary output" + newLine +
 				"            --silent FLAG  ignore certain SAM format errors such as empty reads" + newLine +
 				"            --min-mapQ INT  min mapQ calculated with Bayesian method [" + MIN_MAPQ + "]" + newLine +
@@ -258,6 +259,8 @@ public class FilterSAMAlignSE {
 				MAX_ALL_INDEL = Double.parseDouble(args[++i]);
 			else if(args[i].equals("-i") || args[i].equals("--identity"))
 				MIN_IDENTITY = Double.parseDouble(args[++i]);
+			else if(args[i].equals("--clip-handle"))
+				SAMAlignFixer.CLIP_MODE = SAMAlignFixer.ClipHandlingMode.valueOf(args[++i]);
 			else if(args[i].equals("--1DP"))
 				DO_1DP = true;
 			else if(args[i].equals("--match-score"))

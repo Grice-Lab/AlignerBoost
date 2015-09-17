@@ -647,7 +647,15 @@ public class NGSExpDesign {
 		return PROJECT_DIR.equals(".") ? fn : PROJECT_DIR + "/" + fn;
 	}
 	
-
+	/**
+	 * Test whether a given aligner support spliced alignment
+	 * @param aligner  aligner name to test
+	 * @return true  if this is a known RNA aligner
+	 */
+	public static boolean isRNAAligner(String aligner) {
+		return aligner.equals("tophat2") || aligner.equals("STAR");
+	}
+	
 	// global options
 	static String VERSION = EnvConstants.progVer;
 	static int MAX_PROC = 6; // maximum processors to use

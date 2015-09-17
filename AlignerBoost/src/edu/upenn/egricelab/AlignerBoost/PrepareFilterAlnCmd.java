@@ -23,6 +23,7 @@ package edu.upenn.egricelab.AlignerBoost;
 
 import static edu.upenn.egricelab.AlignerBoost.EnvConstants.newLine;
 import static edu.upenn.egricelab.AlignerBoost.EnvConstants.progFile;
+import static edu.upenn.egricelab.AlignerBoost.SAMAlignFixer.ClipHandlingMode;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -68,6 +69,8 @@ public class PrepareFilterAlnCmd {
 				String minIns = conf.hasSpliced && conf.aligner.equals("bowtie") ? " --min-insert " + conf.minInsert + " " : " ";
 				String knownSnp = conf.knownSnpFile != null ? " --known-SNP " + conf.knownSnpFile + " " : " ";
 				String fixMD = conf.aligner.equals("seqalto") ? " --fix-MD " : " ";
+/*				ClipHandlingMode clipHandle = !conf.hasSpliced || NGSExpDesign.isRNAAligner(conf.aligner)
+						? ClipHandlingMode.USE : ClipHandlingMode.IGNORE;*/
 				String cmd = "java -jar " + progFile + " run " + prog + minIns +
 						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis + " --seed-indel " + conf.seedIndel +
 						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent +

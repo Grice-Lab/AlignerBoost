@@ -188,11 +188,11 @@ public class SAMAlignFixer {
 				continue;
 		}
 		// check soft-clips in a second pass
-		if(clipMode != ClipHandlingMode.IGNORE) {
+		if(CLIP_MODE != ClipHandlingMode.IGNORE) {
 			for(int i = 0; i < alnLen && bestStatus[i] == 'S'; i++) {
-				boolean clipFlag = clipMode == ClipHandlingMode.USE ||
-						!isMinus && clipMode == ClipHandlingMode.END5 ||
-						isMinus && clipMode == ClipHandlingMode.END3;
+				boolean clipFlag = CLIP_MODE == ClipHandlingMode.USE ||
+						!isMinus && CLIP_MODE == ClipHandlingMode.END5 ||
+						isMinus && CLIP_MODE == ClipHandlingMode.END3;
 				if(clipFlag) {
 					if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
 						nSeedMis++;
@@ -200,9 +200,9 @@ public class SAMAlignFixer {
 				}
 			}
 			for(int i = alnLen - 1; i >= 0 && bestStatus[i] == 'S'; i--) {
-				boolean clipFlag = clipMode == ClipHandlingMode.USE ||
-						!isMinus && clipMode == ClipHandlingMode.END3 ||
-						isMinus && clipMode == ClipHandlingMode.END5;
+				boolean clipFlag = CLIP_MODE == ClipHandlingMode.USE ||
+						!isMinus && CLIP_MODE == ClipHandlingMode.END3 ||
+						isMinus && CLIP_MODE == ClipHandlingMode.END5;
 				if(clipFlag) {
 					if(!isMinus && i < SEED_LEN || isMinus && i >= alnLen - SEED_LEN)
 						nSeedMis++;
@@ -212,15 +212,15 @@ public class SAMAlignFixer {
 			// add hard-clipped bases if neccessary
 			CigarElement firstCigar = cigar.getCigarElement(0);
 			CigarElement lastCigar = cigar.getCigarElement(nCigars - 1);
-			if(firstCigar.getOperator() == CigarOperator.H && (clipMode == ClipHandlingMode.USE ||
-					!isMinus && clipMode == ClipHandlingMode.END5 ||
-					isMinus && clipMode == ClipHandlingMode.END3)) {
+			if(firstCigar.getOperator() == CigarOperator.H && (CLIP_MODE == ClipHandlingMode.USE ||
+					!isMinus && CLIP_MODE == ClipHandlingMode.END5 ||
+					isMinus && CLIP_MODE == ClipHandlingMode.END3)) {
 				nAllMis += firstCigar.getLength();
 				nSeedMis += Math.min(firstCigar.getLength(), SEED_LEN);
 			}
-			if(lastCigar.getOperator() == CigarOperator.H && (clipMode == ClipHandlingMode.USE ||
-					!isMinus && clipMode == ClipHandlingMode.END3 ||
-					isMinus && clipMode == ClipHandlingMode.END5)) {
+			if(lastCigar.getOperator() == CigarOperator.H && (CLIP_MODE == ClipHandlingMode.USE ||
+					!isMinus && CLIP_MODE == ClipHandlingMode.END3 ||
+					isMinus && CLIP_MODE == ClipHandlingMode.END5)) {
 				nAllMis += lastCigar.getLength();
 				nSeedMis += Math.min(lastCigar.getLength(), SEED_LEN);
 			}
@@ -1112,7 +1112,7 @@ public class SAMAlignFixer {
 	static int GAP_OPEN_PENALTY = 4;
 	static int GAP_EXT_PENALTY = 1;
 	static int CLIP_PENALTY = 0; // additional CLIP_PENALTY except for the mismatch penalty
-	static ClipHandlingMode clipMode = ClipHandlingMode.END5;
+	static ClipHandlingMode CLIP_MODE = ClipHandlingMode.IGNORE;
 	static int KNOWN_SNP_PENALTY = 0;
 	static int KNOWN_INDEL_PENALTY = 2;
 	static int KNOWN_MULTISUBSTITUTION_PENALTY = 2;
