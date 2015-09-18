@@ -78,4 +78,16 @@ public class StringUtils {
 	public static <K, V> String join(Map<K, V> map) {
 		return join(map, ",");
 	}
+	
+	/**
+	 * Get a reverse copy of a string
+	 * @param str  original string
+	 * @return  a fresh copy of in reversed order of the original str
+	 */
+	public static String reverse(final String str) {
+		StringBuilder rStr = new StringBuilder(str.length());
+		for(int i = str.length() - 1; i >= 0; i--)
+			rStr.append(str.charAt(i));
+		return rStr.toString();
+	}
 }

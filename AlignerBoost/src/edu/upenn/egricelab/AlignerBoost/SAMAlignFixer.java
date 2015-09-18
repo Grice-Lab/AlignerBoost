@@ -23,10 +23,12 @@ package edu.upenn.egricelab.AlignerBoost;
 import java.util.Arrays;
 import java.util.regex.*;
 
+import edu.upenn.egricelab.AlignerBoost.utils.IUPACNucl;
 import edu.upenn.egricelab.AlignerBoost.utils.Stats;
+import edu.upenn.egricelab.AlignerBoost.utils.StringUtils;
 import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.vcf.*;
-import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
+//import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
 import static edu.upenn.egricelab.AlignerBoost.utils.Stats.PHRED_SCALE;
 import htsjdk.samtools.*;
 import htsjdk.samtools.util.CloseableIterator;
@@ -73,22 +75,21 @@ public class SAMAlignFixer {
 			return false;
 		String read = prevRecord.getReadString(); // a copy of readString, can be modified
 		String qual = prevRecord.getBaseQualityString(); // a copy of readString, can be modified
+		if(record.getReadNegativeStrandFlag() != prevRecord.getReadNegativeStrandFlag()) { // not in the same strand
+			read = IUPACNucl.revcom(read); // reverse-complement
+			qual = StringUtils.reverse(qual); // reverse
+		}
 		int clippedStart = 0;
 		int clippedEnd = read.length();
 		// check cigar to see whether need hard-clip
-		Cigar cigar = record.getCigar();
 		int cigNum = record.getCigarLength();
-		for(int i = 0; i < cigNum; i++) {
-			CigarElement cigEle = cigar.getCigarElement(i);
-			if(cigEle.getOperator() == CigarOperator.H) { // a hard-clip, read needs to be clipped
-				if(i == 0) // 5' clip
-					clippedStart += cigEle.getLength();
-				else if(i == cigNum - 1)
-					clippedEnd -= cigEle.getLength();
-				else
-					throw new RuntimeException("Invalid cigar operator at SAMRecord:" + newLine + record.getSAMString());
-			}
-		}
+		CigarElement firstCigar = record.getCigar().getCigarElement(0);
+		CigarElement lastCigar = record.getCigar().getCigarElement(cigNum - 1);
+		if(firstCigar.getOperator() == CigarOperator.H) // a hard-clip at 5'
+			clippedStart += firstCigar.getLength();
+		if(lastCigar.getOperator() == CigarOperator.H) // a hard-clip at 3'
+			clippedEnd -= lastCigar.getLength();
+		
 		if(clippedEnd - clippedStart == read.length()) { // clip not required
 			record.setReadString(read);
 			record.setBaseQualityString(qual);
