@@ -150,7 +150,7 @@ public class FilterSAMAlignPE {
 				alnPEList = createAlnPEListFromAlnList(alnList);
 				//System.err.printf("%d alignments for %s transformed to %d alnPairs%n", alnList.size(), prevID, alnPEList.size());
 				// filter unlikely PEhits
-				filterPEHits(alnPEList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_IDENTITY);
+				filterPEHits(alnPEList, MIN_ALIGN_RATE, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_IDENTITY);
 				
 				// calculate posterior mapQ for each pair
 				calcPEHitPostP(alnPEList);
@@ -376,7 +376,7 @@ public class FilterSAMAlignPE {
 	private static void printUsage() { 
 		System.err.println("Usage:   java -jar " + progFile + " run filterSE " +
 				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" + newLine +
-				"Options:    --min-insert INT  minimum insert length (excluding adapters) of a read for unamabiguous alignment [" + MIN_INSERT + "]" + newLine +
+				"Options:    -r/--min-align-rate DOUBLE  minimum fraction of align length relative to the read length [" + MIN_ALIGN_RATE + "]" + newLine +
 				"            --seed-len INT  seed length for Burrows-Wheeler algorithm dependent aligners [" + SAMAlignFixer.SEED_LEN + "]" + newLine +
 				"            --seed-mis DOUBLE  %mismatches allowed in seed region [" + MAX_SEED_MIS + "]" + newLine +
 				"            --seed-indel DOUBLE  %indels allowed in seed region [" + MAX_SEED_INDEL + "]" + newLine +
@@ -416,8 +416,8 @@ public class FilterSAMAlignPE {
 				inFile = args[++i];
 			else if(args[i].equals("-out"))
 				outFile = args[++i];
-			else if(args[i].equals("--min-insert"))
-				MIN_INSERT = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-r") || args[i].equals("--min-align-rate"))
+				MIN_ALIGN_RATE = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--seed-len"))
 				SAMAlignFixer.setSEED_LEN(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--seed-mis"))
@@ -544,6 +544,14 @@ public class FilterSAMAlignPE {
 		return record.getIntegerAttribute("XL");
 	}
 
+	/** get align insert rate relative to the read length from AlignerBoost internal tag
+	 * @return the identity if tag "XL" exists
+	 * throws {@RuntimeException} if tag "XL" not exists
+	 */
+	static double getSAMRecordInsertRate(SAMRecord record) throws RuntimeException {
+		return (double) record.getIntegerAttribute("XL") / record.getReadLength();
+	}
+	
 	/** get align identity from AlignerBoost internal tag
 	 * @return the identity if tag "XI" exists
 	 * throws {@RuntimeException} if tag "XI" not exists
@@ -617,7 +625,7 @@ public class FilterSAMAlignPE {
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
 			postP[i] = alnPEList.get(i).getPEInsertLen() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
 		// normalize postP
-		FilterSAMAlignSE.normalizePostP(postP);
+		FilterSAMAlignSE.normalizePostP(postP, 0);
 		// reset the mapQ values
 		for(int i = 0; i < nPairs; i++) {
 			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
@@ -630,19 +638,19 @@ public class FilterSAMAlignPE {
 		return postP;
 	}
 
-	private static int filterPEHits(List<SAMRecordPair> alnPEList, int minInsert,
+	private static int filterPEHits(List<SAMRecordPair> alnPEList, double minAlignRate,
 			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, double minIdentity) {
 		int n = alnPEList.size();
 		int removed = 0;
 		for(int i = n - 1; i >= 0; i--) { // search backward for maximum performance
 			SAMRecordPair pair = alnPEList.get(i);
-			if(!(  (pair.fwdRecord == null || getSAMRecordInsertLen(pair.fwdRecord) >= minInsert
+			if(!(  (pair.fwdRecord == null || getSAMRecordInsertRate(pair.fwdRecord)>= minAlignRate 
 					&& getSAMRecordPercentSeedMis(pair.fwdRecord) <= maxSeedMis
 					&& getSAMRecordPercentSeedIndel(pair.fwdRecord) <= maxSeedIndel
 					&& getSAMRecordPercentAllMis(pair.fwdRecord) <= maxAllMis
 					&& getSAMRecordPercentAllIndel(pair.fwdRecord) <= maxAllIndel
 					&& getSAMRecordIdentity(pair.fwdRecord) >= minIdentity)
-				&& (pair.revRecord == null || getSAMRecordInsertLen(pair.revRecord) >= minInsert
+				&& (pair.revRecord == null || getSAMRecordInsertRate(pair.revRecord)>= minAlignRate 
 					&& getSAMRecordPercentSeedMis(pair.revRecord) <= maxSeedMis
 					&& getSAMRecordPercentSeedIndel(pair.revRecord) <= maxSeedIndel
 					&& getSAMRecordPercentAllMis(pair.revRecord) <= maxAllMis
@@ -692,7 +700,7 @@ public class FilterSAMAlignPE {
 	private static String chrFile;
 	private static String knownSnpFile;
 	// filter options
-	private static int MIN_INSERT = 15;
+	private static double MIN_ALIGN_RATE = 0.9;
 	private static double MAX_SEED_MIS = 4; // max % seed mismatch
 	private static double MAX_SEED_INDEL = 0; // max % seed indel
 	private static double MAX_ALL_MIS = 6; // max % all mismatch

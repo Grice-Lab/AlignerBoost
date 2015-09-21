@@ -65,12 +65,12 @@ public class PrepareFilterAlnCmd {
 				String dp = conf.aligner.equals("bowtie") ? " --1DP " : " "; // always enable 1DP for non-SW supported aligners
 				String silent = conf.isPaired ? " --silent " : " ";
 				String prog = !conf.isPaired ? "filterSE" : "filterPE";
-				String minIns = conf.hasSpliced && conf.aligner.equals("bowtie") ? " --min-insert " + conf.minInsert + " " : " ";
+				Double minRate = conf.minAlignRate;
 				String knownSnp = conf.knownSnpFile != null ? " --known-SNP " + conf.knownSnpFile + " " : " ";
 				String fixMD = conf.aligner.equals("seqalto") ? " --fix-MD " : " ";
 /*				ClipHandlingMode clipHandle = !conf.hasSpliced || NGSExpDesign.isRNAAligner(conf.aligner)
 						? ClipHandlingMode.USE : ClipHandlingMode.IGNORE;*/
-				String cmd = "java -jar " + progFile + " run " + prog + minIns +
+				String cmd = "java -jar " + progFile + " run " + prog + " -r " + minRate +
 						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis + " --seed-indel " + conf.seedIndel +
 						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent +
 						" --min-mapQ " + conf.minMapQ + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +

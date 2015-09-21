@@ -63,11 +63,14 @@ public class PrepareMapCmd {
 				if(conf.refGenome.equals("NA"))
 					continue; // ignore if no ref genome
 				// set max_insert for trimmed and untrimmed reads separately
-				int maxInsert = conf.doTrim ? conf.readLen - conf.minTrim + 1 : conf.readLen;
+				int minInsert = (int) (conf.readLen * conf.minAlignRate);
+				int maxInsert = conf.readLen;
+				if(minInsert < NGSExpDesign.MIN_UNIQ_INSERT)
+					minInsert = NGSExpDesign.MIN_UNIQ_INSERT;
 				int seedNMis = (int) Math.floor(conf.seedLen * conf.seedMis / 100);
 				int maxNMis;
 				if(conf.hasSpliced && conf.aligner.equals("bowtie")) // has spliced reads and using the non-sw bowtie aligner
-					maxNMis = (int) Math.floor(conf.allMis * conf.minInsert / 100) + conf.readLen - conf.minInsert;
+					maxNMis = (int) Math.floor(conf.allMis * minInsert / 100) + conf.readLen - minInsert;
 				else // no spliced reads or using SW aligner
 					maxNMis = (int) Math.floor(conf.allMis * maxInsert / 100);
 				// prepare mapping cmd
@@ -102,16 +105,16 @@ public class PrepareMapCmd {
 				    prog = "bowtie2";
 				    inType = conf.doNR ? " -f " : " -q ";
 				    qual = conf.asciiOffset != 0 ? " --phred" + conf.asciiOffset + " " : " ";
-				    String mode = " --local ";
+				    String mode = !conf.hasSpliced ? " --end-to-end " : " --local ";
 				    hit = conf.maxHit > 1 ? " -k " + conf.maxHit : ""; // use default mode if max_hit == 1
 					frag = conf.isPaired ? " --minins " + conf.minFragLen + " --maxins " + conf.maxFragLen + " " : " ";
 				    if(seedNMis > MAX_BOWTIE2_SEED_NMIS)
 				    	seedNMis = MAX_BOWTIE2_SEED_NMIS;
 				    if(conf.seedLen > MAX_BOWTIE2_SEED_LEN)
 				    	conf.seedLen = MAX_BOWTIE2_SEED_LEN;
-				    float maxScoreBowtie2 = maxInsert * BOWTIE2_MATCH_SCORE;
-				    float slope = - conf.allMis / 100 * BOWTIE2_MISMATCH_PENALTY - conf.allIndel / 100 * BOWTIE2_GAP_PENALTY;
-				    String scoreFunc = !conf.hasSpliced ? " --score-min L," + maxScoreBowtie2 + "," + slope : "";
+				    float maxScore = 0;
+				    float slope = -conf.allMis / 100 * BOWTIE2_GLOBAL_MISMATCH_PENALTY - conf.allIndel / 100 * BOWTIE2_GAP_PENALTY;
+				    String scoreFunc = !conf.hasSpliced ? " --score-min L," + maxScore + "," + slope : "";
 				    quiet = conf.doTrim && conf.isPaired ? " --quiet " : " ";
 				    inFn = !conf.isPaired ? " -U " + readIn : " -1 " + readIn + " -2 " + mateIn;
 				    cmd = prog + inType + mode + qual + " -N " + seedNMis + " -L " + conf.seedLen + hit + frag +
@@ -120,7 +123,6 @@ public class PrepareMapCmd {
 				    break;
 				case "bwa-mem": case "bwa":
 				    prog = "bwa mem";
-				    int minInsert = !conf.hasSpliced ? maxInsert : conf.minInsert;
 				    int minScoreBWA = minInsert * BWA_MEM_MATCH_SCORE -
 				    		(int) Math.floor(minInsert * conf.allMis / 100) * BWA_MEM_MISMATCH_PENALTY -
 				    		(int) Math.floor(minInsert * conf.allIndel / 100) * BWA_MEM_GAP_PENALTY;
@@ -132,7 +134,6 @@ public class PrepareMapCmd {
 				    break;
 				case "bwa-sw":
 				    prog = "bwa bwasw";
-				    minInsert = !conf.hasSpliced ? maxInsert : conf.minInsert;
 				    int minScoreSW = minInsert * BWA_SW_MATCH_SCORE -
 				    		(int) Math.floor(minInsert * conf.allMis / 100) * BWA_SW_MISMATCH_PENALTY-
 				    		(int) Math.floor(minInsert * conf.allIndel / 100) * BWA_SW_MISMATCH_PENALTY;
@@ -315,8 +316,10 @@ public class PrepareMapCmd {
 	public static final int MAX_BOWTIE_SEED_NMIS = 3;
 	public static final int MAX_BOWTIE2_SEED_NMIS = 1;
 	public static final int MAX_BOWTIE2_SEED_LEN = 32;
-	public static final int BOWTIE2_MATCH_SCORE = 2; // --local default
-	public static final int BOWTIE2_MISMATCH_PENALTY = 6; // --local default
+	public static final int BOWTIE2_LOCAL_MATCH_SCORE = 2; // --local default
+	public static final int BOWTIE2_LOCAL_MISMATCH_PENALTY = 6; // --local default
+	public static final int BOWTIE2_GLOBAL_MATCH_SCORE = 0; // --end-to-end default
+	public static final int BOWTIE2_GLOBAL_MISMATCH_PENALTY = 6; // --end-to-end default
 	private static final int BOWTIE2_GAP_PENALTY = 5;
 	public static final int BWA_MEM_MATCH_SCORE = 1;
 	public static final int BWA_MEM_MISMATCH_PENALTY = 4;

@@ -140,10 +140,10 @@ public class FilterSAMAlignSE {
 			}
 
 			if(!ID.equals(prevID) && prevID != null || !results.hasNext()) { // a non-first new ID meet, or end of alignments
-				// filter highly unlikely hits
-				filterHits(recordList, MIN_INSERT, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_IDENTITY);
 				// calculate Bayesian based posterior probabilities
-				calcHitPostP(recordList);
+				calcHitPostP(recordList, MAX_HIT);
+/*				if(MAX_HIT > 0 && recordList.size() >= MAX_HIT) // not all alignments were found
+					recordList.clear();*/
 				// filter hits by mapQ
 				if(MIN_MAPQ > 0)
 					filterHits(recordList, MIN_MAPQ);
@@ -161,6 +161,9 @@ public class FilterSAMAlignSE {
 					if(nBestStratum > MAX_BEST)
 						recordList.clear();
 				}
+				// filter other unlikely hits
+				filterHits(recordList, MIN_ALIGN_RATE, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_IDENTITY);
+
 				// report remaining alignments, up-to MAX_REPORT
 				for(int i = 0; i < recordList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
 					if(doUpdateBit)
@@ -205,7 +208,7 @@ public class FilterSAMAlignSE {
 	private static void printUsage() { 
 		System.err.println("Usage:   java -jar " + progFile + " run filterSE " +
 				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" + newLine +
-				"Options:    --min-insert INT  minimum insert length (excluding adapters) of a read for unamabiguous alignment [" + MIN_INSERT + "]" + newLine +
+				"Options:    -r/--min-align-rate DOUBLE  minimum fraction of align length relative to the read length [" + MIN_ALIGN_RATE + "]" + newLine +
 				"            --seed-len INT  seed length for Burrows-Wheeler algorithm dependent aligners [" + SAMAlignFixer.SEED_LEN + "]" + newLine +
 				"            --seed-mis DOUBLE  %mismatches allowed in seed region [" + MAX_SEED_MIS + "]" + newLine +
 				"            --seed-indel DOUBLE  %indels allowed in seed region [" + MAX_SEED_INDEL + "0]" + newLine +
@@ -224,6 +227,7 @@ public class FilterSAMAlignSE {
 				"            --known-MULTISUBSTITUTION-penalty INT  known large/multi-substitution penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_MULTISUBSTITUTION_PENALTY + "]" + newLine +
 				"            --out-SAM FLAG  write SAM text output instead of BAM binary output" + newLine +
 				"            --silent FLAG  ignore certain SAM format errors such as empty reads" + newLine +
+				"            -N/--max-hit INT  max-hit value used during the mapping step, 0 for no limit [" + MAX_HIT + "]" + newLine +
 				"            --min-mapQ INT  min mapQ calculated with Bayesian method [" + MIN_MAPQ + "]" + newLine +
 				"            --max-best INT  max allowed best-stratum hits to report for a given read, 0 for no limit [" + MAX_BEST + "]" + newLine +
 				"            --max-report INT  max report valid hits determined by --min-mapQ and --max-best, 0 for no limit [" + MAX_REPORT + "]" + newLine +
@@ -245,8 +249,8 @@ public class FilterSAMAlignSE {
 				inFile = args[++i];
 			else if(args[i].equals("-out"))
 				outFile = args[++i];
-			else if(args[i].equals("--min-insert"))
-				MIN_INSERT = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-r") || args[i].equals("--min-align-rate"))
+				MIN_ALIGN_RATE = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--seed-len"))
 				SAMAlignFixer.setSEED_LEN(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--seed-mis"))
@@ -283,6 +287,8 @@ public class FilterSAMAlignSE {
 				OUT_IS_SAM = true;
 			else if(args[i].equals("--silent"))
 				isSilent = true;
+			else if(args[i].equals("-N") || args[i].equals("--max-hit"))
+				MAX_HIT = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--min-mapQ"))
 				MIN_MAPQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--max-best"))
@@ -372,6 +378,14 @@ public class FilterSAMAlignSE {
 	static int getSAMRecordInsertLen(SAMRecord record) throws RuntimeException {
 		return record.getIntegerAttribute("XL");
 	}
+	
+	/** get align insert rate relative to the read length from AlignerBoost internal tag
+	 * @return the identity if tag "XL" exists
+	 * throws {@RuntimeException} if tag "XL" not exists
+	 */
+	static double getSAMRecordInsertRate(SAMRecord record) throws RuntimeException {
+		return (double) record.getIntegerAttribute("XL") / record.getReadLength();
+	}
 
 	/** get align identity from AlignerBoost internal tag
 	 * @return the identity if tag "XI" exists
@@ -432,13 +446,13 @@ public class FilterSAMAlignSE {
 	 * @param maxAllIndel  max %all-indels
 	 * @param minIdentity  min identity 
 	 */
-	private static int filterHits(List<SAMRecord> recordList, int minInsert,
+	private static int filterHits(List<SAMRecord> recordList, double minAlignRate,
 			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, double minIdentity) {
 		int n = recordList.size();
 		int removed = 0;
 		for(int i = n - 1; i >= 0; i--) { // search backward for maximum performance
 			SAMRecord record = recordList.get(i);
-			if(!(getSAMRecordInsertLen(record) >= minInsert
+			if(!(getSAMRecordInsertRate(record) >= minAlignRate
 					&& getSAMRecordPercentSeedMis(record) <= maxSeedMis && getSAMRecordPercentSeedIndel(record) <= maxSeedIndel
 					&& getSAMRecordPercentAllMis(record) <= maxAllMis && getSAMRecordPercentAllIndel(record) <= maxAllIndel
 					&& getSAMRecordIdentity(record) >= minIdentity)) {
@@ -472,7 +486,7 @@ public class FilterSAMAlignSE {
 	 * @param recordList
 	 * 
 	 */
-	static double[] calcHitPostP(List<SAMRecord> recordList) {
+	static double[] calcHitPostP(List<SAMRecord> recordList, int maxHit) {
 		if(recordList == null) // return null for null list
 			return null;
 		if(recordList.isEmpty())
@@ -482,7 +496,7 @@ public class FilterSAMAlignSE {
 		// get un-normalized posterior probs
 		double[] postP = new double[nHits];
 		
-		if(nHits == 1) { // uniq mapping
+		if(nHits == 1 && maxHit > 1) { // uniq mapping
 			postP[0] = UNIQ_MAPQ;
 			recordList.get(0).setMappingQuality(UNIQ_MAPQ);
 			return postP;
@@ -492,7 +506,7 @@ public class FilterSAMAlignSE {
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
 			postP[i] = getSAMRecordAlignLen(recordList.get(i)) * Math.pow(10.0,  getSAMRecordAlignLikelihood(recordList.get(i)));
 		// normalize postP
-		FilterSAMAlignSE.normalizePostP(postP);
+		FilterSAMAlignSE.normalizePostP(postP, maxHit == 0 || postP.length < maxHit ? 0 : Math.sqrt(maxHit) / maxHit);
 		// reset the mapQ values
 		for(int i = 0; i < nHits; i++) {
 			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
@@ -524,8 +538,9 @@ public class FilterSAMAlignSE {
 	 * @param postP
 	 * @return  normalization constant pi
 	 */
-	static double normalizePostP(double[] postP) {
-		double pi = 0; // normalization constant
+	static double normalizePostP(double[] postP, double pseudoP) {
+		assert(pseudoP >= 0 && pseudoP <= 1);
+		double pi = pseudoP; // normalization constant
 		for(double p : postP)
 			if(p >= 0)
 				pi += p;
@@ -551,7 +566,7 @@ public class FilterSAMAlignSE {
 	private static String chrFile;
 	private static String knownSnpFile;
 	// filter options
-	private static int MIN_INSERT = 15;
+	private static double MIN_ALIGN_RATE = 0.9;
 	private static double MAX_SEED_MIS = 4; // max % seed mismatch
 	private static double MAX_SEED_INDEL = 0; // max % seed indel
 	private static double MAX_ALL_MIS = 6; // max % all mismatch
@@ -560,6 +575,7 @@ public class FilterSAMAlignSE {
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	// best stratum options
+	private static int MAX_HIT = 10; // MAX_HIT used during the mapping step
 	private static int MIN_MAPQ = 10; // min map postP
 	private static int MAX_BEST = 1;
 	private static int MAX_REPORT = 1;

@@ -61,7 +61,7 @@ public class PrepareTrimCmd {
 				if(!conf.doTrim)
 					continue;
 				
-				String limit = !conf.isPaired ? " -m " + conf.minInsert : "";
+				String limit = !conf.isPaired ? " -m " + NGSExpDesign.MIN_UNIQ_INSERT : "";
 				String outFn = conf.getTrimmedReadFileName();
 				String cmd = "cutadapt -a " + conf.adapterSeq3 + " -e " + conf.trimMis + " -O " + conf.minTrim +
 						limit + " -o " + outFn + " " + conf.readFile;
