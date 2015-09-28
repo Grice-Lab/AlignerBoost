@@ -58,7 +58,12 @@ public class SAMAlignFixer {
 		USE, // count clipped bases as mismatches
 		IGNORE, // ignore clipped bases
 		END5, // only count 5' clipped bases
-		END3; // only count 3' clipped bases
+		END3 // only count 3' clipped bases
+	}
+	
+	public static enum IndelPenaltyMode {
+		ABSOLUTE, // use absolute indel penalties
+		RELATIVE; // use relative indel penalties 
 	}
 	
 	/**
@@ -445,7 +450,7 @@ public class SAMAlignFixer {
 				score = MIS_SCORE;
 				break;
 			case 'I': case 'D': // indel
-				score = i == 0 || status[i - 1] != 'I' && status[i - 1] != 'D' ? -GAP_OPEN_PENALTY : -GAP_EXT_PENALTY;
+				score = i == 0 || status[i - 1] != 'I' && status[i - 1] != 'D' ? -GAP_OPEN_PENALTY_1DP : -GAP_EXT_PENALTY_1DP;
 				break;
 			case 'S':
 				score = 0;
@@ -844,12 +849,16 @@ public class SAMAlignFixer {
 				if(i == 0 || status[i-1] != 'I') // gap-open
 					log10Lik -= GAP_OPEN_PENALTY;
 				log10Lik -= GAP_EXT_PENALTY;
+				if(INDEL_MODE == IndelPenaltyMode.RELATIVE)
+					log10Lik += baseQ[pos] / -PHRED_SCALE;
 				pos++;
 				break;
 			case 'D':
 				if(i == 0 || status[i-1] != 'D')
 					log10Lik -= GAP_OPEN_PENALTY;
 				log10Lik -= GAP_EXT_PENALTY;
+				if(INDEL_MODE == IndelPenaltyMode.RELATIVE)
+					log10Lik += baseQ[pos] / -PHRED_SCALE;
 				break;
 			case 'V': // known SNP/SNV position, treat similar as match
 				int snpPenalty = penaltyScore != null && penaltyScore[i] >= 0 ? penaltyScore[i] : KNOWN_SNP_PENALTY;  
@@ -1020,6 +1029,34 @@ public class SAMAlignFixer {
 	}
 
 	/**
+	 * @return the gAP_OPEN_PENALTY_1DP
+	 */
+	public static int getGAP_OPEN_PENALTY_1DP() {
+		return GAP_OPEN_PENALTY_1DP;
+	}
+
+	/**
+	 * @param gAP_OPEN_PENALTY_1DP the gAP_OPEN_PENALTY_1DP to set
+	 */
+	public static void setGAP_OPEN_PENALTY_1DP(int gAP_OPEN_PENALTY_1DP) {
+		GAP_OPEN_PENALTY_1DP = gAP_OPEN_PENALTY_1DP;
+	}
+
+	/**
+	 * @return the gAP_EXT_PENALTY_1DP
+	 */
+	public static int getGAP_EXT_PENALTY_1DP() {
+		return GAP_EXT_PENALTY_1DP;
+	}
+
+	/**
+	 * @param gAP_EXT_PENALTY_1DP the gAP_EXT_PENALTY_1DP to set
+	 */
+	public static void setGAP_EXT_PENALTY_1DP(int gAP_EXT_PENALTY_1DP) {
+		GAP_EXT_PENALTY_1DP = gAP_EXT_PENALTY_1DP;
+	}
+
+	/**
 	 * @return the CLIP_PENALTY
 	 */
 	public static int getCLIP_PENALTY() {
@@ -1117,10 +1154,13 @@ public class SAMAlignFixer {
 	static int SEED_LEN = 25;
 	static int MATCH_SCORE = 1;
 	static int MIS_SCORE = -2;
-	static int GAP_OPEN_PENALTY = 4;
+	static int GAP_OPEN_PENALTY = 3;
 	static int GAP_EXT_PENALTY = 1;
+	static int GAP_OPEN_PENALTY_1DP = 5;
+	static int GAP_EXT_PENALTY_1DP = 2;
 	static int CLIP_PENALTY = 0; // additional CLIP_PENALTY except for the mismatch penalty
 	static ClipHandlingMode CLIP_MODE = ClipHandlingMode.IGNORE;
+	static IndelPenaltyMode INDEL_MODE = IndelPenaltyMode.ABSOLUTE;
 	static int KNOWN_SNP_PENALTY = 0;
 	static int KNOWN_INDEL_PENALTY = 2;
 	static int KNOWN_MULTISUBSTITUTION_PENALTY = 2;
@@ -1128,7 +1168,7 @@ public class SAMAlignFixer {
 
 	private static final byte REF_QUAL = 40; // reference quality for deletions
 //	private static final byte AVG_READ_QUAL = 25;
-	private static final byte MIN_PHRED_QUAL = 1; // min phred qual to avoid -Inf
+	private static final byte MIN_PHRED_QUAL = 3; // min phred qual to avoid -Inf
 	private static final int HCLIP_SAMPLE_LEN = 5; // sampling length for estimating the average quality of hard-clipped regions
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(^\\d+)(.*)");

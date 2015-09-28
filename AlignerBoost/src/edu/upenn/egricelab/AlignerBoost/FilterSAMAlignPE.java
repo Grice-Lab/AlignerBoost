@@ -149,33 +149,30 @@ public class FilterSAMAlignPE {
 				// create alnPEList from filtered alnList
 				alnPEList = createAlnPEListFromAlnList(alnList);
 				//System.err.printf("%d alignments for %s transformed to %d alnPairs%n", alnList.size(), prevID, alnPEList.size());
-				// filter unlikely PEhits
-				filterPEHits(alnPEList, MIN_ALIGN_RATE, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL, MIN_IDENTITY);
-				
+				int totalPair = alnPEList.size();
+				// filter highly unlikely PEhits
+				filterPEHits(alnPEList, MIN_ALIGN_RATE, MIN_IDENTITY);
 				// calculate posterior mapQ for each pair
-				calcPEHitPostP(alnPEList);
-				
+				calcPEHitPostP(alnPEList, totalPair, MAX_HIT);
 				// filter hits by mapQ
 				if(MIN_MAPQ > 0)
 					filterPEHits(alnPEList, MIN_MAPQ);
 				
 				// sort the list first with an anonymous class of comparator, with DESCREASING order
-				
 				Collections.sort(alnPEList, Collections.reverseOrder());				
 				// control max-best
 				if(MAX_BEST != 0 && alnPEList.size() > MAX_BEST) { // potential too much best hits
 					int nBestStratum = 0;
-					int bestMapQ = alnPEList.get(0).getPEMapQ();
+					int bestMapQ = alnPEList.get(0).getPEMapQ(); // best mapQ from first PE
 					for(SAMRecordPair pr : alnPEList)
 						if(pr.getPEMapQ() == bestMapQ)
 							nBestStratum++;
 						else
 							break; // stop searching for sorted list
-					if(nBestStratum > MAX_BEST) {
-						alnList.clear();
+					if(nBestStratum > MAX_BEST)
 						alnPEList.clear();
-					}
 				}
+				filterPEHits(alnPEList, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
 
 				// report remaining secondary alignments, up-to MAX_REPORT
 				for(int i = 0; i < alnPEList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
@@ -317,6 +314,25 @@ public class FilterSAMAlignPE {
 		}
 		
 		/**
+		 * Get PE postP, which is the same for both forward and reverse read
+		 * @return  postP either from fwdRecord or revRecord, which one is not null
+		 */
+		public double getPEPostP() {
+			return fwdRecord != null ? Double.parseDouble(fwdRecord.getStringAttribute("XP")) : Double.parseDouble(revRecord.getStringAttribute("XP")); 
+		}
+		
+		/**
+		 * Set postP to an AlignRecordPair
+		 * @param postP  postP to be set to both pair components
+		 */
+		public void setPEPostP(double postP) {
+			if(fwdRecord != null)
+				fwdRecord.setAttribute("XP", Double.toString(postP));
+			if(revRecord != null)
+				revRecord.setAttribute("XP", Double.toString(postP));
+		}
+		
+		/**
 		 * Get SAMString for this pair
 		 * @return  SAMString for non-null mate
 		 */
@@ -329,12 +345,13 @@ public class FilterSAMAlignPE {
 			return sam.toString();
 		}
 		
+		
 		/** implements the Comparable method
-		 * @return  the difference between the mapQ value
+		 * @return  the difference between the mapQ value, ties are broken by PEinsert length
 		 */
 		@Override
 		public int compareTo(SAMRecordPair that) {
-			return getPEMapQ() - that.getPEMapQ();
+			return Double.compare(getPEPostP(), that.getPEPostP());
 		}
 
 		/** Override the hashCode method
@@ -385,16 +402,20 @@ public class FilterSAMAlignPE {
 				"            -i/--identity DOUBLE  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels) [" + MIN_IDENTITY + "]" + newLine +
 				"            --clip-handle STRING  how to treat soft/hard-clipped bases as mismathes, USE for use all, IGNORE for ignore, END5 for only use 5' clipped, END3 for only use 3' clipped [" + SAMAlignFixer.CLIP_MODE + "]" + newLine +
 				"            --1DP FLAG  enable 1-dimentional dymamic programming insert re-assesment, useful for non-local aligners, i.e. bowtie" + newLine +
+				"            --1DP-gap-open-penalty INT  gap open penalty for 1DP [" + SAMAlignFixer.GAP_OPEN_PENALTY_1DP + "]" + newLine +
+				"            --1DP-gap-ext-penalty INT  gap extension penalty for 1DP [" + SAMAlignFixer.GAP_EXT_PENALTY_1DP + "]" + newLine +
 				"            --match-score INT  match score for 1DP and calculating mapQ [" + SAMAlignFixer.MATCH_SCORE + "]" + newLine +
 				"            --mis-score INT  mismatch score for 1DP and calculating mapQ [" + SAMAlignFixer.MIS_SCORE + "]" + newLine +
-				"            --gap-open-penalty INT  gap open penalty for 1DP and calculating mapQ [" + SAMAlignFixer.GAP_OPEN_PENALTY + "]" + newLine +
-				"            --gap-ext-penalty INT  gap extension penalty for 1DP and calculating mapQ [" + SAMAlignFixer.GAP_EXT_PENALTY + "]" + newLine +
+				"            --gap-open-penalty INT  gap open penalty for calculating mapQ [" + SAMAlignFixer.GAP_OPEN_PENALTY + "]" + newLine +
+				"            --gap-ext-penalty INT  gap extension penalty for calculating mapQ [" + SAMAlignFixer.GAP_EXT_PENALTY + "]" + newLine +
+				"            -rindel/--relative-indel-penalty FLAG  use relative indel penalty instead of absolute penalty" + newLine +
 				"            --clip-penalty INT  additional penalty for soft or hard clipped bases for calculating mapQ [" + SAMAlignFixer.CLIP_PENALTY + "]" + newLine +
 				"            --known-SNP-penalty INT  known SNP penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_SNP_PENALTY + "]" + newLine +
 				"            --known-INDEL-penalty INT  known IN-DEL penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_INDEL_PENALTY + "]" + newLine +
 				"            --known-MULTISUBSTITUTION-penalty INT  known large/multi-substitution penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_MULTISUBSTITUTION_PENALTY + "]" + newLine +
 				"            --out-SAM FLAG  write SAM text output instead of BAM binary output" + newLine +
 				"            --silent FLAG  ignore certain SAM format errors such as empty reads" + newLine +
+				"            -N/--max-hit INT  max-hit value used during the mapping step, 0 for no limit [" + MAX_HIT + "]" + newLine +
 				"            --min-mapQ INT  min mapQ calculated with Bayesian method [" + MIN_MAPQ + "]" + newLine +
 				"            --max-best INT  max allowed best-stratum hits to report for a given read, 0 for no limit [" + MAX_BEST + "]" + newLine +
 				"            --max-report INT  max report valid hits determined by --min-mapQ and --max-best, 0 for no limit [" + MAX_REPORT + "]" + newLine +
@@ -434,6 +455,10 @@ public class FilterSAMAlignPE {
 				SAMAlignFixer.CLIP_MODE = SAMAlignFixer.ClipHandlingMode.valueOf(args[++i]);
 			else if(args[i].equals("--1DP"))
 				DO_1DP = true;
+			else if(args[i].equals("--1DP-gap-open-penalty"))
+				SAMAlignFixer.setGAP_OPEN_PENALTY_1DP(Integer.parseInt(args[++i]));
+			else if(args[i].equals("--1DP-gap-ext-penalty"))
+				SAMAlignFixer.setGAP_EXT_PENALTY_1DP(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--match-score"))
 				SAMAlignFixer.setMATCH_SCORE(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--mis-score"))
@@ -442,6 +467,8 @@ public class FilterSAMAlignPE {
 				SAMAlignFixer.setGAP_OPEN_PENALTY(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--gap-ext-penalty"))
 				SAMAlignFixer.setGAP_EXT_PENALTY(Integer.parseInt(args[++i]));
+			else if(args[i].equals("-rindel") || args[i].equals("--relative-indel-penalty"))
+				SAMAlignFixer.INDEL_MODE = SAMAlignFixer.IndelPenaltyMode.RELATIVE;
 			else if(args[i].equals("--clip-penalty"))
 				SAMAlignFixer.setCLIP_PENALTY(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--known-SNP-penalty"))
@@ -454,6 +481,8 @@ public class FilterSAMAlignPE {
 				isSilent = true;
 			else if(args[i].equals("--no-mix"))
 				noMix = true;
+			else if(args[i].equals("-N") || args[i].equals("--max-hit"))
+				MAX_HIT = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--min-mapQ"))
 				MIN_MAPQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("--max-best"))
@@ -606,7 +635,7 @@ public class FilterSAMAlignPE {
 	 * @param recordList
 	 * 
 	 */
-	private static double[] calcPEHitPostP(List<SAMRecordPair> alnPEList) {
+	private static double[] calcPEHitPostP(List<SAMRecordPair> alnPEList, int totalPair, int maxPair) {
 		if(alnPEList == null) // return null for null list
 			return null;
 		if(alnPEList.isEmpty())
@@ -625,10 +654,10 @@ public class FilterSAMAlignPE {
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
 			postP[i] = alnPEList.get(i).getPEInsertLen() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
 		// normalize postP
-		FilterSAMAlignSE.normalizePostP(postP, 0);
+		Stats.normalizePostP(postP, maxPair == 0 || totalPair < maxPair ? 0 : Math.sqrt(maxPair) / maxPair);
 		// reset the mapQ values
 		for(int i = 0; i < nPairs; i++) {
-			//recordList.get(i).setAttribute("XP", Double.toString(postP[i]));
+			alnPEList.get(i).setPEPostP(postP[i]);
 			double mapQ = Stats.phredP2Q(1 - postP[i]);
 			if(Double.isNaN(mapQ)) // is NaN
 				alnPEList.get(i).setPEMapQ(INVALID_MAPQ);
@@ -638,42 +667,39 @@ public class FilterSAMAlignPE {
 		return postP;
 	}
 
-	private static int filterPEHits(List<SAMRecordPair> alnPEList, double minAlignRate,
-			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel, double minIdentity) {
+	private static int filterPEHits(List<SAMRecordPair> alnPEList,
+			double maxSeedMis, double maxSeedIndel, double maxAllMis, double maxAllIndel) {
+		int n = alnPEList.size();
+		int removed = 0;
+		for(int i = n - 1; i >= 0; i--) { // search backward for maximum performance
+			SAMRecordPair pair = alnPEList.get(i);
+			if(!(  (pair.fwdRecord == null || getSAMRecordPercentSeedMis(pair.fwdRecord) <= maxSeedMis
+					&& getSAMRecordPercentSeedIndel(pair.fwdRecord) <= maxSeedIndel
+					&& getSAMRecordPercentAllMis(pair.fwdRecord) <= maxAllMis
+					&& getSAMRecordPercentAllIndel(pair.fwdRecord) <= maxAllIndel)
+				&& (pair.revRecord == null || getSAMRecordPercentSeedMis(pair.revRecord) <= maxSeedMis
+					&& getSAMRecordPercentSeedIndel(pair.revRecord) <= maxSeedIndel
+					&& getSAMRecordPercentAllMis(pair.revRecord) <= maxAllMis
+					&& getSAMRecordPercentAllIndel(pair.revRecord) <= maxAllIndel)
+				)) {
+				alnPEList.remove(i);
+				removed++;
+			}
+		}
+		return removed;
+	}
+	
+	private static int filterPEHits(List<SAMRecordPair> alnPEList, double minAlignRate, double minIdentity) {
 		int n = alnPEList.size();
 		int removed = 0;
 		for(int i = n - 1; i >= 0; i--) { // search backward for maximum performance
 			SAMRecordPair pair = alnPEList.get(i);
 			if(!(  (pair.fwdRecord == null || getSAMRecordInsertRate(pair.fwdRecord)>= minAlignRate 
-					&& getSAMRecordPercentSeedMis(pair.fwdRecord) <= maxSeedMis
-					&& getSAMRecordPercentSeedIndel(pair.fwdRecord) <= maxSeedIndel
-					&& getSAMRecordPercentAllMis(pair.fwdRecord) <= maxAllMis
-					&& getSAMRecordPercentAllIndel(pair.fwdRecord) <= maxAllIndel
 					&& getSAMRecordIdentity(pair.fwdRecord) >= minIdentity)
 				&& (pair.revRecord == null || getSAMRecordInsertRate(pair.revRecord)>= minAlignRate 
-					&& getSAMRecordPercentSeedMis(pair.revRecord) <= maxSeedMis
-					&& getSAMRecordPercentSeedIndel(pair.revRecord) <= maxSeedIndel
-					&& getSAMRecordPercentAllMis(pair.revRecord) <= maxAllMis
-					&& getSAMRecordPercentAllIndel(pair.revRecord) <= maxAllIndel
-					&& getSAMRecordIdentity(pair.revRecord)>= minIdentity))) {
+					&& getSAMRecordIdentity(pair.revRecord)>= minIdentity)
+				)) {
 				alnPEList.remove(i);
-/*				System.err.println("Removing pair:\n" + pair.getSAMString());
-				if(pair.fwdRecord != null)
-					System.err.printf("fwd: seedMis:%f seedIndel:%f allMis:%f allIndel:%f mapQ:%d%n", 
-							getSAMRecordPercentSeedMis(pair.fwdRecord), 
-							getSAMRecordPercentSeedIndel(pair.fwdRecord), 
-							getSAMRecordPercentAllIndel(pair.fwdRecord), 
-							getSAMRecordPercentAllIndel(pair.fwdRecord),
-							pair.getPEMapQ());
-				if(pair.revRecord != null)
-					System.err.printf("rev: seedMis:%f seedIndel:%f allMis:%f allIndel:%f mapQ:%d%n", 
-							getSAMRecordPercentSeedMis(pair.revRecord), 
-							getSAMRecordPercentSeedIndel(pair.revRecord), 
-							getSAMRecordPercentAllIndel(pair.revRecord), 
-							getSAMRecordPercentAllIndel(pair.revRecord),
-							pair.getPEMapQ());
-				System.err.printf("minInsert:%d maxSeedMis:%f maxSeedIndel:%f maxAllMis:%f maxAllIndel:%f minQ:%d%n",
-						minInsert, maxSeedMis, maxSeedIndel, maxAllMis, maxAllIndel, minQ);*/
 				removed++;
 			}
 		}
@@ -710,6 +736,7 @@ public class FilterSAMAlignPE {
 	private static boolean isSilent; // ignore SAM warnings?
 	private static boolean noMix; // do not allow unpaired alignments for paired reads?
 	// best stratum options
+	private static int MAX_HIT = 10; // MAX_HIT used during the mapping step
 	private static int MIN_MAPQ = 10;
 	private static int MAX_BEST = 1;
 	private static int MAX_REPORT = 1;

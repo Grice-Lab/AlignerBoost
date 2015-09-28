@@ -667,6 +667,29 @@ public class NGSExpDesign {
 		return aligner.equals("tophat2") || aligner.equals("STAR");
 	}
 	
+	/**
+	 * Test whether a aligner support controling of the max-hit
+	 * @param aligner aligner  aligner name
+	 * @return true  if this aligner is known to support max-hit
+	 */
+	public static boolean supportMaxHit(String aligner) {
+		switch(aligner) {
+		case "bowtie": case "bowtie2":
+			return true;
+		case "novoalign": case "seqalto":
+			return true;
+		case "tophat1": case "tophat2":
+			return true;
+		case "STAR":
+			return true;
+		case "bwa": case "bwa-mem": case "bwa-aln":
+			return false;
+		case "bwa-sw":
+			return true;
+		default:
+			return true;
+		}
+	}
 	// global options
 	static String VERSION = EnvConstants.progVer;
 	static int MAX_PROC = 6; // maximum processors to use

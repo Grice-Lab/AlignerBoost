@@ -148,7 +148,78 @@ public class Stats {
 			x += array[i];
 		return x / (end - start);
 	}
-
+	
+	/**
+	 * Get the mean value of a double array
+	 * @param array  byte array
+	 * @param start  0-based start
+	 * @param end  1-based end
+	 * @return  mean value in double
+	 */
+	public static double mean(double[] array, int start, int end) {
+		if(array == null || array.length == 0)
+			return Double.NaN;
+		assert end > start;
+		double x = 0;
+		for(int i = start; i < end; i++)
+			x += array[i];
+		return x / (end - start);
+	}
+	
+	/**
+	 * Get the mean value of a double array
+	 * @param array  byte array
+	 * @param start  0-based start
+	 * @param end  1-based end
+	 * @return  mean value in double
+	 */
+	public static double mean(double[] array) {
+		return mean(array, 0, array.length);
+	}
+	
+	/**
+	 * Get the mean value of a double array at log scale
+	 * @param array  double array
+	 * @return  mean value in double
+	 */
+	public static double logScaleMean(double[] array) {
+		if(array == null || array.length == 0)
+			return Double.NaN;
+		double x = 0;
+		int n = 0;
+		for(double val : array) {
+			if(val == 0)
+				continue;
+			x += Math.log(val);
+			n++;
+		}
+		return n > 0 ? Math.exp(x / n) : 0;
+	}
+	
+	/**
+	 * Normalize posterior probabilities values
+	 * @param postP
+	 * @param pseudoP  unobserved hits
+	 * @return  normalization constant pi
+	 */
+	public static double normalizePostP(double[] postP, double scale) {
+		double pi = scale; // normalization constant
+		for(double p : postP)
+			if(p >= 0)
+				pi += p;
+		for(int i = 0; i < postP.length; i++)
+			postP[i] /= pi;
+		return pi;
+	}
+	/**
+	 * Normalize posterior probabilities values
+	 * @param postP
+	 * @return  normalization constant pi
+	 */
+	public static double normalizePostP(double[] postP) {
+		return normalizePostP(postP, 1);
+	}
+	
 	public static final double PHRED_SCALE = 10; // scaling factor for phred scores
 	public static final int ASCII_OFFSET = 33;
 }
