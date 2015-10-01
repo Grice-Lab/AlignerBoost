@@ -532,7 +532,7 @@ public class FilterSAMAlignSE {
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
 			postP[i] = getSAMRecordAlignLen(recordList.get(i)) * Math.pow(10.0,  getSAMRecordAlignLikelihood(recordList.get(i)));
 		// normalize postP
-		Stats.normalizePostP(postP, maxHit == 0 || totalHit < maxHit ? 0 : 1.0 / Math.sqrt(maxHit));
+		Stats.normalizePostP(postP, maxHit == 0 || totalHit < maxHit ? 0 : Math.sqrt(maxHit));
 		// reset the mapQ values
 		for(int i = 0; i < nHits; i++) {
 			recordList.get(i).setAttribute("XP", Double.toString(postP[i]));

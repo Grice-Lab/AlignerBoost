@@ -168,13 +168,26 @@ public class Stats {
 	
 	/**
 	 * Get the mean value of a double array
-	 * @param array  byte array
+	 * @param array  a numeric array
 	 * @param start  0-based start
 	 * @param end  1-based end
 	 * @return  mean value in double
 	 */
 	public static double mean(double[] array) {
 		return mean(array, 0, array.length);
+	}
+	
+	/**
+	 * Get the min value of a double array
+	 * @param array  a numeric array
+	 * @return  min value
+	 */
+	public static double min(double[] array) {
+		double min = Double.NaN;
+		for(double x : array)
+			if(Double.isNaN(min) || x < min)
+				min = x;
+		return min;
 	}
 	
 	/**
@@ -199,14 +212,14 @@ public class Stats {
 	/**
 	 * Normalize posterior probabilities values
 	 * @param postP
-	 * @param pseudoP  unobserved hits
+	 * @param nPseudoHit  number of unobserved hits
 	 * @return  normalization constant pi
 	 */
-	public static double normalizePostP(double[] postP, double scale) {
-		double pi = scale; // normalization constant
+	public static double normalizePostP(double[] postP, double nPseudoHit) {
+		double pi = 0; // normalization constant
 		for(double p : postP)
-			if(p >= 0)
-				pi += p;
+			pi += p;
+		pi += nPseudoHit * min(postP);
 		for(int i = 0; i < postP.length; i++)
 			postP[i] /= pi;
 		return pi;

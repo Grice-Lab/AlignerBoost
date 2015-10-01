@@ -654,7 +654,7 @@ public class FilterSAMAlignPE {
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
 			postP[i] = alnPEList.get(i).getPEInsertLen() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
 		// normalize postP
-		Stats.normalizePostP(postP, maxPair == 0 || totalPair < maxPair ? 0 : Math.sqrt(maxPair) / maxPair);
+		Stats.normalizePostP(postP, maxPair == 0 || totalPair < maxPair ? 0 : Math.sqrt(maxPair));
 		// reset the mapQ values
 		for(int i = 0; i < nPairs; i++) {
 			alnPEList.get(i).setPEPostP(postP[i]);
