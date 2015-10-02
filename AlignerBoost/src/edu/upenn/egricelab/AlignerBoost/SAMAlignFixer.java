@@ -1008,7 +1008,7 @@ public class SAMAlignFixer {
 	 */
 	public static void setGAP_OPEN_PENALTY(int gapOpenPenalty) {
 		if(gapOpenPenalty < 0)
-			throw new IllegalArgumentException("GAP_OPEN_PENALTY must be non negative");
+			throw new IllegalArgumentException("GAP_OPEN_PENALTY must be non-negative");
 		GAP_OPEN_PENALTY = gapOpenPenalty;
 	}
 
@@ -1023,8 +1023,8 @@ public class SAMAlignFixer {
 	 * @param gapExtPenalty the gapExtPenalty to set
 	 */
 	public static void setGAP_EXT_PENALTY(int gapExtPenalty) {
-		if(gapExtPenalty <= 0)
-			throw new IllegalArgumentException("GAP_EXT_PENALTY must be positive");
+		if(gapExtPenalty < 0)
+			throw new IllegalArgumentException("GAP_EXT_PENALTY must be non-negative");
 		GAP_EXT_PENALTY = gapExtPenalty;
 	}
 
@@ -1036,10 +1036,12 @@ public class SAMAlignFixer {
 	}
 
 	/**
-	 * @param gAP_OPEN_PENALTY_1DP the gAP_OPEN_PENALTY_1DP to set
+	 * @param gapOpenPenalty1DP the gAP_OPEN_PENALTY_1DP to set
 	 */
-	public static void setGAP_OPEN_PENALTY_1DP(int gAP_OPEN_PENALTY_1DP) {
-		GAP_OPEN_PENALTY_1DP = gAP_OPEN_PENALTY_1DP;
+	public static void setGAP_OPEN_PENALTY_1DP(int gapOpenPenalty1DP) {
+		if(gapOpenPenalty1DP < 0)
+			throw new IllegalArgumentException("GAP_OPEN_PENALTY_1DP must be non-negative");
+		GAP_OPEN_PENALTY_1DP = gapOpenPenalty1DP;
 	}
 
 	/**
@@ -1050,10 +1052,12 @@ public class SAMAlignFixer {
 	}
 
 	/**
-	 * @param gAP_EXT_PENALTY_1DP the gAP_EXT_PENALTY_1DP to set
+	 * @param gapExtPenalty1DP the gAP_EXT_PENALTY_1DP to set
 	 */
-	public static void setGAP_EXT_PENALTY_1DP(int gAP_EXT_PENALTY_1DP) {
-		GAP_EXT_PENALTY_1DP = gAP_EXT_PENALTY_1DP;
+	public static void setGAP_EXT_PENALTY_1DP(int gapExtPenalty1DP) {
+		if(gapExtPenalty1DP < 0)
+			throw new IllegalArgumentException("GAP_EXT_PENALTY_1DP must be non-negative");
+		GAP_EXT_PENALTY_1DP = gapExtPenalty1DP;
 	}
 
 	/**
@@ -1115,6 +1119,8 @@ public class SAMAlignFixer {
 	 * @param knownMultiSubstitutionPenalty the knownMultiSubstitutionPenalty to set
 	 */
 	public static void setKNOWN_MULTISUBSTITUTION_PENALT(int knownMultiSubstitutionPenalty) {
+		if(knownMultiSubstitutionPenalty < 0)
+			throw new IllegalArgumentException("KNOWN_MULTISUBSTITUTION_PENALTY must be non-negative");
 		KNOWN_MULTISUBSTITUTION_PENALTY = knownMultiSubstitutionPenalty;
 	}
 

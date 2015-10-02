@@ -352,16 +352,18 @@ public class FilterSAMAlignSE {
 		if(outFile == null)
 			throw new IllegalArgumentException("-out must be specified");
 		// Check other options
+		if(MIN_ALIGN_RATE < 0 || MIN_ALIGN_RATE > 1)
+			throw new IllegalArgumentException("-r/--min-align-rate must be between 0 and 1");
 		if(MAX_SEED_MIS < 0 || MAX_SEED_MIS > 100)
-			throw new IllegalArgumentException("--seed-mis must be between 0 to 100");
+			throw new IllegalArgumentException("--seed-mis must be between 0 and 100");
 		if(MAX_ALL_MIS < 0 || MAX_ALL_MIS > 100)
-			throw new IllegalArgumentException("--all-mis must be between 0 to 100");
+			throw new IllegalArgumentException("--all-mis must be between 0 and 100");
 		if(MAX_SEED_INDEL < 0 || MAX_SEED_INDEL > 100)
-			throw new IllegalArgumentException("--seed-indel must be between 0 to 100");
+			throw new IllegalArgumentException("--seed-indel must be between 0 and 100");
 		if(MAX_ALL_INDEL < 0 || MAX_ALL_INDEL > 100)
-			throw new IllegalArgumentException("--all-indel must be between 0 to 100");
+			throw new IllegalArgumentException("--all-indel must be between 0 and 100");
 		if(!(MIN_IDENTITY >= 0 && MIN_IDENTITY <= 100))
-			throw new IllegalArgumentException("-i/--identity must be between 0 to 100");
+			throw new IllegalArgumentException("-i/--identity must be between 0 and 100");
 		else
 			MIN_IDENTITY /= 100.0; // use absolute identity
 		if(OUT_IS_SAM && outFile.endsWith(".bam"))
