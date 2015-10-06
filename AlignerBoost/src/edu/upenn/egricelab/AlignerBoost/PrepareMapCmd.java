@@ -215,6 +215,9 @@ public class PrepareMapCmd {
 				    int maxIns = readNGap;
 				    int maxDel = readNGap;
 				    qual = conf.asciiOffset == 0 ? " " : conf.asciiOffset == 33 ? " --solexa-quals " : " --solexa1.3-quals ";
+				    float maxB2Score = 0;
+				    float b2Slope = -conf.allMis / 100 * BOWTIE2_GLOBAL_MISMATCH_PENALTY - conf.allIndel / 100 * BOWTIE2_GAP_PENALTY;
+				    String b2ScoreFunc = " --b2-score-min L," + maxB2Score + "," + b2Slope;
 				    String libType;
 				    if(conf.strandType == 0)
 				    	libType = " fr-unstranded ";
@@ -255,7 +258,7 @@ public class PrepareMapCmd {
 				      " --max-insertion-length " + maxIns + " --max-deletion-length " + maxDel + qual + "--library-type" + libType +
 				      "-p " + MAX_PROC + transcriptome +
 				      " --segment-length " + segLen + " --segment-mismatches " + segNMis +
-				      " --b2-N " + seedNMis + " --b2-L " + conf.seedLen + juncSearch +
+				      " --b2-N " + seedNMis + " --b2-L " + conf.seedLen + b2ScoreFunc + juncSearch +
 				      " --no-sort-bam " + conf.otherAlignerOpts + " -o " + dir + " " + conf.refIndex + inFn + newLine;
 				    // move and rename tophat2 result out
 				    cmd += "mv " + dir + "/accepted_hits.bam " + outFn;
@@ -263,14 +266,16 @@ public class PrepareMapCmd {
 				case "STAR":
 				    prog = "STAR";
 				    float minScoreRate = 1 - conf.allMis / 100 - conf.allIndel / 100 * STAR_INDEL_PENALTY / STAR_MATCH_SCORE;
-				    float minMatchRate = minScoreRate;
+				    float minMatchRate = 1 - conf.allMis / 100 - conf.allIndel / 100;
 				    float maxMisRate = conf.allMis / 100;
+				    int multiMapScoreRange = (int) Math.ceil(conf.readLen * BWA_MULTIMAP_SUBOPT_SCORE_RATE);
 				    inFn = !conf.isPaired ? readIn : readIn + " " + mateIn;
 				    cmd = prog + " --genomeDir " + conf.refIndex + " --readFilesIn " + inFn + " --runThreadN " + MAX_PROC +
-				    		" --outFilterScoreMin " + minScoreRate + " --outFilterMatchNminOverLread " + minMatchRate +
-				    		" --outFilterMultimapNmax " + conf.maxHit +
+				    		" --outFilterScoreMinOverLread " + minScoreRate + " --outFilterMatchNminOverLread " + minMatchRate +
+				    		" --outFilterMultimapNmax " + conf.maxHit + " --outFilterMultimapScoreRange " + multiMapScoreRange +
 				    		" --outFilterMismatchNmax " + maxNMis + " --outFilterMismatchNoverLmax " + maxMisRate +
-				    		" " + conf.otherAlignerOpts + " --outStd SAM - | samtools view -S -b -o " + outFn + " -";
+				    		" --outSAMattributes All " +
+				    		conf.otherAlignerOpts + " --outStd SAM - | samtools view -S -b -o " + outFn + " -";
 				    break;
 				default:
 					throw new IllegalArgumentException("Unknown aligner '" + conf.aligner + "'");
@@ -327,6 +332,7 @@ public class PrepareMapCmd {
 	public static final int BWA_SW_MATCH_SCORE = 1;
 	public static final int BWA_SW_MISMATCH_PENALTY = 3;
 	public static final int BWA_SW_MAX_Z_BEST = 10;
+	public static final float BWA_MULTIMAP_SUBOPT_SCORE_RATE = 0.1f;
 	public static final int STAR_MATCH_SCORE = 1;
 	public static final int STAR_INDEL_PENALTY = 2;
 	private static final int FASTA_DEFAULT_Q = 40;

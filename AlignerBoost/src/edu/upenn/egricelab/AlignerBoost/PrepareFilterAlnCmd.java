@@ -69,11 +69,12 @@ public class PrepareFilterAlnCmd {
 				String maxHit = NGSExpDesign.supportMaxHit(conf.aligner) ? " -N " + conf.maxHit : " "; 
 				String knownSnp = conf.knownSnpFile != null ? " --known-SNP " + conf.knownSnpFile + " " : " ";
 				String fixMD = conf.aligner.equals("seqalto") ? " --fix-MD " : " ";
+				String ignoreClip = NGSExpDesign.isRNAAligner(conf.aligner) ? " " : " --ignore-clip-penalty ";
 /*				ClipHandlingMode clipHandle = !conf.hasSpliced || NGSExpDesign.isRNAAligner(conf.aligner)
 						? ClipHandlingMode.USE : ClipHandlingMode.IGNORE;*/
 				String cmd = "java -jar " + progFile + " run " + prog + " -r " + minRate +
 						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis + " --seed-indel " + conf.seedIndel +
-						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent + maxHit + 
+						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent + maxHit + ignoreClip +
 						" --min-mapQ " + conf.minMapQ + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
 						" --sort-method " + conf.sortMethod + " " + knownSnp + fixMD + conf.otherFilterOpts + " -in " + inFn + " -out " + outFn;
 

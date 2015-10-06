@@ -227,6 +227,7 @@ public class FilterSAMAlignSE {
 				"            --gap-ext-penalty INT  gap extension penalty for calculating mapQ [" + SAMAlignFixer.GAP_EXT_PENALTY + "]" + newLine +
 				"            -rindel/--relative-indel-penalty FLAG  use relative indel penalty instead of absolute penalty" + newLine +
 				"            --clip-penalty INT  additional penalty for soft or hard clipped bases for calculating mapQ [" + SAMAlignFixer.CLIP_PENALTY + "]" + newLine +
+				"            --ignore-clip-penalty FLAG  ignore clip penalties completley, good for RNA-seq alignment with DNA-seq aligners" + newLine +
 				"            --known-SNP-penalty INT  known SNP penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_SNP_PENALTY + "]" + newLine +
 				"            --known-INDEL-penalty INT  known IN-DEL penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_INDEL_PENALTY + "]" + newLine +
 				"            --known-MULTISUBSTITUTION-penalty INT  known large/multi-substitution penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_MULTISUBSTITUTION_PENALTY + "]" + newLine +
@@ -288,6 +289,8 @@ public class FilterSAMAlignSE {
 				SAMAlignFixer.INDEL_MODE = SAMAlignFixer.IndelPenaltyMode.RELATIVE;
 			else if(args[i].equals("--clip-penalty"))
 				SAMAlignFixer.setCLIP_PENALTY(Integer.parseInt(args[++i]));
+			else if(args[i].equals("--ignore-clip-penalty"))
+				SAMAlignFixer.setIGNORE_CLIP_PENALTY(true);
 			else if(args[i].equals("--known-SNP-penalty"))
 				SAMAlignFixer.setKNOWN_SNP_PENALTY(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--known-INDEL-penalty"))

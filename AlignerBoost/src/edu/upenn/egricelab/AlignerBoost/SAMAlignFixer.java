@@ -841,7 +841,8 @@ public class SAMAlignFixer {
 				log10Lik += baseQ[pos++] / -PHRED_SCALE; // use error prob directly
 				break;
 			case 'S': // soft-clipped
-				log10Lik += baseQ[pos++] / -PHRED_SCALE - CLIP_PENALTY;
+				if(!IGNORE_CLIP_PENALTY)
+					log10Lik += baseQ[pos++] / -PHRED_SCALE - CLIP_PENALTY;
 				break;
 			case 'H': case 'P': case 'N': // not possible
 				break;
@@ -1077,6 +1078,20 @@ public class SAMAlignFixer {
 	}
 
 	/**
+	 * @return the iGNORE_CLIP_PENALTY
+	 */
+	public static boolean isIGNORE_CLIP_PENALTY() {
+		return IGNORE_CLIP_PENALTY;
+	}
+
+	/**
+	 * @param iGNORE_CLIP_PENALTY the iGNORE_CLIP_PENALTY to set
+	 */
+	public static void setIGNORE_CLIP_PENALTY(boolean iGNORE_CLIP_PENALTY) {
+		IGNORE_CLIP_PENALTY = iGNORE_CLIP_PENALTY;
+	}
+
+	/**
 	 * @return the KNOWN_SNP_PENALTY
 	 */
 	public static int getKNOWN_SNP_PENALTY() {
@@ -1165,6 +1180,7 @@ public class SAMAlignFixer {
 	static int GAP_OPEN_PENALTY_1DP = 5;
 	static int GAP_EXT_PENALTY_1DP = 2;
 	static int CLIP_PENALTY = 0; // additional CLIP_PENALTY except for the mismatch penalty
+	static boolean IGNORE_CLIP_PENALTY = false; // completely ignore clip penalties, useful for RNA-seq alignment
 	static ClipHandlingMode CLIP_MODE = ClipHandlingMode.IGNORE;
 	static IndelPenaltyMode INDEL_MODE = IndelPenaltyMode.ABSOLUTE;
 	static int KNOWN_SNP_PENALTY = 0;
