@@ -108,6 +108,8 @@ public class SamToRelCover {
 					int relStrand = regionStrand.equals(".") ? 3 /* unknown */ : strand.equals(regionStrand) ? 1 /* sense */ : 2 /* antisense */;
 					if((relStrand & myStrand) == 0) // unmatched strands
 						continue;
+					if(record.getMappingQuality() < minMapQ)
+						continue;
 					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
 					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
 					
@@ -208,6 +210,7 @@ public class SamToRelCover {
 				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
 				"            -flank INT max upsteam/downsteam positions to look at [0]" + newLine +
 				"            -v FLAG  show verbose information"
@@ -226,6 +229,8 @@ public class SamToRelCover {
 				bed6File = args[++i];
 			else if(args[i].equals("--count-soft"))
 				countSoft = true;
+			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
+				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-step"))
 				step = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-flank"))
@@ -252,6 +257,7 @@ public class SamToRelCover {
 	private static String bed6File;
 	private static int myStrand = 3;
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static int minMapQ;
 	private static int step = 1;
 	private static int maxFlank;
 	private static int verbose;
