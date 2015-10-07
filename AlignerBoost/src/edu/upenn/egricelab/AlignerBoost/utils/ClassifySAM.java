@@ -169,6 +169,8 @@ public class ClassifySAM {
 				int readLen = record.getReadLength();
 				if(record.getReadUnmappedFlag() || record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 					continue;
+				if(record.getMappingQuality() < minMapQ)
+					continue;
 				int typeBit = 0;
 				String id = record.getReadName();
 				String chr = record.getReferenceName();
@@ -222,6 +224,7 @@ public class ClassifySAM {
 		System.err.println("java -jar " + progFile + " utils ClassifySAM " +
 				"<-i SAM|BAM-INFILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
 				"Options:    -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
+				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -236,6 +239,8 @@ public class ClassifySAM {
 				gffFiles.add(args[++i]);
 			else if(args[i].equals("-R"))
 				bedFile = args[++i];
+			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
+				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -277,6 +282,7 @@ public class ClassifySAM {
 	private static List<String> gffFiles = new ArrayList<String>();
 	private static String bedFile;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
+	private static int minMapQ;
 	private static int verbose;
 
 	private static Map<String, int[]> chrIdx;
