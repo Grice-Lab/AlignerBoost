@@ -115,6 +115,8 @@ public class SamToBinCover {
 					int relStrand = regionStrand.equals(".") ? 3 /* unkown */ : strand.equals(regionStrand) ? 1 /* sense */ : 2 /* antisense */;
 					if((relStrand & myStrand) == 0) // unmatched strands
 						continue;
+					if(record.getMappingQuality() < minMapQ)
+						continue;
 					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
 					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
 					
@@ -218,6 +220,7 @@ public class SamToBinCover {
 				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            -N INT # of bins for calculating the average coverages [100]" + newLine +
 				"            -flank INT max upsteam/downsteam bins to look at [0]" + newLine +
 				"            -v FLAG  show verbose information"
@@ -236,6 +239,8 @@ public class SamToBinCover {
 				bed6File = args[++i];
 			else if(args[i].equals("--count-soft"))
 				countSoft = true;
+			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
+				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-N"))
 				nBin = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-flank"))
@@ -262,6 +267,7 @@ public class SamToBinCover {
 	private static String bed6File;
 	private static int myStrand = 3;
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static int minMapQ;
 	private static int nBin = 100;
 	private static int maxFlank;
 	private static int verbose;
