@@ -126,6 +126,8 @@ public class SamToAbsCover {
 				int strand = record.getReadNegativeStrandFlag() ? 2 : 1;
 				if((strand & myStrand) == 0)
 					continue;
+				if(record.getMappingQuality() < minMapQ)
+					continue;
 				Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
 				int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
 				
@@ -231,6 +233,7 @@ public class SamToAbsCover {
 				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [3]" + newLine +
 				"            --norm-rpm FLAG  normalize the coverage to RPM by total mapped read number" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
 				"            -k/--keep-uncover FLAG keep 0-covered regions in wigFile [false]" + newLine +
@@ -252,6 +255,8 @@ public class SamToAbsCover {
 				normRPM = true;
 			else if(args[i].equals("--count-soft"))
 				countSoft = true;
+			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
+				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-step"))
 				step = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-k") || args[i].equals("--keep-uncover"))
@@ -277,6 +282,7 @@ public class SamToAbsCover {
 	private static int myStrand = 3;
 	private static boolean normRPM;
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static int minMapQ;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 	private static int step = 1;
 	private static boolean keep0;
