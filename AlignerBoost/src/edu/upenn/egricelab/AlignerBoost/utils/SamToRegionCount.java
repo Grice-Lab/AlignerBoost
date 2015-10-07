@@ -107,6 +107,8 @@ public class SamToRegionCount {
 					int relStrand = regionStrand.equals(".") ? 3 /* unknown */ : strand.equals(regionStrand) ? 1 /* sense */ : 2 /* antisense */;
 					if((relStrand & myStrand) == 0) // unmatched strands
 						continue;
+					if(record.getMappingQuality() < minMapQ)
+						continue;
 					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
 					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
 					
@@ -165,6 +167,7 @@ public class SamToRegionCount {
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
 				"            -f FLOAT minimum proportion of overlap to the region [1e-9]" + newLine +
 				"            -flank INT max upsteam/downsteam positions to look at [0]" + newLine +
+				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -183,6 +186,8 @@ public class SamToRegionCount {
 				minRate = Double.parseDouble(args[++i]);
 			else if(args[i].equals("-flank"))
 				maxFlank = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
+				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -206,6 +211,7 @@ public class SamToRegionCount {
 	private static int myStrand = 3;
 	private static double minRate = 1e-9;
 	private static int maxFlank;
+	private static int minMapQ;
 	private static int verbose;
 
 	private static Timer processMonitor;
