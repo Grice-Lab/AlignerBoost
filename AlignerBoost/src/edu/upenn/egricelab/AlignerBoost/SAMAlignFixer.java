@@ -755,7 +755,7 @@ public class SAMAlignFixer {
 							(varLen == 1 && var.isSNP() || varLen > 1 && var.isMNP()) // matched SNV or MNP found
 							&& var.hasAlternateAllele(Allele.create(varAllele))) {
 						nUpdated += varLen;
-						Arrays.fill(status, i - varLen + 1, i + 1, (varLen == 1 ? 'V' : 'B')); // a known SNP/MNP
+						Arrays.fill(status, i - varLen + 1, i + 1, (varLen == 1 ? knownSnp : knownMnp)); // a known SNP/MNP
 						Arrays.fill(penaltyScore, i - varLen + 1, i + 1, getPenaltyScoreFromInfo(var, varAllele, AFTag));
 					}
 				}
@@ -773,7 +773,7 @@ public class SAMAlignFixer {
 					if(var.getStart() == varStart && var.getEnd() == varEnd &&
 							var.isIndel() && var.hasAlternateAllele(Allele.create(varAllele))) { // known insertion
 						nUpdated += varLen;
-						Arrays.fill(status, i - varLen + 1, i + 1, '-');
+						Arrays.fill(status, i - varLen + 1, i + 1, knownIns);
 						Arrays.fill(penaltyScore, i - varLen + 1, i + 1, getPenaltyScoreFromInfo(var, varAllele, AFTag));
 					}
 				}
@@ -785,12 +785,14 @@ public class SAMAlignFixer {
 				if(i == oldStatus.length - 1 || oldStatus[i+1] != 'D') { // a deletion end
 					varEnd = loc;
 					varLen = varEnd - varStart + 1;
+					if(pos - varLen + 1 < 0)
+						break;
 					varAllele = qSeq.substring(pos - varLen + 1, pos + 1);
 					// check each variant here
 					if(var.getStart() == varStart && var.getEnd() == varEnd &&
 							var.isIndel() && var.getReference().length() == varLen) { // a known deletion
 						nUpdated += varLen;
-						Arrays.fill(status, i - varLen + 1, i + 1, '-');
+						Arrays.fill(status, i - varLen + 1, i + 1, knownDel);
 						Arrays.fill(penaltyScore, i - varLen + 1, i + 1, getPenaltyScoreFromInfo(var, varAllele, AFTag));
 					}
 				}
@@ -861,15 +863,20 @@ public class SAMAlignFixer {
 				if(INDEL_MODE == IndelPenaltyMode.RELATIVE)
 					log10Lik += baseQ[pos] / -PHRED_SCALE;
 				break;
-			case 'V': // known SNP/SNV position, treat similar as match
+			case knownSnp: // known SNP/SNV position, treat similar as match
 				int snpPenalty = penaltyScore != null && penaltyScore[i] >= 0 ? penaltyScore[i] : KNOWN_SNP_PENALTY;  
 				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - snpPenalty;
 				break;
-			case '-': // known in-del position
-				int indelPenalty = penaltyScore != null && penaltyScore[i] >= 0 ? penaltyScore[i] : KNOWN_INDEL_PENALTY;
-				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - indelPenalty;
+			case knownIns: // known insertion
+				int insPenalty = penaltyScore != null && penaltyScore[i] >= 0 ? penaltyScore[i] : KNOWN_INDEL_PENALTY;
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos]), -1) - insPenalty;
+				pos++;
 				break;
-			case 'B': // known multi-substitution
+			case knownDel: // known deletion
+				int delPenalty = penaltyScore != null && penaltyScore[i] >= 0 ? penaltyScore[i] : KNOWN_INDEL_PENALTY;
+				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos]), -1) - delPenalty;
+				break;	
+			case knownMnp: // known multi-substitution
 				int mnpPenalty = penaltyScore != null && penaltyScore[i] >= 0 ? penaltyScore[i] : KNOWN_MULTISUBSTITUTION_PENALTY;
 				log10Lik += Stats.phredP2Q(1 - Stats.phredQ2P(baseQ[pos++]), -1) - mnpPenalty;
 			default:
@@ -1192,6 +1199,10 @@ public class SAMAlignFixer {
 //	private static final byte AVG_READ_QUAL = 25;
 	private static final byte MIN_PHRED_QUAL = 3; // min phred qual to avoid -Inf
 	private static final int HCLIP_SAMPLE_LEN = 5; // sampling length for estimating the average quality of hard-clipped regions
+	private static final char knownSnp = 'V';
+	private static final char knownMnp = 'B';
+	private static final char knownIns = 'i';
+	private static final char knownDel = 'd';
 	// mismatch string patterns
 	private static final Pattern misPat1 = Pattern.compile("(^\\d+)(.*)");
 	private static final Pattern misPat2 = Pattern.compile("([A-Z]|\\^[A-Z]+)(\\d+)");
