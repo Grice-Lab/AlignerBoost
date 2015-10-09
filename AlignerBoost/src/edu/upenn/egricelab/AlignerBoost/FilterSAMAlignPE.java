@@ -30,6 +30,10 @@ import htsjdk.samtools.SAMFileHeader.SortOrder;
 import htsjdk.variant.vcf.VCFFileReader;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
+ * By filtering SE read it will modifiy the NH tag and add the XN tag
+ * Tag  Type  Description
+ * NH   i     Number of reported alignments
+ * XN   i     Number of total alignments satisfying the user-specified criteria except for the mapQ limitation
  * @author Qi Zheng
  * @version 1.2
  * @since 1.1
@@ -176,12 +180,21 @@ public class FilterSAMAlignPE {
 
 				// report remaining secondary alignments, up-to MAX_REPORT
 				for(int i = 0; i < alnPEList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
+					SAMRecordPair repPair = alnPEList.get(i);
 					if(doUpdateBit)
-						alnPEList.get(i).setNotPrimaryAlignmentFlags(i != 0);
-					if(alnPEList.get(i).fwdRecord != null)
-						out.addAlignment(alnPEList.get(i).fwdRecord);
-					if(alnPEList.get(i).revRecord != null)
-						out.addAlignment(alnPEList.get(i).revRecord);
+						repPair.setNotPrimaryAlignmentFlags(i != 0);
+					int nReport = MAX_REPORT == 0 ? Math.min(alnPEList.size(), MAX_REPORT) : alnPEList.size();
+					int nFiltered = alnPEList.size();
+					if(repPair.fwdRecord != null) {
+						repPair.fwdRecord.setAttribute("NH", nReport);
+						repPair.fwdRecord.setAttribute("XN", nFiltered);
+						out.addAlignment(repPair.fwdRecord);
+					}
+					if(repPair.revRecord != null) {
+						repPair.revRecord.setAttribute("NH", nReport);
+						repPair.revRecord.setAttribute("XN", nFiltered);
+						out.addAlignment(repPair.revRecord);
+					}
 				}
 				// reset list
 				alnList.clear();
@@ -423,6 +436,7 @@ public class FilterSAMAlignPE {
 				"            --no-update-bit FLAG  do not update the secondary alignment bit flag (0x100) after filtering" + newLine +
 				"            --best-only FLAG  only report unique best hit, equivelant to --max-best 1 --max-report 1" + newLine +
 				"            --best FLAG  report the best hit, ignore any secondary hit, equivelant to --max-best 0 --max-report 1" + newLine +
+				"            --max-sensitivity FLAG  maximaze sensitivity by ignoring the mismatch, indel options" + newLine +
 				"            --sort-method STRING  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\" [none]" + newLine +
 				"            --chrom-list FILE  pre-filtering file containing one chromosome name per-line" + newLine +
 				"            --known-SNP FILE  known SNP file in vcf/gvcf format (v4.0+, .gz supported), used for calculating mapQ" + newLine +
@@ -501,6 +515,12 @@ public class FilterSAMAlignPE {
 			else if(args[i].equals("--best")) {
 				MAX_BEST = 0;
 				MAX_REPORT = 1;
+			}
+			else if(args[i].equals("--max-sensitivity")) {
+				MAX_SEED_MIS = 100;
+				MAX_SEED_INDEL = 100;
+				MAX_ALL_MIS = 100;
+				MAX_ALL_INDEL = 100;
 			}
 			else if(args[i].equals("--sort-method")) {
 				switch(args[++i]) {

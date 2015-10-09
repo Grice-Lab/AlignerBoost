@@ -30,6 +30,10 @@ import htsjdk.samtools.SAMFileHeader.SortOrder;
 import htsjdk.variant.vcf.VCFFileReader;
 
 /** Filter SAM/BAM single-end (SE) alignments as well as do best-stratum selection to remove too divergent hits
+ * By filtering SE read it will modifiy the NH tag and add the XN tag
+ * Tag  Type  Description
+ * NH   i     Number of reported alignments
+ * XN   i     Number of total alignments satisfying the user-specified criteria except for the mapQ limitation
  * @author Qi Zheng
  * @version 1.2
  * @since 1.1
@@ -167,9 +171,13 @@ public class FilterSAMAlignSE {
 
 				// report remaining alignments, up-to MAX_REPORT
 				for(int i = 0; i < recordList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
+					SAMRecord repRecord = recordList.get(i);
 					if(doUpdateBit)
-						recordList.get(i).setNotPrimaryAlignmentFlag(i != 0);
-					out.addAlignment(recordList.get(i));
+						repRecord.setNotPrimaryAlignmentFlag(i != 0);
+					repRecord.setAttribute("NH",
+							MAX_REPORT == 0 ? Math.min(recordList.size(), MAX_REPORT) : recordList.size());
+					repRecord.setAttribute("XN", recordList.size());
+					out.addAlignment(repRecord);
 				}
 				// reset list
 				recordList.clear();
@@ -240,6 +248,7 @@ public class FilterSAMAlignSE {
 				"            --no-update-bit FLAG  do not update the secondary alignment bit flag (0x100) after filtering" + newLine +
 				"            --best-only FLAG  only report unique best hit, equivelant to --max-best 1 --max-report 1" + newLine +
 				"            --best FLAG  report the best hit, ignore any secondary hit, equivelant to --max-best 0 --max-report 1" + newLine +
+				"            --max-sensitivity FLAG  maximaze sensitivity by ignoring the mismatch, indel options" + newLine +
 				"            --sort-method STRING  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\" [none]" + newLine +
 				"            --chrom-list FILE  pre-filtering file containing one chromosome name per-line" + newLine +
 				"            --known-SNP FILE  known SNP file in vcf/gvcf format (v4.0+, .gz supported), used for calculating mapQ" + newLine +
@@ -318,6 +327,12 @@ public class FilterSAMAlignSE {
 			else if(args[i].equals("--best")) {
 				MAX_BEST = 0;
 				MAX_REPORT = 1;
+			}
+			else if(args[i].equals("--max-sensitivity")) {
+				MAX_SEED_MIS = 100;
+				MAX_SEED_INDEL = 100;
+				MAX_ALL_MIS = 100;
+				MAX_ALL_INDEL = 100;
 			}
 			else if(args[i].equals("--sort-method")) {
 				switch(args[++i]) {
