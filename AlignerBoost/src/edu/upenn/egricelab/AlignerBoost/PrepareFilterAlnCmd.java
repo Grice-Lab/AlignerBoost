@@ -72,12 +72,16 @@ public class PrepareFilterAlnCmd {
 				String ignoreClip = conf.hasSpliced() && !NGSExpDesign.isRNAAligner(conf.aligner) ? " --ignore-clip-penalty " : " ";
 /*				ClipHandlingMode clipHandle = !conf.hasSpliced || NGSExpDesign.isRNAAligner(conf.aligner)
 						? ClipHandlingMode.USE : ClipHandlingMode.IGNORE;*/
-				String cmd = "java -jar " + progFile + " run " + prog + " -r " + minRate +
+	/*			String cmd = "java -jar " + progFile + " run " + prog + " -r " + minRate +
 						" --seed-len " + conf.seedLen + " --seed-mis " + conf.seedMis + " --seed-indel " + conf.seedIndel +
 						" --all-mis " + conf.allMis + " --all-indel " + conf.allIndel + dp + silent + maxHit + ignoreClip +
 						" --min-mapQ " + conf.minMapQ + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
+						" --sort-method " + conf.sortMethod + " " + knownSnp + fixMD + conf.otherFilterOpts + " -in " + inFn + " -out " + outFn;*/
+				String cmd = "java -jar " + progFile + " run " + prog + " -r " + minRate +
+						" --seed-len " + conf.seedLen + " --max-sensitivity " + 
+						dp + silent + maxHit + ignoreClip +
+						" --min-mapQ " + conf.minMapQ + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
 						" --sort-method " + conf.sortMethod + " " + knownSnp + fixMD + conf.otherFilterOpts + " -in " + inFn + " -out " + outFn;
-
 				if(!(new File(outFn)).exists())
 					out.write(cmd + newLine);
 				else {
