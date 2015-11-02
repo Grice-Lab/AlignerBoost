@@ -24,6 +24,7 @@ import java.util.*;
 
 import edu.upenn.egricelab.AlignerBoost.utils.ProcessStatusTask;
 import edu.upenn.egricelab.AlignerBoost.utils.Stats;
+import edu.upenn.egricelab.AlignerBoost.utils.StringUtils;
 import htsjdk.samtools.*;
 import htsjdk.samtools.SAMFileHeader.GroupOrder;
 import htsjdk.samtools.SAMFileHeader.SortOrder;
@@ -100,6 +101,12 @@ public class FilterSAMAlignPE {
 			System.err.println("Warning: Input file '" + inFile + "' might be sorted by coordinate and cannot be correctly processed!");
 
 		SAMFileHeader header = inHeader.clone(); // copy the inFile header as outFile header
+		// Add new programHeader
+		SAMProgramRecord progRec = new SAMProgramRecord(progName);
+		progRec.setProgramName(progName);
+		progRec.setProgramVersion(progVer);
+		progRec.setCommandLine(StringUtils.join(" ", args));
+		header.addProgramRecord(progRec);
 		//System.err.println(inFile + " groupOrder: " + in.getFileHeader().getGroupOrder() + " sortOrder: " + in.getFileHeader().getSortOrder());
 		// reset the orders
 		header.setGroupOrder(groupOrder);
