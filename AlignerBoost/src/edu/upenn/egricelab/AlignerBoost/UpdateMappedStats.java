@@ -114,8 +114,12 @@ public class UpdateMappedStats {
 				}
 				for(SAMRecord record : samIn) {
 					String id = record.getReadName();
-					Matcher match = nrPat.matcher(id);
-					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+					int clone = 1; // default is for read
+					if(conf.doNR) { // we are looking at NR tags
+						Matcher match = nrPat.matcher(id);
+						if(match.find())
+							clone = Integer.parseInt(match.group(1));
+					}
 					if(inOrder == GroupOrder.query && !id.equals(prevID)) // query-ordered, new ID found
 						totalMapped += clone;
 					else if(!readSeen.contains(id)) { // not query-ordered
