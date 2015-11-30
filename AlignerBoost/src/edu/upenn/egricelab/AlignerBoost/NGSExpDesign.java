@@ -173,7 +173,7 @@ public class NGSExpDesign {
 						design.allIndel = Float.parseFloat(value);
 						break;
 					case "min_align_rate":
-						design.setMinAlignRate(Double.parseDouble(value));
+						design.setMinAlignRate(Float.parseFloat(value));
 						break;
 					case "max_hit":
 						design.maxHit = Integer.parseInt(value);
@@ -459,14 +459,14 @@ public class NGSExpDesign {
 	/**
 	 * @return the minAlignRate
 	 */
-	public double getMinAlignRate() {
+	public float getMinAlignRate() {
 		return minAlignRate;
 	}
 
 	/**
 	 * @param minAlignRate the minAlignRate to set
 	 */
-	public void setMinAlignRate(double minAlignRate) {
+	public void setMinAlignRate(float minAlignRate) {
 		// check minAlignRate
 		if(minAlignRate < 0)
 			minAlignRate = !hasSpliced ? DEFAULT_DNA_ALIGN_RATE :
@@ -512,7 +512,7 @@ public class NGSExpDesign {
 	/**
 	 * @return the minMapQ
 	 */
-	public double getMinMapQ() {
+	public int getMinMapQ() {
 		return minMapQ;
 	}
 
@@ -699,9 +699,9 @@ public class NGSExpDesign {
 	static String PROJECT_DIR = ".";
 	static String WORK_DIR = ".";
 	static final int MIN_UNIQ_INSERT = 15;
-	static final double DEFAULT_DNA_ALIGN_RATE = 0.9;
-	static final double DEFAULT_RNA_ALIGN_RATE_RNA_ALIGNER = 0.8;
-	static final double DEFAULT_RNA_ALIGN_RATE_DNA_ALIGNER = 0.5;
+	static final float DEFAULT_DNA_ALIGN_RATE = 0.9f;
+	static final float DEFAULT_RNA_ALIGN_RATE_RNA_ALIGNER = 0.8f;
+	static final float DEFAULT_RNA_ALIGN_RATE_DNA_ALIGNER = 0.5f;
 	
 	// basic library options
 	String libName;
@@ -729,7 +729,7 @@ public class NGSExpDesign {
 	float allMis = 6;
 	float allIndel = 0;
 	//int minInsert = 15;
-	double minAlignRate = -1;
+	float minAlignRate = -1;
 	int maxHit = 10;
 	// mate options
 	int minFragLen = 0;

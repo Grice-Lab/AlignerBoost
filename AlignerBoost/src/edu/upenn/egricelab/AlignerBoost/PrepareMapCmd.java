@@ -265,12 +265,19 @@ public class PrepareMapCmd {
 				    break;
 				case "STAR":
 				    prog = "STAR";
-				    float minScoreRate = 1 - conf.allMis / 100 - conf.allIndel / 100 * STAR_INDEL_PENALTY / STAR_MATCH_SCORE;
-				    float minMatchRate = 1 - conf.allMis / 100 - conf.allIndel / 100;
+				    float minScoreRate = conf.minAlignRate - conf.allMis / 100 - conf.allIndel / 100 * STAR_INDEL_PENALTY / STAR_MATCH_SCORE;
+				    float minMatchRate = conf.minAlignRate - conf.allMis / 100 - conf.allIndel / 100;
+				    if(minScoreRate < 0)
+				    	minScoreRate = 0;
+				    if(minMatchRate < 0)
+				    	minMatchRate = 0;
 				    float maxMisRate = conf.allMis / 100;
-				    int multiMapScoreRange = (int) Math.ceil(conf.readLen * BWA_MULTIMAP_SUBOPT_SCORE_RATE);
+				    int multiMapScoreRange = (int) Math.ceil(conf.readLen * STAR_MULTIMAP_SUBOPT_SCORE_RATE);
+				    transcriptome = conf.transcriptomeGFF == null ? " " :
+				    	" --sjdbGTFfile " + conf.transcriptomeGFF + " ";
 				    inFn = !conf.isPaired ? readIn : readIn + " " + mateIn;
-				    cmd = prog + " --genomeDir " + conf.refIndex + " --readFilesIn " + inFn + " --runThreadN " + MAX_PROC +
+				    cmd = prog + " --genomeDir " + conf.refIndex + transcriptome + 
+				    		" --readFilesIn " + inFn + " --runThreadN " + MAX_PROC +
 				    		" --outFilterScoreMinOverLread " + minScoreRate + " --outFilterMatchNminOverLread " + minMatchRate +
 				    		" --outFilterMultimapNmax " + conf.maxHit + " --outFilterMultimapScoreRange " + multiMapScoreRange +
 				    		" --outFilterMismatchNmax " + maxNMis + " --outFilterMismatchNoverLmax " + maxMisRate +
@@ -332,7 +339,7 @@ public class PrepareMapCmd {
 	public static final int BWA_SW_MATCH_SCORE = 1;
 	public static final int BWA_SW_MISMATCH_PENALTY = 3;
 	public static final int BWA_SW_MAX_Z_BEST = 10;
-	public static final float BWA_MULTIMAP_SUBOPT_SCORE_RATE = 0.1f;
+	public static final float STAR_MULTIMAP_SUBOPT_SCORE_RATE = 0.1f;
 	public static final int STAR_MATCH_SCORE = 1;
 	public static final int STAR_INDEL_PENALTY = 2;
 	private static final int FASTA_DEFAULT_Q = 40;

@@ -65,7 +65,7 @@ public class PrepareFilterAlnCmd {
 				String dp = conf.aligner.equals("bowtie") ? " --1DP " : " "; // always enable 1DP for non-SW supported aligners
 				String silent = conf.isPaired ? " --silent " : " ";
 				String prog = !conf.isPaired ? "filterSE" : "filterPE";
-				Double minRate = conf.minAlignRate;
+				float minRate = conf.minAlignRate;
 				String maxHit = NGSExpDesign.supportMaxHit(conf.aligner) ? " -N " + conf.maxHit : " "; 
 				String knownSnp = conf.knownSnpFile != null ? " --known-SNP " + conf.knownSnpFile + " " : " ";
 				String fixMD = conf.aligner.equals("seqalto") ? " --fix-MD " : " ";
