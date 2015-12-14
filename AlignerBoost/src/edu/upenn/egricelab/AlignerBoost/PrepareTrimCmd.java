@@ -60,15 +60,39 @@ public class PrepareTrimCmd {
 			for(NGSExpDesign conf : configs) {
 				if(!conf.doTrim)
 					continue;
-				
-				String limit = !conf.isPaired ? " -m " + NGSExpDesign.MIN_UNIQ_INSERT : "";
+				String progName = conf.trimProg;
+				String limit;
 				String outFn = conf.getTrimmedReadFileName();
-				String cmd = "cutadapt -a " + conf.adapterSeq3 + " -e " + conf.trimMis + " -O " + conf.minTrim +
-						limit + " -o " + outFn + " " + conf.readFile;
-				if(conf.isPaired) { // remove 5'-adapter from mate
-					String mateOutFn = conf.getTrimmedMateFileName();
-					cmd += newLine + "cutadapt -a " + conf.adapterSeq5 + " -e " + conf.trimMis + " -O " + conf.minTrim +
-							limit + " -o " + mateOutFn + " " + conf.mateFile;
+				String mateOutFn = conf.getTrimmedMateFileName();
+				String cmd, cmdMate;
+				switch(progName) {
+				case "cutadapt":
+					limit = !conf.isPaired ? " -m " + NGSExpDesign.MIN_UNIQ_INSERT : "";
+					cmd = !conf.adapterSeq3.equals("NA") ?
+							progName + " -a " + conf.adapterSeq3 + " -e " + conf.trimMis / 100 +
+							" -O " + conf.minTrim + limit + " -o " + outFn + " " + conf.readFile
+							: "";
+					cmdMate = conf.isPaired && !conf.adapterSeq5.equals("NA") ?
+							progName + " -a " + conf.adapterSeq5 + " -e " + conf.trimMis / 100 +
+							" -O " + conf.minTrim + limit + " -o " + mateOutFn + " " + conf.mateFile
+							: "";
+					cmd += newLine + cmdMate;
+					break;
+				case "flexbar":
+					limit = !conf.isPaired ? " -m " + NGSExpDesign.MIN_UNIQ_INSERT : " -m 0 ";
+					outFn.replaceFirst("\\.fastq(?:.gz)?$", "");
+					mateOutFn.replaceFirst("\\.fastq(?:.gz", "");
+					cmd = !conf.adapterSeq3.equals("NA") ?
+							progName + limit + " -as " + conf.adapterSeq3 + " -ao " + conf.minTrim +
+							" -at " + conf.trimMis / 10 + " -t " + outFn
+							: "";
+					cmdMate = conf.isPaired && !conf.adapterSeq5.equals("NA") ?
+							progName + limit + " -as " + conf.adapterSeq5 + " -ao " + conf.minTrim +
+							" -at " + conf.trimMis / 10 + " -t " + mateOutFn
+							: "";
+					break;
+				default:
+					throw new IllegalArgumentException("Unsupported adapter trimming program found: '" + progName + "'");
 				}
 		
 				if(!(new File(outFn)).exists())

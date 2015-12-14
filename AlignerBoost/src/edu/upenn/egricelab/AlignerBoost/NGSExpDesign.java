@@ -139,6 +139,9 @@ public class NGSExpDesign {
 					case "do_trim":
 						design.doTrim = value.toUpperCase().equals("YES");
 						break;
+					case "trim_prog":
+						design.trimProg = value.toLowerCase();
+						break;
 					case "3_adapter_seq":
 						design.adapterSeq3 = value;
 						break;
@@ -146,7 +149,7 @@ public class NGSExpDesign {
 						design.adapterSeq5 = value;
 						break;
 					case "trim_mis":
-						design.trimMis = Float.parseFloat(value) / 100;
+						design.trimMis = Float.parseFloat(value);
 						break;
 					case "min_trim":
 						design.minTrim = Integer.parseInt(value);
@@ -384,6 +387,13 @@ public class NGSExpDesign {
 	 */
 	public boolean doTrim() {
 		return doTrim;
+	}
+	
+	/**
+	 * @return  the trimProg
+	 */
+	public String getTrimProg() {
+		return trimProg;
 	}
 
 	/**
@@ -715,9 +725,10 @@ public class NGSExpDesign {
 	boolean hasSpliced;
 	// trimming options
 	boolean doTrim;
+	String trimProg = "cutadapt"; // default program
 	String adapterSeq3;
 	String adapterSeq5;
-	float trimMis = 0.1f;
+	float trimMis = 10; // default trimming mismatch %
 	int minTrim = 10;
 	// NR options
 	boolean doNR = true;
