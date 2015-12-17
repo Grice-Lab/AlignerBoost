@@ -31,7 +31,7 @@ import java.util.regex.*;
 public class EnvConstants {
 	// prog versions
 	public static final String progName = "AlignerBoost";
-	public static final String progVer = "v1.5.1";
+	public static final String progVer = "v1.5.2";
 	public static final String progDesc = "A tool for boosting the precision and sensitivity of NextGen-seq aligners";
 	public static final String progFile = progName + ".jar";
 	// environment variables

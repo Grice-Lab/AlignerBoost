@@ -67,21 +67,29 @@ public class PrepareTrimCmd {
 				String cmd, cmdMate;
 				switch(progName) {
 				case "cutadapt":
-					limit = !conf.isPaired ? " -m " + NGSExpDesign.MIN_UNIQ_INSERT : "";
-					cmd = !conf.adapterSeq3.equals("NA") ?
-							progName + " -a " + conf.adapterSeq3 + " -e " + conf.trimMis / 100 +
-							" -O " + conf.minTrim + limit + " -o " + outFn + " " + conf.readFile
-							: "";
-					cmdMate = conf.isPaired && !conf.adapterSeq5.equals("NA") ?
-							progName + " -a " + conf.adapterSeq5 + " -e " + conf.trimMis / 100 +
-							" -O " + conf.minTrim + limit + " -o " + mateOutFn + " " + conf.mateFile
-							: "";
-					cmd += newLine + cmdMate;
+					if(!conf.isPaired) { // single-end
+						if(conf.adapterSeq3.equals("NA")) // no trimming possible
+							continue;
+						cmd = progName + " -a " + conf.adapterSeq3 +
+								" -e " + conf.trimMis / 100 + " -O " + conf.minTrim + " -m " + NGSExpDesign.MIN_UNIQ_INSERT +
+								" -o " + outFn + " " + conf.readFile; 
+					}
+					else { // pair-end
+						if(conf.adapterSeq3.equals("NA") && conf.adapterSeq5.equals("NA")) // both adapters are not provided
+							continue;
+						cmd = progName + " -e " + conf.trimMis / 100 + " -O " + conf.minTrim +
+								" -m " + NGSExpDesign.MIN_UNIQ_INSERT + " -o " + outFn + " -p " + mateOutFn;
+						if(!conf.adapterSeq3.equals("NA")) // 3'-adapter exists
+							cmd += " -a " + conf.adapterSeq3;
+						if(!conf.adapterSeq5.equals("NA")) // 5'-adapter exists
+							cmd += " -A " + conf.adapterSeq5;
+						cmd += " " + conf.readFile + " " + conf.mateFile;
+					}
 					break;
 				case "flexbar":
 					limit = !conf.isPaired ? " -m " + NGSExpDesign.MIN_UNIQ_INSERT : " -m 0 ";
-					outFn.replaceFirst("\\.fastq(?:.gz)?$", "");
-					mateOutFn.replaceFirst("\\.fastq(?:.gz", "");
+					outFn.replaceFirst("\\.fastq(?:\\.gz)?$", "");
+					mateOutFn.replaceFirst("\\.fastq(?:\\.gz)?$", "");
 					cmd = !conf.adapterSeq3.equals("NA") ?
 							progName + limit + " -as " + conf.adapterSeq3 + " -ao " + conf.minTrim +
 							" -at " + conf.trimMis / 10 + " -t " + outFn
@@ -90,6 +98,7 @@ public class PrepareTrimCmd {
 							progName + limit + " -as " + conf.adapterSeq5 + " -ao " + conf.minTrim +
 							" -at " + conf.trimMis / 10 + " -t " + mateOutFn
 							: "";
+					cmd += cmdMate;
 					break;
 				default:
 					throw new IllegalArgumentException("Unsupported adapter trimming program found: '" + progName + "'");
