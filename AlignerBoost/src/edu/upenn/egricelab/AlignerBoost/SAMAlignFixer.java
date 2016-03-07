@@ -162,7 +162,7 @@ public class SAMAlignFixer {
 				if(updateKnownSnv(updatedStatus, penaltyScore, record.getReferenceName(), record.getAlignmentStart(), alnLen, qSeq, var) > 0) { // is a ready known SNP
 					double updatedLog10lik = calcAlignLik(updatedStatus, record.getBaseQualities(), cigar, penaltyScore);
 					if(updatedLog10lik > log10lik) { // a better likelihood
-						record.setAttribute("XV", var.getChr() + ":" + var.getStart() + "-" + var.getEnd() + ":" + var.getID());
+						record.setAttribute("XV", var.getContig() + ":" + var.getStart() + "-" + var.getEnd() + ":" + var.getID());
 						log10lik = updatedLog10lik; // update
 						bestStatus = updatedStatus; // update
 					}
@@ -723,7 +723,7 @@ public class SAMAlignFixer {
 		assert status.length == alnLen;
 
 		char[] oldStatus = status.clone(); // make a copy of old status
-		if(var.isFiltered() || !(var.getChr().equals(chr) && var.getStart() < alnStart + alnLen && var.getEnd() >= alnStart))
+		if(var.isFiltered() || !(var.getContig().equals(chr) && var.getStart() < alnStart + alnLen && var.getEnd() >= alnStart))
 			return 0; // no status updated
 		int nUpdated = 0;
 		int varStart = 0;

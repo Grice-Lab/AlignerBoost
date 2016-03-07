@@ -141,7 +141,7 @@ public class ClassifyVCF {
 				VariantContextBuilder varBuilder = new VariantContextBuilder(var);  // builder derived from old record
 				// get GTYPE
 				int typeBit = 0;
-				int[] idx = chrIdx.get(var.getChr());
+				int[] idx = chrIdx.get(var.getContig());
 				for(int i = var.getStart(); i <= var.getEnd(); i++)
 					typeBit |= idx[i];
 				String gType = unmask(typeBit);
