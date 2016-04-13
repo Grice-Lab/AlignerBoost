@@ -27,4 +27,4 @@ Dependencies
 AlignerBoost does not dependent on any 3rd party library directly. However, if you are using AlignerBoost's
 best practice to generate executable shell scripts, you do need to have your NGS aligner
 of choice available in the PATH to be able to run these scripts. You might also need other programs in PATH
-for additional AlignerBoost pre-processing, QC, and utility function. See "examples/README.example" for best practice. 
+for some other AlignerBoost pre-processing functionality. See "examples/README.example" for best practice.
