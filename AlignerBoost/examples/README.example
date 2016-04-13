@@ -1,46 +1,28 @@
-#### A project to test the performance of the developing tool AlingerBoost
-### 1. Collect resources
-## program
-ln -s /home/zhengqi/software/AlignerBoost.jar .
-ln -s /data/genomes/hsa/hg19/chromosomes/ hg19/
-# Bowtie genome index
-ln -s /data/genomes/hsa/hg19/bowtie hg19/
-# Bowtie2 genome index
-ln -s /data/genomes/hsa/hg19/bowtie2 hg19/
-# BWA genome index
-ln -s /data/genomes/hsa/hg19/bwa hg19/
-# SOAP2 index
-ln -s /data/genomes/hsa/hg19/soap2 hg19/
-# novoalign
-ln -s /data/genomes/hsa/hg19/novoalign hg19/
-# STAR genome index
-ln -s /data/genomes/hsa/hg19/STAR hg19/
-# NCBI-BLAST index
-ln -s /data/genomes/hsa/hg19/db hg19/blastdb
-# genome size file (used for read classification/annotation)
-ln -s /data/genomes/hsa/hg19/hg19_chr_len.txt hg19/
-# refGenome
-ln -s /data/genomes/hsa/hg19/hg19.fa hg19/
-# refGene GFF
-ln -s /data/UCSC/hg19/database/refGene.gff hg19/
+#### A demo reference-based NGS project using AlignerBoost for pre-processing, QC,
+#### accurate mapping, and some post-alignment analysis such as
+#### fast read classification and fast variation annotation
+#### AlignerBoost generates executable bash scripts which can either be run directly,
+#### or used in submission systems such as 'qsub' or 'bsub'   
+### 1. Collect resources. Some examples ares:
+# AlignerBoost latest executable: ./AlignerBoost.jar
+# Bowtie index: hg19/bowtie/*.ebwt
+# Bowtie2 index: hg19/bowtie2/*.bt2
+# BWA index: hg19/bwa/*
+# SOAP2 index: hg19/soap2/*
+# novoalign index: hg19/novoalign/*
+# STAR index: hg19/STAR/*
+# Genome annotation: GENCODE.gff
+# Chromosome size: hg19_chr_len.txt
 
-## human genome and annotations
-mkdir hg19/
-ln -s /project/grice/data2/pub_data/UCSC/hg19/chromosomes/ hg19/  # genome
-ln -s /project/grice/data2/pub_data/UCSC/hg19/database/refGene.txt hg19/ # refGene
-ln -s /project/grice/data2/pub_data/UCSC/hg19/database/refGene_exon.txt hg19/ # refExon
-ln -s ln -s /project/grice/data2/pub_data/UCSC/hg19/database/vegaPseudoGene.txt hg19/ # pseudogene
-ln -s /project/grice/data2/pub_data/UCSC/hg19/database/rmsk.txt hg19/    # rmsk
-
-
-### 2. Manually prepare experiment configuration files from template
+### 2. Manually prepare experiment configuration file(s)
+## Use the provided template in 'examples/AB_demo_experiment_design.conf' as the starting point
 hg19_test_simulated_SE.conf
 
 ## Init lib summary
 java -jar AlignerBoost.jar stats total hg19_test_simulated_SE.conf hg19_test_simulated_SE_stats.txt
       ||
       \/
-hg19_test_simulated_SE_stats.txt
+# hg19_test_simulated_SE_stats.txt
 
 
 ### 3. QC check of read quality
@@ -48,33 +30,35 @@ java -jar AlignerBoost.jar prepare readQC hg19_test_simulated_SE.conf check_QC_S
 ./check_QC_SE.sh
       ||
       \/
-simulated_SE/*QC.txt
+# simulated_SE/*QC.txt
 
 
-### 4. Trim the 3'-adapter sequence by Cutadapt, if requested
+### 4. Trim the 3'-adapter sequences, if requested
+## The (opposite end) adapter sequences are mostly likely to be present,
+## if your expected insert DNA size is shorter than the NGS read length 
 java -jar AlignerBoost.jar prepare trim hg19_test_simulated_SE.conf trim_SE.sh
 ./trim_SE.sh
       ||
       \/
-# none
+# (no trimming requested)
 # Add trimmed read summary
 java -jar AlignerBoost.jar stats trimmed hg19_test_simulated_SE.conf hg19_test_simulated_SE_stats.txt
       ||
       \/
-hg19_test_simulated_SE_stats.txt
+# hg19_test_simulated_SE_stats.txt
 
 
-### 5. Get NR-seq from trimmed/untrimmed reads, if requested
+### 5. Get NR-seq from raw trimmed/untrimmed reads, if requested
 java -jar AlignerBoost.jar prepare NR hg19_test_simulated_SE.conf get_NR_SE.sh
 ./get_NR_SE.sh
       ||
       \/
-# none
+# (no NR requested)
 # Add NR-tag summary
 java -jar AlignerBoost.jar stats NR hg19_test_simulated_SE.conf hg19_test_simulated_SE_stats.txt
       ||
       \/
-hg19_test_simulated_SE_stats.txt
+# hg19_test_simulated_SE_stats.txt
 
 
 ### 6. Map read to genome
@@ -82,15 +66,7 @@ java -jar AlignerBoost.jar prepare align hg19_test_simulated_SE.conf map_SE.sh
 ./map_SE.sh
       ||
       \/
-simulated_SE/work/*_hg19_raw.bam
-
-## Map the reads by default parameters
-# generate bash scripts based on automatic scripts
-perl get_default_map_sh.pl map_SE.sh map_SE_default.sh
-./map_SE_default.sh
-      ||
-      \/
-simulated_SE/work/*_hg19_default.bam
+# work/*_hg19_raw.bam
 
 
 ### 7. Filter alignments
@@ -98,10 +74,29 @@ java -jar AlignerBoost.jar prepare filter hg19_test_simulated_SE.conf filter_SE.
 ./filter_SE.sh
       ||
       \/
-simulated_SE/hg19_*filtered.bam
+# hg19_*filtered.bam
 
 # Add mapped read summary
 java -jar AlignerBoost.jar stats mapped hg19_test_simulated_SE.conf hg19_test_simulated_SE_stats.txt
       ||
       \/
-hg19_test_simulated_SE_stats.txt
+# hg19_test_simulated_SE_stats.txt
+
+
+### 8. Example usage of AlignerBoost utility tools; try 'java -jar AlignerBoost (-h|--help)' for details
+## 1. Fast genetic-type classification of mapped reads
+java -Xms12G -jar AlignerBoost.jar utils classifySAM \
+-gff GENCODE.gff -gff refGene.gff\
+-i hg19_mysample.bam -o mysample_read_gtype.txt -v
+
+## 2. Fast genetic-type classification of arbitrary genomic regions
+java -Xms12G -jar AlignerBoost.jar utils classifyBED \
+-g hg19_chr_len.txt -gff GENCODE.gff \
+-i my_region.bed -o my_region_gtype.bed -v
+
+## 3. Fast genetic-type classification of variations in VCF files
+java -Xms12G -jar AlignerBoost.jar utils classifyVCF \
+-g hg19/hg19_chr_len.txt -d GATK_bundle/ucsc.hg19.dict \
+-gff hg19/refGene.gff -gff hg19/wgRna.gff -gff hg19/hsa_mirna.gff -gff hg19/vegaPseudoGene.gff -gff hg19/rmsk.gff \
+-i my_snv.vcf -o my_snv_type.vcf -v
+   
