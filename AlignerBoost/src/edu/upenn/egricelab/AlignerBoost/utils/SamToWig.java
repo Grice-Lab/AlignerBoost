@@ -244,7 +244,7 @@ public class SamToWig {
 				"            --no-track FLAG  do not include the 'track-line' as the first line of the Wiggle file as the UCSC required [false]" + newLine + 
 				"            -name STRING  the track name used to display in UCSC Genome Browser [OUTFILE]" + newLine +
 				"            -desc STRING  the description of the track used to display in UCSC Genome Browser [track name]" + newLine +
-				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" +
+				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine+
 				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
 				"            -k/--keep-uncover FLAG keep 0-covered regions in wigFile [false]" + newLine +
 				"            -v FLAG  show verbose information"
