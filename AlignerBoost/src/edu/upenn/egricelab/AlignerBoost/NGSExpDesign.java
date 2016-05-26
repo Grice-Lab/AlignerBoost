@@ -196,6 +196,19 @@ public class NGSExpDesign {
 					case "max_report":
 						design.maxReport = Integer.parseInt(value);
 						break;
+					case "best_mode":
+						if(value.equals("best")) {
+							design.maxBest = 0;
+							design.maxReport = 1;
+						}
+						else if(value.equals("best-only")) {
+							design.maxBest = 1;
+							design.maxReport = 1;
+						}
+						else if(value.equals("none")) { } // do nothing
+						else
+							throw new IllegalArgumentException("Unknown best_mode option '" + value + "' found at\n" + line);
+						break;
 					case "sort_method":
 						design.sortMethod = value;
 						break;
