@@ -586,14 +586,14 @@ public class FilterSAMAlignSE {
 	}
 
 
-/*	*//**
+	/**
 	 * get align postP
 	 * @param record  SAMRecord to look at
 	 * @return  posterior probability of this alignment
-	 *//*
+	 */
 	static double getSAMRecordAlignPostP(SAMRecord record) {
 		return Double.parseDouble(record.getStringAttribute("XP"));
-	}*/
+	}
 	
 	static final int INVALID_MAPQ = 255;
 	static final int MAX_MAPQ = 200; // MAX meaniful mapQ value, if not 255

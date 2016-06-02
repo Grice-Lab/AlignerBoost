@@ -21,6 +21,9 @@ import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
 
 import java.io.*;
 import java.util.*;
+import org.apache.commons.math3.distribution.*;
+
+//import org.apache.commons.math3.linear.IllConditionedOperatorException;
 
 import edu.upenn.egricelab.AlignerBoost.utils.ProcessStatusTask;
 import edu.upenn.egricelab.AlignerBoost.utils.Stats;
@@ -119,8 +122,69 @@ public class FilterSAMAlignPE {
 		SAMRecord prevRecord = null;
 		List<SAMRecord> alnList = new ArrayList<SAMRecord>();
 		List<SAMRecordPair> alnPEList = null;
-		// check each alignment
+		
+		// Estimate fragment length distribution by scan one-pass through the alignments
 		SAMRecordIterator results = in.iterator();
+		if(!NO_ESTIMATE) {
+			if(verbose > 0) {
+				System.err.println("Estimating insert fragment size distribution ...");
+				statusTask.reset();
+				statusTask.setInfo("alignments scanned");
+			}
+			long N = 0;
+			double fragL_S = 0; // fragLen sum
+			double fragL_SS = 0; // fragLen^2 sum
+			while(results.hasNext()) {
+				SAMRecord record = results.next();
+				if(verbose > 0)
+					statusTask.updateStatus();
+				if(record.getFirstOfPairFlag() && !record.isSecondaryOrSupplementary()) {
+					double fragLen = Math.abs(record.getInferredInsertSize());
+					if(fragLen != 0 && fragLen >= MIN_FRAG_LEN && fragLen <= MAX_FRAG_LEN) { // only consider certain alignments
+						N++;
+						fragL_S += fragLen;
+						fragL_SS += fragLen * fragLen;
+					}
+					// stop estimate if already enough
+					if(MAX_ESTIMATE_SCAN > 0 && N >= MAX_ESTIMATE_SCAN)
+						break;
+				}
+			}
+			if(verbose > 0)
+				statusTask.finish();
+			// estimate fragment size
+			if(N >= MIN_ESTIMATE_BASE) { // override command line values
+				MEAN_FRAG_LEN = fragL_S / N;
+				SD_FRAG_LEN = Math.sqrt( (N * fragL_SS - fragL_S * fragL_S) / (N * (N - 1)) );
+				if(verbose > 0)
+					System.err.printf("Estimated fragment size distribution: N(%.1f, %.1f)%n", MEAN_FRAG_LEN, SD_FRAG_LEN);
+			}
+			// reset the iterator, if necessary
+			if(in.type() == SamReader.Type.SAM_TYPE) {
+				try {
+					in.close();
+				}
+				catch(IOException e) {
+					System.err.println(e.getMessage());
+				}
+				in = readerFac.open(new File(inFile));
+			}
+			results.close();
+			results = in.iterator();
+		} // end of NO_ESTIMATE
+		// check estimates
+		if(!(MEAN_FRAG_LEN > 0 && SD_FRAG_LEN > 0)) {
+			System.err.println("Unable to estimate the fragment size distribution due to too few observed alignments");
+			System.err.println("You have to specify the '--mean-frag-len' and '--sd-frag-len' on the command line and re-run this step");
+			statusTask.cancel();
+			processMonitor.cancel();
+			out.close();
+			return;
+		}
+		
+		// Initiate the normal model
+		normModel = new NormalDistribution(MEAN_FRAG_LEN, SD_FRAG_LEN);
+		// check each alignment again
 		if(verbose > 0) {
 			System.err.println("Filtering alignments ...");
 			statusTask.reset();
@@ -153,6 +217,8 @@ public class FilterSAMAlignPE {
 			if(!record.getReadPairedFlag()) {
 				System.err.println("Error: alignment is not from a paired-end read at\n" + record.getSAMString());
 				out.close();
+				statusTask.cancel();
+				processMonitor.cancel();
 				return;
 			}
 
@@ -299,7 +365,16 @@ public class FilterSAMAlignPE {
 			return len;
 		}
 		
-		/** Get PE log-likelihood
+		/** Get PE inferredInsertSize (template length)
+		 * @return PE inferred insert size as the distance between leftmost start and rightmost end
+		 */
+		public int getPETemplateLen() {
+			int tLen = fwdRecord != null ? fwdRecord.getInferredInsertSize() : revRecord.getInferredInsertSize();
+			return Math.abs(tLen);
+		}
+		
+		/**
+		 * Get PE log-likelihood
 		 * @return PE align log-likelihood
 		 */
 		public double getPEAlignLik() {
@@ -314,6 +389,14 @@ public class FilterSAMAlignPE {
 			return log10Lik;
 		}
 
+		/**
+		 * Get the PE paring probability according to learned Gaussion distribution
+		 * @return probability density that this pair is in given inferred template length
+		 */
+		public double getPEPairPr() {
+			return normModel.density(getPETemplateLen());
+		}
+		
 		/**
 		 * Get PE mapQ, which is the same for both forward and reverse read
 		 * @return  mapQ either from fwdRecord or revRecord, which one is not null
@@ -420,6 +503,12 @@ public class FilterSAMAlignPE {
 				"            --all-mis  DOUBLE  %mismatches allowed in the entire insert region (excluding clipped/intron regions) [" + MAX_ALL_MIS + "]" + newLine +
 				"            --all-indel DOUBLE  %in-dels allowed in the entire insert region [" + MAX_ALL_INDEL + "]" + newLine +
 				"            -i/--identity DOUBLE  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels) [" + MIN_IDENTITY + "]" + newLine +
+				"            --no-estimate FLAG  do not try to estimate the fragment size distribution; use provided values instead" + newLine +
+				"            --min-frag-len DOUBLE  estimated minimum fragment (insert) length [" + MIN_FRAG_LEN + "]" + newLine +
+				"            --max-frag-len DOUBLE  estimated maximum fragment (insert) length [" + MAX_FRAG_LEN + "]" + newLine +
+				"            --mean-frag-len DOUBLE  estimated mean fragment (insert) length [" + MEAN_FRAG_LEN + "]" + newLine +
+				"            --sd-frag-len DOUBLE  estimated standard deviation of fragment (insert) length [" + SD_FRAG_LEN + "]" + newLine +
+				"            --max-estimate-scan INT  maximum alignment records to use for estimate fragment distribution [" + MAX_ESTIMATE_SCAN + "]" + newLine +
 				"            --clip-handle STRING  how to treat soft/hard-clipped bases as mismathes, USE for use all, IGNORE for ignore, END5 for only use 5' clipped, END3 for only use 3' clipped [" + SAMAlignFixer.CLIP_MODE + "]" + newLine +
 				"            --1DP FLAG  enable 1-dimentional dymamic programming insert re-assesment, useful for non-local aligners, i.e. bowtie" + newLine +
 				"            --1DP-gap-open-penalty INT  gap open penalty for 1DP [" + SAMAlignFixer.GAP_OPEN_PENALTY_1DP + "]" + newLine +
@@ -473,6 +562,31 @@ public class FilterSAMAlignPE {
 				MAX_ALL_INDEL = Double.parseDouble(args[++i]);
 			else if(args[i].equals("-i") || args[i].equals("--identity"))
 				MIN_IDENTITY = Double.parseDouble(args[++i]);
+			else if(args[i].equals("--no-estimate"))
+				NO_ESTIMATE = true;
+			else if(args[i].equals("--min-frag-len")) {
+				MIN_FRAG_LEN = Double.parseDouble(args[++i]);
+				if(!(MIN_FRAG_LEN >= 0))
+					throw new IllegalArgumentException("--min-frag-len must be non-negative");
+			}
+			else if(args[i].equals("--max-frag-len")) {
+				MAX_FRAG_LEN = Double.parseDouble(args[++i]);
+				if(!(MAX_FRAG_LEN > 0))
+					throw new IllegalArgumentException("--max-frag-len must be positive");
+			}
+			else if(args[i].equals("--mean-frag-len")) {
+				MEAN_FRAG_LEN = Double.parseDouble(args[++i]);
+				if(!(MEAN_FRAG_LEN > 0))
+					throw new IllegalArgumentException("--mean-frag-len must be positive");
+			}
+			else if(args[i].equals("--sd-frag-len")) {
+				SD_FRAG_LEN = Double.parseDouble(args[++i]);
+				if(!(SD_FRAG_LEN > 0))
+					throw new IllegalArgumentException("--sd-frag-len must be positive");
+			}
+			else if(args[i].equals("--max-estimate-scan")) {
+				MAX_ESTIMATE_SCAN = Long.parseLong(args[++i]);
+			}
 			else if(args[i].equals("--clip-handle"))
 				SAMAlignFixer.CLIP_MODE = SAMAlignFixer.ClipHandlingMode.valueOf(args[++i]);
 			else if(args[i].equals("--1DP"))
@@ -579,6 +693,7 @@ public class FilterSAMAlignPE {
 			throw new IllegalArgumentException("-i/--identity must be between 0 and 100");
 		else
 			MIN_IDENTITY /= 100.0; // use absolute identity
+	
 		if(OUT_IS_SAM && outFile.endsWith(".bam"))
 			System.err.println("Warning: output file '" + outFile + "' might not be SAM format");
 		if(MIN_MAPQ < 0)
@@ -684,7 +799,8 @@ public class FilterSAMAlignPE {
 		
 		for(int i = 0; i < nPairs; i++)
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
-			postP[i] = alnPEList.get(i).getPEInsertLen() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
+			postP[i] = alnPEList.get(i).getPEInsertLen() * 
+			alnPEList.get(i).getPEPairPr() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
 		// normalize postP
 		Stats.normalizePostP(postP, maxPair == 0 || totalPair < maxPair ? 0 : Math.sqrt(maxPair));
 		// reset the mapQ values
@@ -767,6 +883,14 @@ public class FilterSAMAlignPE {
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	private static boolean noMix; // do not allow unpaired alignments for paired reads?
+	// mate pair options
+	private static boolean NO_ESTIMATE;
+	private static double MIN_FRAG_LEN = 50;
+	private static double MAX_FRAG_LEN = 750;
+	private static double MEAN_FRAG_LEN;
+	private static double SD_FRAG_LEN;
+	private static final long MIN_ESTIMATE_BASE = 1000; // MIN alignment number to make an accurate estimate
+	private static long MAX_ESTIMATE_SCAN;
 	// best stratum options
 	private static int MAX_HIT = 10; // MAX_HIT used during the mapping step
 	private static int MIN_MAPQ = 10;
@@ -784,4 +908,6 @@ public class FilterSAMAlignPE {
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
 	private static final int statusFreq = 10000;
+	// Math related static members
+	private static NormalDistribution normModel;
 }

@@ -5,5 +5,7 @@
 	<classpathentry exported="true" kind="lib" path="lib/bcel-5.2.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry exported="true" kind="lib" path="lib/htsjdk-2.1.1.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/commons-math3-3.6.1-javadoc.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/commons-math3-3.6.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
