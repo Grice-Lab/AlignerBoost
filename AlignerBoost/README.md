@@ -4,8 +4,10 @@ AlignerBoost manual
 AlignerBoost is a generalized software toolkit for boosting Next-Gen sequencing
 mapping precision using a Bayesian based mapping quality framework.
 
-AlignerBoost works with any NGS aligners that can produce standard SAM/BAM alignment outputs,
-i.e. Bowtie, Bowtie2, BWA, SOAP2, YOABS, YA, and also supports RNA-seq aligners (i.e. Tophat/Tophat2, STAR). 
+AlignerBoost works with any NGS aligners that can produce standard SAM/BAM alignment outputs.
+Currently supported aligners that AlignerBoost has optimized for mapping precision and sensitivity include:
+DNA aligners: Bowtie, Bowtie2, BWA-ALN/BWA-SW/BWA-MEM, NovoAlign, SeqAlTo
+RNA aligners: Tophat, Tophat2, STAR 
 
 AlignerBoost works by tuning NGS aligners to report all potential alignments,
 then utilizes a Bayesian-based framework to accurately estimate the mapping quality
@@ -33,7 +35,7 @@ Customized SAM format tags
 --------------------------
 AlignerBoost uses a set of customized tags in generated SAM/BAM files to store auxiliary alignment information
 calculated during its filter process. These tags are listed below.
-Note: X?: global tags, Y? seed region reated tags, Z? entire alignment related tags
+Note: X?: global tags, Y? seed region related tags, Z?: entire alignment related tags
 
 Tag  Type  Description
 * XA   i     alignment length, including M,=,X,I,D,S but not H,P,N
