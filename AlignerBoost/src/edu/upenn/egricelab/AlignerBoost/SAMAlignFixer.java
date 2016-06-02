@@ -43,7 +43,7 @@ import htsjdk.samtools.util.CloseableIterator;
  * XF   i     actual insert from (start) relative to reference
  * XI   f     alignment identity as 1 - (YX + YG) / XL
  * XH   Z     alignment likelihood given this mapping loc and quality, in string format to preserve double precision
- * XV   i     known SNVs found in this alignment
+ * XV   Z     known SNVs (if any) used in calculating XH
  * XP   Z     alignment posterior probability in string 
  * YL	i     seed length for calculating seed mismatches and indels
  * YX   i     # of seed mismatches
