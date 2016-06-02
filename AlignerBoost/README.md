@@ -34,16 +34,17 @@ Customized SAM format tags
 AlignerBoost uses a set of customized tags in generated SAM/BAM files to store auxiliary alignment information
 calculated during its filter process. These tags are listed below.
 Note: X?: global tags, Y? seed region reated tags, Z? entire alignment related tags
-  Tag  Type  Description
-  XA   i     alignment length, including M,=,X,I,D,S but not H,P,N
-  XL   i     insert length, including M,=,X,I,D but not S,H,P,N, determined by Cigar or 1DP
-  XF   i     actual insert from (start) relative to reference
-  XI   f     alignment identity as 1 - (YX + YG) / XL
-  XH   Z     alignment likelihood given this mapping locus and base quality, in string format to preserve double precision
-  XV   i     known SNVs (if any) used in calculating XH
-  XP   Z     alignment posterior probability in string format to preserve double precision
-  YL   i     seed length
-  YX   i     No. of seed mismatches
-  YG   i     No. of seed indels
-  ZX   i     No. of all mismatches
-  ZG   i     No. of all indels
+
+Tag  Type  Description
+* XA   i     alignment length, including M,=,X,I,D,S but not H,P,N
+* XL   i     insert length, including M,=,X,I,D but not S,H,P,N, determined by Cigar or 1DP
+* XF   i     actual insert from (start) relative to reference
+* XI   f     alignment identity as 1 - (YX + YG) / XL
+* XH   Z     alignment likelihood given this mapping locus and base quality, in string format to preserve double precision
+* XV   i     known SNVs (if any) used in calculating XH
+* XP   Z     alignment posterior probability in string format to preserve double precision
+* YL   i     seed length
+* YX   i     No. of seed mismatches
+* YG   i     No. of seed indels
+* ZX   i     No. of all mismatches
+* ZG   i     No. of all indels
