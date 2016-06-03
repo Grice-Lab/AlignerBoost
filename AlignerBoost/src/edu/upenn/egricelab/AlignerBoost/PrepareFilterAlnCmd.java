@@ -70,7 +70,8 @@ public class PrepareFilterAlnCmd {
 				String knownSnp = conf.knownSnpFile != null ? " --known-SNP " + conf.knownSnpFile + " " : " ";
 				String fixMD = conf.aligner.equals("seqalto") ? " --fix-MD " : " ";
 				String ignoreClip = conf.hasSpliced() && !NGSExpDesign.isRNAAligner(conf.aligner) ? " --ignore-clip-penalty " : " ";
-				String fragLen = conf.isPaired ? " --min-frag-len " + conf.minFragLen + " --max-frag-len " + conf.maxFragLen + " " : " ";
+				String fragLen = conf.isPaired && !conf.hasSpliced ? " --min-frag-len " + conf.minFragLen + " --max-frag-len " + conf.maxFragLen + " " : " ";
+				String est = conf.isPaired && !conf.hasSpliced ? " " : " --no-estimate ";
 /*				ClipHandlingMode clipHandle = !conf.hasSpliced || NGSExpDesign.isRNAAligner(conf.aligner)
 						? ClipHandlingMode.USE : ClipHandlingMode.IGNORE;*/
 	/*			String cmd = "java -jar " + progFile + " run " + prog + " -r " + minRate +
@@ -80,7 +81,7 @@ public class PrepareFilterAlnCmd {
 						" --sort-method " + conf.sortMethod + " " + knownSnp + fixMD + conf.otherFilterOpts + " -in " + inFn + " -out " + outFn;*/
 				String cmd = "java -jar " + progFile + " run " + prog + " -r " + minRate +
 						" --seed-len " + conf.seedLen + " --max-sensitivity " + 
-						dp + silent + maxHit + ignoreClip + fragLen +
+						dp + silent + maxHit + ignoreClip + fragLen + est +
 						" --min-mapQ " + conf.minMapQ + " --max-best " + conf.maxBest + " --max-report " + conf.maxReport +
 						" --sort-method " + conf.sortMethod + " " + knownSnp + fixMD + conf.otherFilterOpts + " -in " + inFn + " -out " + outFn;
 				if(!(new File(outFn)).exists())

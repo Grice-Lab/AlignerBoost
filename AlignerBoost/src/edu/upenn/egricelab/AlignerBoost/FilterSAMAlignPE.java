@@ -159,6 +159,16 @@ public class FilterSAMAlignPE {
 				if(verbose > 0)
 					System.err.printf("Estimated fragment size distribution: N(%.1f, %.1f)%n", MEAN_FRAG_LEN, SD_FRAG_LEN);
 			}
+			else {
+				System.err.println("Unable to estimate the fragment size distribution due to too few observed alignments");
+				System.err.println("You have to specify the '--mean-frag-len' and '--sd-frag-len' on the command line and re-run this step");
+				statusTask.cancel();
+				processMonitor.cancel();
+				out.close();
+				return;
+			}
+			// Initiate the normal model
+			normModel = new NormalDistribution(MEAN_FRAG_LEN, SD_FRAG_LEN);
 			// reset the iterator, if necessary
 			if(in.type() == SamReader.Type.SAM_TYPE) {
 				try {
@@ -172,18 +182,7 @@ public class FilterSAMAlignPE {
 			results.close();
 			results = in.iterator();
 		} // end of NO_ESTIMATE
-		// check estimates
-		if(!(MEAN_FRAG_LEN > 0 && SD_FRAG_LEN > 0)) {
-			System.err.println("Unable to estimate the fragment size distribution due to too few observed alignments");
-			System.err.println("You have to specify the '--mean-frag-len' and '--sd-frag-len' on the command line and re-run this step");
-			statusTask.cancel();
-			processMonitor.cancel();
-			out.close();
-			return;
-		}
-		
-		// Initiate the normal model
-		normModel = new NormalDistribution(MEAN_FRAG_LEN, SD_FRAG_LEN);
+
 		// check each alignment again
 		if(verbose > 0) {
 			System.err.println("Filtering alignments ...");
@@ -249,7 +248,9 @@ public class FilterSAMAlignPE {
 					if(nBestStratum > MAX_BEST)
 						alnPEList.clear();
 				}
-				filterPEHits(alnPEList, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
+				// filter alignments with auxiliary filters
+				if(!MAX_SENSITIVITY)
+					filterPEHits(alnPEList, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
 
 				// report remaining secondary alignments, up-to MAX_REPORT
 				for(int i = 0; i < alnPEList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
@@ -503,11 +504,9 @@ public class FilterSAMAlignPE {
 				"            --all-mis  DOUBLE  %mismatches allowed in the entire insert region (excluding clipped/intron regions) [" + MAX_ALL_MIS + "]" + newLine +
 				"            --all-indel DOUBLE  %in-dels allowed in the entire insert region [" + MAX_ALL_INDEL + "]" + newLine +
 				"            -i/--identity DOUBLE  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels) [" + MIN_IDENTITY + "]" + newLine +
-				"            --no-estimate FLAG  do not try to estimate the fragment size distribution; use provided values instead" + newLine +
+				"            --no-estimate FLAG  do not try to estimate the fragment size distribution; paring probability is ignored" + newLine +
 				"            --min-frag-len DOUBLE  estimated minimum fragment (insert) length [" + MIN_FRAG_LEN + "]" + newLine +
 				"            --max-frag-len DOUBLE  estimated maximum fragment (insert) length [" + MAX_FRAG_LEN + "]" + newLine +
-				"            --mean-frag-len DOUBLE  estimated mean fragment (insert) length [" + MEAN_FRAG_LEN + "]" + newLine +
-				"            --sd-frag-len DOUBLE  estimated standard deviation of fragment (insert) length [" + SD_FRAG_LEN + "]" + newLine +
 				"            --max-estimate-scan INT  maximum alignment records to use for estimate fragment distribution [" + MAX_ESTIMATE_SCAN + "]" + newLine +
 				"            --clip-handle STRING  how to treat soft/hard-clipped bases as mismathes, USE for use all, IGNORE for ignore, END5 for only use 5' clipped, END3 for only use 3' clipped [" + SAMAlignFixer.CLIP_MODE + "]" + newLine +
 				"            --1DP FLAG  enable 1-dimentional dymamic programming insert re-assesment, useful for non-local aligners, i.e. bowtie" + newLine +
@@ -574,16 +573,6 @@ public class FilterSAMAlignPE {
 				if(!(MAX_FRAG_LEN > 0))
 					throw new IllegalArgumentException("--max-frag-len must be positive");
 			}
-			else if(args[i].equals("--mean-frag-len")) {
-				MEAN_FRAG_LEN = Double.parseDouble(args[++i]);
-				if(!(MEAN_FRAG_LEN > 0))
-					throw new IllegalArgumentException("--mean-frag-len must be positive");
-			}
-			else if(args[i].equals("--sd-frag-len")) {
-				SD_FRAG_LEN = Double.parseDouble(args[++i]);
-				if(!(SD_FRAG_LEN > 0))
-					throw new IllegalArgumentException("--sd-frag-len must be positive");
-			}
 			else if(args[i].equals("--max-estimate-scan")) {
 				MAX_ESTIMATE_SCAN = Long.parseLong(args[++i]);
 			}
@@ -638,10 +627,7 @@ public class FilterSAMAlignPE {
 				MAX_REPORT = 1;
 			}
 			else if(args[i].equals("--max-sensitivity")) {
-				MAX_SEED_MIS = 100;
-				MAX_SEED_INDEL = 100;
-				MAX_ALL_MIS = 100;
-				MAX_ALL_INDEL = 100;
+				MAX_SENSITIVITY = true;
 			}
 			else if(args[i].equals("--sort-method")) {
 				switch(args[++i]) {
@@ -797,10 +783,13 @@ public class FilterSAMAlignPE {
 			return postP;
 		}
 		
-		for(int i = 0; i < nPairs; i++)
+		for(int i = 0; i < nPairs; i++) {
 			// get postP as priorP * likelihood, with prior proportional to the alignLength
-			postP[i] = alnPEList.get(i).getPEInsertLen() * 
-			alnPEList.get(i).getPEPairPr() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
+			postP[i] = alnPEList.get(i).getPEInsertLen() * Math.pow(10.0,  alnPEList.get(i).getPEAlignLik());
+			if(!NO_ESTIMATE) // pairing probability needs to be considered
+				postP[i] *= alnPEList.get(i).getPEPairPr();
+		}
+		
 		// normalize postP
 		Stats.normalizePostP(postP, maxPair == 0 || totalPair < maxPair ? 0 : Math.sqrt(maxPair));
 		// reset the mapQ values
@@ -880,6 +869,7 @@ public class FilterSAMAlignPE {
 	private static double MAX_ALL_MIS = 6; // max % all mismatch
 	private static double MAX_ALL_INDEL = 0; // max % all indel
 	private static double MIN_IDENTITY = 0; // min identity
+	private static boolean MAX_SENSITIVITY; // enable max-sensitivity?
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	private static boolean noMix; // do not allow unpaired alignments for paired reads?

@@ -173,8 +173,9 @@ public class FilterSAMAlignSE {
 					if(nBestStratum > MAX_BEST)
 						recordList.clear();
 				}
-				// filter hits by user-specified criterials
-				filterHits(recordList, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
+				// filter hits with auxiliary filters
+				if(!MAX_SENSITIVITY)
+					filterHits(recordList, MAX_SEED_MIS, MAX_SEED_INDEL, MAX_ALL_MIS, MAX_ALL_INDEL);
 
 				// report remaining alignments, up-to MAX_REPORT
 				for(int i = 0; i < recordList.size() && (MAX_REPORT == 0 || i < MAX_REPORT); i++) {
@@ -336,10 +337,7 @@ public class FilterSAMAlignSE {
 				MAX_REPORT = 1;
 			}
 			else if(args[i].equals("--max-sensitivity")) {
-				MAX_SEED_MIS = 100;
-				MAX_SEED_INDEL = 100;
-				MAX_ALL_MIS = 100;
-				MAX_ALL_INDEL = 100;
+				MAX_SENSITIVITY = true;
 			}
 			else if(args[i].equals("--sort-method")) {
 				switch(args[++i]) {
@@ -609,6 +607,7 @@ public class FilterSAMAlignSE {
 	private static double MAX_ALL_MIS = 6; // max % all mismatch
 	private static double MAX_ALL_INDEL = 0; // max % all indel
 	private static double MIN_IDENTITY = 0; // min identity
+	private static boolean MAX_SENSITIVITY = true;
 	private static boolean DO_1DP;
 	private static boolean isSilent; // ignore SAM warnings?
 	// best stratum options
