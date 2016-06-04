@@ -115,7 +115,6 @@ public class FilterSAMAlignPE {
 		header.setGroupOrder(groupOrder);
 		header.setSortOrder(sortOrder);
 
-		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(header, false, new File(outFile)) : writerFac.makeBAMWriter(header, false, new File(outFile));
 
 		// write SAMHeader
 		String prevID = null;
@@ -156,15 +155,17 @@ public class FilterSAMAlignPE {
 			if(N >= MIN_ESTIMATE_BASE) { // override command line values
 				MEAN_FRAG_LEN = fragL_S / N;
 				SD_FRAG_LEN = Math.sqrt( (N * fragL_SS - fragL_S * fragL_S) / (N * (N - 1)) );
+				String estStr = String.format("Estimated fragment size distribution: N(%.1f, %.1f)", MEAN_FRAG_LEN, SD_FRAG_LEN);
 				if(verbose > 0)
-					System.err.printf("Estimated fragment size distribution: N(%.1f, %.1f)%n", MEAN_FRAG_LEN, SD_FRAG_LEN);
+					System.err.println(estStr);
+				// also add the estimation to comment
+				header.addComment(estStr);
 			}
 			else {
 				System.err.println("Unable to estimate the fragment size distribution due to too few observed alignments");
 				System.err.println("You have to specify the '--mean-frag-len' and '--sd-frag-len' on the command line and re-run this step");
 				statusTask.cancel();
 				processMonitor.cancel();
-				out.close();
 				return;
 			}
 			// Initiate the normal model
@@ -182,6 +183,8 @@ public class FilterSAMAlignPE {
 			results.close();
 			results = in.iterator();
 		} // end of NO_ESTIMATE
+
+		SAMFileWriter out = OUT_IS_SAM ? writerFac.makeSAMWriter(header, false, new File(outFile)) : writerFac.makeBAMWriter(header, false, new File(outFile));
 
 		// check each alignment again
 		if(verbose > 0) {
