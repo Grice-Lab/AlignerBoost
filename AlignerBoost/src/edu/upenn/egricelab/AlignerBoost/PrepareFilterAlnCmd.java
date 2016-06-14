@@ -71,7 +71,7 @@ public class PrepareFilterAlnCmd {
 				String fixMD = conf.aligner.equals("seqalto") ? " --fix-MD " : " ";
 				String ignoreClip = conf.hasSpliced() && !NGSExpDesign.isRNAAligner(conf.aligner) ? " --ignore-clip-penalty " : " ";
 				String fragLen = conf.isPaired && !conf.hasSpliced ? " --min-frag-len " + conf.minFragLen + " --max-frag-len " + conf.maxFragLen + " " : " ";
-				String est = conf.isPaired && !conf.hasSpliced ? " " : " --no-estimate ";
+				String est = !conf.isPaired ? " " : !conf.hasSpliced ? " " : " --no-estimate ";
 /*				ClipHandlingMode clipHandle = !conf.hasSpliced || NGSExpDesign.isRNAAligner(conf.aligner)
 						? ClipHandlingMode.USE : ClipHandlingMode.IGNORE;*/
 	/*			String cmd = "java -jar " + progFile + " run " + prog + " -r " + minRate +
