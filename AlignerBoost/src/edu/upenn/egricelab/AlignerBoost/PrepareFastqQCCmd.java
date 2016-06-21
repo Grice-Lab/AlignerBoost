@@ -63,11 +63,12 @@ public class PrepareFastqQCCmd {
 				String in = "-in " + conf.readFile;
 				if(conf.isPaired)
 					in += " -mate " + conf.mateFile;
+				String mateLen = conf.isPaired ? " -mateLen " + conf.mateLen : " ";
 				String outFn = conf.libName + "_QC.txt";
 				if(!PROJECT_DIR.equals("."))
 					outFn = PROJECT_DIR + "/" + outFn;
 				String cmd = "java -jar " + progFile + " run fastqQC " + in + " -out " + outFn +
-						" -readLen " + conf.readLen +  " -mateLen " + conf.mateLen + newLine;
+						" -readLen " + conf.readLen + mateLen + newLine;
 		
 				if(!(new File(outFn)).exists())
 					out.write(cmd);

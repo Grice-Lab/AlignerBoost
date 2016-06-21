@@ -91,11 +91,11 @@ public class PrepareTrimCmd {
 					outFn.replaceFirst("\\.fastq(?:\\.gz)?$", "");
 					mateOutFn.replaceFirst("\\.fastq(?:\\.gz)?$", "");
 					cmd = !conf.adapterSeq3.equals("NA") ?
-							progName + limit + " -as " + conf.adapterSeq3 + " -ao " + conf.minTrim +
+							progName + limit + " -n " + NGSExpDesign.MAX_PROC + " -as " + conf.adapterSeq3 + " -ao " + conf.minTrim +
 							" -at " + conf.trimMis / 10 + " -t " + outFn
 							: "";
 					cmdMate = conf.isPaired && !conf.adapterSeq5.equals("NA") ?
-							progName + limit + " -as " + conf.adapterSeq5 + " -ao " + conf.minTrim +
+							progName + limit + " -n " + NGSExpDesign.MAX_PROC + " -as " + conf.adapterSeq5 + " -ao " + conf.minTrim +
 							" -at " + conf.trimMis / 10 + " -t " + mateOutFn
 							: "";
 					cmd += cmdMate;
