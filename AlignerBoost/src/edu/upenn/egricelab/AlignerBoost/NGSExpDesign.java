@@ -636,7 +636,7 @@ public class NGSExpDesign {
 	public String getTrimmedMateFileName() {
 		if(!doTrim)
 			return getMateFile();
-		String fn = !isPaired ? libName + "" : libName + "_trimmed_2.fastq";
+		String fn = !isPaired ? "" : libName + "_trimmed_2.fastq";
 		return WORK_DIR.equals(".") ? fn : WORK_DIR + "/" + fn;
 	}
 	

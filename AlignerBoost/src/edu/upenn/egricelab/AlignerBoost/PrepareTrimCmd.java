@@ -88,14 +88,14 @@ public class PrepareTrimCmd {
 					break;
 				case "flexbar":
 					limit = !conf.isPaired ? " -m " + NGSExpDesign.MIN_UNIQ_INSERT : " -m 0 ";
-					outFn.replaceFirst("\\.fastq(?:\\.gz)?$", "");
-					mateOutFn.replaceFirst("\\.fastq(?:\\.gz)?$", "");
+					outFn = outFn.replaceFirst("\\.fastq$", "");
+					mateOutFn = mateOutFn.replaceFirst("\\.fastq$", "");
 					cmd = !conf.adapterSeq3.equals("NA") ?
-							progName + limit + " -n " + NGSExpDesign.MAX_PROC + " -as " + conf.adapterSeq3 + " -ao " + conf.minTrim +
+							progName + " -r " + conf.readFile + limit + " -n " + NGSExpDesign.MAX_PROC + " -as " + conf.adapterSeq3 + " -ao " + conf.minTrim +
 							" -at " + conf.trimMis / 10 + " -t " + outFn
 							: "";
 					cmdMate = conf.isPaired && !conf.adapterSeq5.equals("NA") ?
-							progName + limit + " -n " + NGSExpDesign.MAX_PROC + " -as " + conf.adapterSeq5 + " -ao " + conf.minTrim +
+							progName + " -r " + conf.mateFile + limit + " -n " + NGSExpDesign.MAX_PROC + " -as " + conf.adapterSeq5 + " -ao " + conf.minTrim +
 							" -at " + conf.trimMis / 10 + " -t " + mateOutFn
 							: "";
 					cmd += cmdMate;
