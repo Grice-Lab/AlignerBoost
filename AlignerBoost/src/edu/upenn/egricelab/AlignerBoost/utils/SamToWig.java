@@ -72,7 +72,7 @@ public class SamToWig {
 						continue;
 					String chr = fields[0];
 					int chrI = samIn.getFileHeader().getSequenceIndex(chr);
-					int start = Integer.parseInt(fields[1]);
+					int start = Integer.parseInt(fields[1]) + 1;
 					int end = Integer.parseInt(fields[2]);
 					if(chrI != -1) { // this Region is in the aligned chromosomes
 						QueryInterval interval = new QueryInterval(chrI, start, end);
@@ -165,7 +165,7 @@ public class SamToWig {
 						break;
 					}
 				} // end each cigEle
-				totalNum++;
+				totalNum += clone;
 			} // end each record
 
 			// Terminate the monitor task and monitor
