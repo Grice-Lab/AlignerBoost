@@ -191,8 +191,7 @@ public class SamToAbsCover {
 					continue; // ignore region without index
 				
 				for(QueryInterval interval : intervals) {
-					for(int i = interval.start; i <= interval.end && i < idx.length; i += step) {
-						int start = i;
+					for(int start = interval.start; start <= interval.end && start < idx.length; start += step) {
 						int end = start + step <= idx.length ? start + step : idx.length;
 						double val = Stats.mean(idx, start, end);
 						if(normRPM)
