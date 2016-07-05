@@ -76,7 +76,7 @@ public class SamToWig {
 					int end = Integer.parseInt(fields[2]);
 					if(chrI != -1) { // this Region is in the aligned chromosomes
 						QueryInterval interval = new QueryInterval(chrI, start, end);
-						bedRegions.add(interval);
+						bedRegions.add(interval); // add to global search regions
 						if(!chrSeen.containsKey(chr))
 							chrSeen.put(chr, new ArrayList<QueryInterval>());
 						chrSeen.get(chr).add(interval);
@@ -99,9 +99,13 @@ public class SamToWig {
 				if(bedFile != null && !chrSeen.containsKey(chr)) // bed file specified and not in the regions
 					continue;
 				int len = headSeq.getSequenceLength();
+				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
+				if(bedFile == null) { // no -R specified, add the whole chrom as QueryInterval
+					chrSeen.put(chr, new ArrayList<QueryInterval>());
+					chrSeen.get(chr).add(new QueryInterval(headSeq.getSequenceIndex(), 1, headSeq.getSequenceLength()));
+				}
 				if(verbose > 0)
 					System.err.println("  " + chr + ": " + len);
-				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
 			}
 
 			// Start the processMonitor to monitor the process
@@ -169,30 +173,29 @@ public class SamToWig {
 			} // end each record
 
 			// Terminate the monitor task and monitor
-			statusTask.cancel();
-			processMonitor.cancel();
-			statusTask.finish();
+			if(verbose > 0) {
+				statusTask.cancel();
+				processMonitor.cancel();
+				statusTask.finish();
+			}
 
 			// Output
-			System.err.println("Output ...");
+			if(verbose > 0)
+				System.err.println("Output ...");
 			if(includeTrack) // output track line
 				out.write(trackHeader + "\n");
 			
-			for(Map.Entry<String, int[]> entry : chrIdx.entrySet()) {
+			for(Map.Entry<String, List<QueryInterval>> entry : chrSeen.entrySet()) {
 				String chr = entry.getKey();
-				int[] idx = entry.getValue();
-				QueryInterval[] intervals = null; // output intervals
-				if(bedFile == null) { // bedFile not specified
-					intervals = new QueryInterval[1]; // create a single-interval array
-					intervals[0] = new QueryInterval(samIn.getFileHeader().getSequenceIndex(chr), 1, idx.length - 1);
-				}
-				else {
-					if(!chrSeen.containsKey(chr))
-						continue; // ignore this chr if not in bedFile regions
-					intervals = new QueryInterval[chrSeen.get(chr).size()];
-					intervals = chrSeen.get(chr).toArray(intervals); // dump List to array of QueryIntervals
-					intervals = QueryInterval.optimizeIntervals(intervals); // optimize intervals
-				}
+				QueryInterval[] intervals = new QueryInterval[entry.getValue().size()]; // array to be dumped
+				intervals = chrSeen.get(chr).toArray(intervals);
+				if(bedFile != null) // optimization required
+					intervals = QueryInterval.optimizeIntervals(intervals);
+				
+				int[] idx = chrIdx.get(chr);
+				if(idx == null)
+					continue; // ignore region without index
+				
 				// output coverage for each interval separately
 				for(QueryInterval interval : intervals) {
 					int prevStart = 0; // prev start
