@@ -49,10 +49,32 @@ public class BedToWig {
 		BufferedReader chrIn = null;
 		BufferedReader bedIn = null;
 		BufferedWriter out = null;
+		BufferedReader regionIn = null;
 		try {
 			chrIn = new BufferedReader(new FileReader(chrInFile));
 			bedIn = new BufferedReader(new FileReader(bedInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
+			
+			/* read given regions, if specified */
+			Map<String, List<GenomeInterval>> chrSeen = new HashMap<String, List<GenomeInterval>>(); // chromosomes seen so far
+			if(regionFile != null) {
+				regionIn = new BufferedReader(new FileReader(regionFile));
+				String line = null;
+				while((line = bedIn.readLine()) != null) {
+					String[] fields = line.split("\t");
+					if(fields.length < 3) // ignore header lines
+						continue;
+					String chr = fields[0];
+					int start = Integer.parseInt(fields[1]) + 1;
+					int end = Integer.parseInt(fields[2]);
+					if(!chrSeen.containsKey(chr))
+						chrSeen.put(chr, new ArrayList<GenomeInterval>());
+					chrSeen.get(chr).add(new GenomeInterval(chr, start, end));
+				}
+				if(verbose > 0)
+					System.err.println("User specified regions read from BED file");
+			}
+			
 			// Initialize chrom-index
 			if(verbose > 0)
 				System.err.println("Initialize chrom-index ...");
@@ -61,9 +83,13 @@ public class BedToWig {
 				String[] fields = line.split("\t");
 				String chr = fields[0];
 				int len = Integer.parseInt(fields[1]);
+				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
+				if(regionFile == null) { // no -R specified, add the whole chromosome as the interval
+					chrSeen.put(chr, new ArrayList<GenomeInterval>());
+					chrSeen.get(chr).add(new GenomeInterval(chr, 1, len));
+				}
 				if(verbose > 0)
 					System.err.println("  " + chr + ": " + len);
-				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
 			}
 			
 			// Start the processMonitor to monitor the process
@@ -102,9 +128,11 @@ public class BedToWig {
 			} // end each record
 
 			// Terminate the monitor task and monitor
-			statusTask.cancel();
-			processMonitor.cancel();
-			statusTask.finish();
+			if(verbose > 0) {
+				statusTask.cancel();
+				processMonitor.cancel();
+				statusTask.finish();
+			}
 
 			// Output
 			if(verbose > 0)
@@ -112,21 +140,29 @@ public class BedToWig {
 			if(includeTrack) // output track line
 				out.write(trackHeader + "\n");
 			
-			for(Map.Entry<String, int[]> entry : chrIdx.entrySet()) {
+			for(Map.Entry<String, List<GenomeInterval>> entry : chrSeen.entrySet()) {
 				String chr = entry.getKey();
-				int[] idx = entry.getValue();
-				int prevStart = 0;
-				// output coverage
-				for(int start = 1; start < idx.length; start += step) {
-					int end = start + step <= idx.length ? start + step : idx.length;
-					double val = Stats.mean(idx, start, end);
-					if(normRPM)
-						val /= totalNum * 1e6;
-					if(keep0 || val > 0) {
-						if(prevStart == 0 || start - prevStart != step) // write not consecutive loc			
-							out.write("fixedStep chrom=" + chr + " start=" + start + " step=" + step + "\n");
-						out.write((float) val + "\n");
-						prevStart = start;
+				List<GenomeInterval> intervals = entry.getValue();
+				if(regionFile != null)
+					intervals = GenomeInterval.optimizeIntervals(intervals);
+				int[] idx = chrIdx.get(chr);
+				if(idx == null)
+					continue;  // no index on this chrom
+				
+				for(GenomeInterval interval : intervals) {
+					int prevStart = 0;
+					// output coverage
+					for(int start = interval.start; start < interval.end && start < idx.length; start += step) {
+						int end = start + step <= idx.length ? start + step : idx.length;
+						double val = Stats.mean(idx, start, end);
+						if(normRPM)
+							val /= totalNum * 1e6;
+						if(keep0 || val > 0) {
+							if(prevStart == 0 || start - prevStart != step) // write not consecutive loc			
+								out.write("fixedStep chrom=" + chr + " start=" + start + " step=" + step + "\n");
+							out.write((float) val + "\n");
+							prevStart = start;
+						}
 					}
 				}
 			}
@@ -139,10 +175,14 @@ public class BedToWig {
 		}
 		finally {
 			try {
+				if(chrIn != null)
+					chrIn.close();
 				if(bedIn != null)
 					bedIn.close();
 				if(out != null)
 					out.close();
+				if(regionIn != null)
+					regionIn.close();
 			}
 			catch(IOException e) {
 				e.printStackTrace();
@@ -155,6 +195,7 @@ public class BedToWig {
 				"<-g CHR-SIZE-FILE> <-i BED6-INFILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [3]" + newLine +
 				"            -c/--clone-value FLAG  use BED file column 5 value as read clone" + newLine +
+				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine+
 				"            --norm-rpm FLAG  normalize the coverage to RPM by total read number" + newLine +
 				"            --no-track FLAG  do not include the 'track-line' as the first line of the Wiggle file as the UCSC required [false]" + newLine + 
 				"            -name STRING  the track name used to display in UCSC Genome Browser [OUTFILE]" + newLine +
@@ -175,6 +216,8 @@ public class BedToWig {
 				outFile = args[++i];
 			else if(args[i].equals("-s"))
 				myStrand = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-R"))
+				regionFile = args[++i];
 			else if(args[i].equals("--norm-rpm"))
 				normRPM = true;
 			else if(args[i].equals("--no-track"))
@@ -214,6 +257,7 @@ public class BedToWig {
 	private static String chrInFile;
 	private static String bedInFile;
 	private static String outFile;
+	private static String regionFile;
 	private static int myStrand = 3;
 	private static boolean normRPM;
 	private static int step = 1; // fixedWig step
