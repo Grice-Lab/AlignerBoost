@@ -60,7 +60,7 @@ public class BedToWig {
 			if(regionFile != null) {
 				regionIn = new BufferedReader(new FileReader(regionFile));
 				String line = null;
-				while((line = bedIn.readLine()) != null) {
+				while((line = regionIn.readLine()) != null) {
 					String[] fields = line.split("\t");
 					if(fields.length < 3) // ignore header lines
 						continue;
