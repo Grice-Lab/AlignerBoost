@@ -269,19 +269,19 @@ public class AlignerBoost {
 				"                  utils    sam2BinCover  convert SAM/BAM file to tab-delimited coverage file w/ binned regions" + newLine +
 				"                  utils    sam2RegCount  count reads from SAM/BAM file in given regions in BED file" + newLine +
 				"                  utils    sam2Wig       convert SAM/BAM files to UCSC Wiggle files" + newLine +
-				"                  utils    bed2Wig       convert UCSC BED6 file to Wiggle file"+ newLine +
-				"                  utils    bed2AbsCover  convert USCS BED6 file to tab-delimited coverage file w/ absolute loc" + newLine +
+				"                  utils    bed2Wig       convert BED6 file to UCSC Wiggle file"+ newLine +
+				"                  utils    bed2AbsCover  convert BED6 file to UCSC tab-delimited coverage file w/ absolute loc" + newLine +
 				"                  utils    filterSamById filter SAM/BAM files with a given ID list" + newLine +
 //				"                  utils    bed2Loc       convert UCSC bed files to AlignBoost tab-delimited alignment files" + newLine +
 //				"                  utils    bed2Cover     convert UCSC bed files to AlignBoost tab-delimited read-coverage files" + newLine +
 //				"                  utils    bed2Wig       convert UCSC bed files to UCSC Wiggle files" + newLine +
-				"                  utils    classifySAM   quick classify SAM/BAM file alignments given genomic annotations" + newLine +
-				"                  utils    classifyVCF   quick classify VCF variation file given genomic annotations" + newLine +
-				"                  utils    classifyBED   quick classify BED file to BED detail file given genomic annotations" + newLine +
+				"                  utils    classifySAM   quick classify SAM/BAM file given genomic annotations in GFF file(s)" + newLine +
+				"                  utils    classifyVCF   quick classify VCF variation file given genomic annotations in GFF file(s)" + newLine +
+				"                  utils    classifyBED   quick classify BED file given genomic annotations in GFF file(s)" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
 				"                  run      NR            collapse NGS FASTQ reads/pairs to NR-tags/NR-pairs" + newLine +
-				"                  run      filterSE      boost SE mapping precision by calculating and filtering alignment mapQ" + newLine +
-				"                  run      filterPE      boost PE mapping precision by calculating and filtering alignment mapQ"
+				"                  run      filterSE      boost single-end mapping precision & sensitivity by calculating and filtering alignment mapQ" + newLine +
+				"                  run      filterPE      boost paired-end mapping precision & sensitivity by calculating and filtering alignment mapQ"
 				);
 	}
 }

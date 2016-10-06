@@ -17,7 +17,7 @@
  *     along with AlignerBoost.  If not, see <http://www.gnu.org/licenses/>.
  *******************************************************************************/
 /**
- * a util class to format SAM/BAM files to costomized tab-delimited cover file
+ * A utility class to format SAM/BAM files to customized tab-delimited cover file
  */
 package edu.upenn.egricelab.AlignerBoost.utils;
 import java.io.*;
