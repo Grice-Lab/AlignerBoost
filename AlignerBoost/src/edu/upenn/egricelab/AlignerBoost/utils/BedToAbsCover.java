@@ -98,7 +98,7 @@ public class BedToAbsCover {
 				// Start the ProcessStatusTask
 				statusTask = new ProcessStatusTask("BED records processed");
 
-				// Schedual to show the status every 1 second
+				// Schedule to show the status
 				processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
 				System.err.println("Scan BED6 file ...");
 			}
