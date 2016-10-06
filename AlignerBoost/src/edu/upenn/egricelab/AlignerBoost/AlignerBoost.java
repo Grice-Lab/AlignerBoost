@@ -207,6 +207,9 @@ public class AlignerBoost {
 		case "filterWigVar":
 			FilterWigVar.main(opts);
 			break;
+		case "wig2RelCover":
+			WigToRegionRelCover.main(opts);
+			break;
 		default:
 			System.err.println("Unknown utils command '" + cmd + "'");
 			printUsage();
@@ -286,6 +289,7 @@ public class AlignerBoost {
 				"                  utils    classifyBED   quick classify BED file given genomic annotations in GFF file(s)" + newLine +
 				"                  utils    filterWigFix  filter UCSC Wiggle fixed format file with given regions in BED file" + newLine +
 				"                  utils    filterWigVar  filter UCSC Wiggle variable format file with given regions in BED file" + newLine +
+				"                  utils    wig2RelCover  convert UCSC Wiggle fixed format file to tax-delimited coverage file in given region" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
 				"                  run      NR            collapse NGS FASTQ reads/pairs to NR-tags/NR-pairs" + newLine +
 				"                  run      filterSE      boost single-end mapping precision & sensitivity by calculating and filtering alignment mapQ" + newLine +

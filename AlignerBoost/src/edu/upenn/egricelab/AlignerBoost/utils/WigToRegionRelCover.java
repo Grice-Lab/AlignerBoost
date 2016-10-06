@@ -29,13 +29,12 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Filter UCSC Wiggle fixed format file
+ * Convert UCSC Wiggle fixed format file to relative region cover file in tab-delimited format
  * @author Qi Zheng
  * @version 1.1
  * @since 1.1
  */
-public class FilterWigFix {
-
+public class WigToRegionRelCover {
 	/**
 	 * @param args
 	 */
@@ -65,22 +64,21 @@ public class FilterWigFix {
 			regionIn = new BufferedReader(new FileReader(regionInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
 			
-			/* read given regions, if specified */
-			Map<String, List<GenomeInterval>> chrRegions = new HashMap<String, List<GenomeInterval>>(); // chromosomes seen so far
+			/* read given regions */
 			String line = null;
+			chrSeen = new HashSet<String>();
 			while((line = regionIn.readLine()) != null) {
 				String[] fields = line.split("\t");
-				if(fields.length < 3) // ignore header lines
+				if(fields.length < MIN_BED4_FIELDS) // ignore header lines
 					continue;
 				String chr = fields[0];
-				int start = Integer.parseInt(fields[1]) + 1; // BED start is 0-based
-				int end = Integer.parseInt(fields[2]);
-				if(!chrRegions.containsKey(chr))
-					chrRegions.put(chr, new ArrayList<GenomeInterval>());
-				chrRegions.get(chr).add(new GenomeInterval(chr, start, end));
+				chrSeen.add(chr);
 			}
 			if(verbose > 0)
 				System.err.println("User specified regions read from BED file");
+			// reopen the file
+			regionIn.close();
+			regionIn = new BufferedReader(new FileReader(regionInFile));
 			
 			// Initialize chrom-index
 			if(verbose > 0)
@@ -90,7 +88,7 @@ public class FilterWigFix {
 				String[] fields = line.split("\t");
 				String chr = fields[0];
 				int len = Integer.parseInt(fields[1]);
-				if(!chrRegions.containsKey(chr))
+				if(!chrSeen.contains(chr))
 					continue;
 				chrIdx.put(chr, new float[len + 1]);  // Position 0 is dummy
 				if(verbose > 0)
@@ -111,13 +109,13 @@ public class FilterWigFix {
 			String chr = "";
 			int loc = 0;
 			float[] idx = null;
-			int step = 1;
+			int span = 1;
 			
 			while((line = wigIn.readLine()) != null) {
 				if(line.startsWith("#")) // ignore comments
 					continue;
-				else if(line.startsWith("track"))
-					trackLine = line; // use the original trackLine
+				else if(line.startsWith("track")) // ignore track lines
+					continue;
 				else if(line.startsWith("variableStep"))
 					throw new RuntimeException("Variable WIG format file found, expecting Fixed WIG format");
 				else if(line.startsWith("fixedStep")) {
@@ -126,7 +124,7 @@ public class FilterWigFix {
 					/* update current position and index */
 					chr = match.group(1);
 					loc = Integer.parseInt(match.group(2));
-					step = Integer.parseInt(match.group(3));
+					span = Integer.parseInt(match.group(3));
 					if(chrIdx.containsKey(chr))
 						idx = chrIdx.get(chr);
 					else
@@ -135,7 +133,7 @@ public class FilterWigFix {
 				}
 				else { // record line
 					idx[loc] = Float.parseFloat(line);
-					loc += step;
+					loc += span;
 				
 					if(verbose > 0)
 						statusTask.updateStatus(); // Update status
@@ -147,41 +145,44 @@ public class FilterWigFix {
 //				processMonitor.cancel();
 				statusTask.finish();
 				statusTask.reset();
-				statusTask.setInfo("WIG records written");
+				statusTask.setInfo("coverage records written");
 				System.err.println("Output ...");
 			}
 
 			// Output
-			if(trackLine != null)
-				out.write(trackLine + "\n"); // always use Unix newline
+			out.write(header + "\n"); // always use Unix newline
 			
-			for(Map.Entry<String, List<GenomeInterval>> entry : chrRegions.entrySet()) {
-				chr = entry.getKey();
-				List<GenomeInterval> intervals = GenomeInterval.optimizeIntervals(entry.getValue());
+			while((line = regionIn.readLine()) != null) {
+				String[] fields = line.split("\t");
+				if(fields.length < MIN_BED4_FIELDS)
+					continue;
+				chr = fields[0];
 				idx = chrIdx.get(chr);
 				if(idx == null)
 					continue;  // no index on this chrom
+				
+				int rgStart = Integer.parseInt(fields[1]) + 1; // BED start is 0-based
+				int rgEnd = Integer.parseInt(fields[2]);
+				String rgName = fields[3];
 
-				for(GenomeInterval interval : intervals) {
-					float prevVal = 0;
-					// output header
-					if(keep0)
-						out.write("fixedStep chrom=" + chr + " start=" + interval.start + " step=" + oStep + "\n");
-
-					// output coverage
-					for(int start = interval.start; start < interval.end && start < idx.length; start += oStep) {
-						int end = start + oStep <= idx.length ? start + oStep : idx.length;
-						float val = (float) Stats.mean(idx, start, end);
-						// output header
-						if(!keep0 && val != 0 && prevVal == 0)
-						out.write("fixedStep chrom=" + chr + " start=" + start + " step=" + oStep + "\n");
-						if(keep0 || val != 0) {
-							out.write(val + "\n");
-							if(verbose > 0)
-								statusTask.updateStatus();
-						}
-						prevVal = val;
-					}
+				int start = rgStart - flank;
+				int end = rgEnd + flank - 1;
+				if(start < 1)
+					start = 1;
+				if(end >= idx.length)
+					end = idx.length - 1;
+				// output coverage
+				for(int span_start = start; span_start <= end; span_start += step) {
+					int span_end = span_start + step;
+					int span_mid = (span_start + span_end) / 2;
+					float val = (float) Stats.mean(idx, span_start, span_end);
+					int start_dist = span_mid -rgStart;
+					int end_dist = span_mid - rgEnd;
+					// output
+					out.write(rgName + "\t" + chr + "\t" + span_start + "\t" + (span_end - 1) + "\t" + span_mid + "\t" +
+							+ step + "\t" + start_dist + "\t" + end_dist + "\t" + val + "\n");
+					if(verbose > 0)
+						statusTask.updateStatus();
 				}
 			}
 			// Terminate the monitor task and monitor
@@ -217,8 +218,8 @@ public class FilterWigFix {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils filterWigFix " +
 				"<-g CHR-SIZE-FILE> <-i WIG-INFILE> <-R REGION-BEDFILE> <-o OUTFILE> [options]" + newLine +
-				"Options:    -step INT  step used for output the WigFix coverages [1]" + newLine +
-				"            -k/--keep-uncover FLAG  keep 0-covered regions in WigFix file [false]" + newLine +
+				"Options:    -step INT  step used for output the WigFix coverages [" + step + "]" + newLine +
+				"            -flank INT  up/down stream flanking size for searching [" + flank + "]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -235,9 +236,9 @@ public class FilterWigFix {
 			else if(args[i].equals("-o"))
 				outFile = args[++i];
 			else if(args[i].equals("-step"))
-				oStep = Integer.parseInt(args[++i]);
-			else if(args[i].equals("-k") || args[i].equals("--keep-uncover"))
-				keep0 = true;
+				step = Integer.parseInt(args[++i]);
+			else if(args[i].equals("-flank"))
+				flank = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -258,15 +259,17 @@ public class FilterWigFix {
 	private static String wigInFile;
 	private static String regionInFile;
 	private static String outFile;
-	private static int oStep = 1; // fixedWig step
-	private static boolean keep0; // do not ignore 0 values
+	private static int step = 1; // output step
+	private static int flank = 0; // up/down stream flanking
 	private static int verbose;
 
+	private static Set<String> chrSeen;
 	private static Map<String, float[]> chrIdx;
 
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
 	private static final int statusFreq = 10000; // status update frequency in millisecond
 	private static Pattern wigFixHead = Pattern.compile("chrom=(\\w+) start=(\\d+) step=(\\d+)");
-	private static String trackLine; // optional track line message
+	private static String header = "name\tchrom\tstart\tend\tmid\twidth\tstart_dist\tend_dist\tcover"; // optional track line message
+	private static int MIN_BED4_FIELDS = 4;
 }

@@ -28,8 +28,6 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.*;
 
-import htsjdk.samtools.util.RuntimeEOFException;
-
 /**
  * Filter UCSC Wiggle variable format file
  * @author Qi Zheng
@@ -120,7 +118,7 @@ public class FilterWigVar {
 				else if(line.startsWith("track"))
 					trackLine = line; // use the original trackLine
 				else if(line.startsWith("fixedStep"))
-					throw new RuntimeEOFException("Fixed WIG format file found, expecting Variable WIG format");
+					throw new RuntimeException("Fixed WIG format file found, expecting Variable WIG format");
 				else if(line.startsWith("variableStep")) {
 					Matcher match = wigVarHead.matcher(line);
 					match.find();
