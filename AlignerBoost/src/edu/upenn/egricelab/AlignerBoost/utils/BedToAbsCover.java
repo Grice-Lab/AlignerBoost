@@ -222,6 +222,8 @@ public class BedToAbsCover {
 				throw new IllegalArgumentException("Unknown option '" + args[i] + "'.");
 		}
 		// Check required options
+		if(chrInFile == null)
+			throw new IllegalArgumentException("-g must be specified");
 		if(bedInFile == null)
 			throw new IllegalArgumentException("-i must be specified");
 		if(outFile == null)
