@@ -27,6 +27,7 @@ import static edu.upenn.egricelab.AlignerBoost.EnvConstants.progFile;
 import java.io.*;
 import java.util.*;
 import java.util.regex.*;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Filter UCSC Wiggle variable format file
@@ -61,7 +62,6 @@ public class FilterWigVar {
 		BufferedWriter out = null;
 		try {
 			chrIn = new BufferedReader(new FileReader(chrInFile));
-			wigIn = new BufferedReader(new FileReader(wigInFile));
 			regionIn = new BufferedReader(new FileReader(regionInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
 			
@@ -112,35 +112,39 @@ public class FilterWigVar {
 			float[] idx = null;
 			int span = 1;
 			
-			while((line = wigIn.readLine()) != null) {
-				if(line.startsWith("#")) // ignore comments
-					continue;
-				else if(line.startsWith("track"))
-					trackLine = line; // use the original trackLine
-				else if(line.startsWith("fixedStep"))
-					throw new RuntimeException("Fixed WIG format file found, expecting Variable WIG format");
-				else if(line.startsWith("variableStep")) {
-					Matcher match = wigVarHead.matcher(line);
-					match.find();
-					/* update current position and index */
-					chr = match.group(1);
-					span = Integer.parseInt(match.group(2));
-					if(chrIdx.containsKey(chr))
+			for(String wigFile : wigInFiles) {
+				wigIn = !wigFile.endsWith(".gz") ?
+						new BufferedReader(new FileReader(wigFile)) :
+						new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(wigFile))));
+				while((line = wigIn.readLine()) != null) {
+					if(line.startsWith("#")) // ignore comments
+						continue;
+					else if(line.startsWith("track"))
+						trackLine = line; // use the original trackLine
+					else if(line.startsWith("fixedStep"))
+						throw new RuntimeException("Fixed WIG format file '" + wigFile + "' found, expecting WIG Variable format");
+					else if(line.startsWith("variableStep")) {
+						Matcher match = wigVarHead.matcher(line);
+						match.find();
+						/* update current position and index */
+						chr = match.group(1);
+						span = Integer.parseInt(match.group(2));
 						idx = chrIdx.get(chr);
-					else
-						throw new RuntimeException(chr + " found but not exists in the region file specified by -G");
-					continue;
+					}
+					else { // record line
+						if(idx == null)
+							continue;
+						String[] fields = line.split("\t");
+						int start = Integer.parseInt(fields[0]);
+						float value = Float.parseFloat(fields[1]);
+						for(int i = start; i < start + span; i++)
+							idx[i]= value;
+
+						if(verbose > 0)
+							statusTask.updateStatus(); // Update status
+					}
 				}
-				else { // record line
-					String[] fields = line.split("\t");
-					int start = Integer.parseInt(fields[0]);
-					float value = Float.parseFloat(fields[1]);
-					for(int i = start; i < start + span; i++)
-						idx[i]= value;
-				
-					if(verbose > 0)
-						statusTask.updateStatus(); // Update status
-				}
+				wigIn.close();
 			}
 
 			if(verbose > 0) {
@@ -177,12 +181,8 @@ public class FilterWigVar {
 					}
 				}
 			}
-			// Terminate the monitor task and monitor
-			if(verbose > 0) {
-				statusTask.cancel();
-				processMonitor.cancel();
+			if(verbose > 0)
 				statusTask.finish();
-			}
 		}
 		catch(IOException e) {
 			System.err.println(e.getMessage());
@@ -204,13 +204,22 @@ public class FilterWigVar {
 			catch(IOException e) {
 				e.printStackTrace();
 			}
+			// Terminate the monitor task and monitor
+			if(verbose > 0) {
+				statusTask.cancel();
+				processMonitor.cancel();
+			}
 		}
 	}
 	
 	private static void printUsage() {
-		System.err.println("java -jar " + progFile + " utils filterWigFix " +
-				"<-g CHR-SIZE-FILE> <-i WIG-INFILE> <-R REGION-BEDFILE> <-o OUTFILE> [options]" + newLine +
-				"Options:    -step INT  step used for output the WigFix coverages [1]" + newLine +
+		System.err.println("java -jar " + progFile + " utils filterWigVar " +
+				"<-g CHR-SIZE-FILE> <-i WIG-INFILE1 [WIG-INFILE2 ...]> <-R REGION-BEDFILE> <-o OUTFILE> [options]" + newLine +
+				"Options:    -g FILE  tab-delimited chrom-size file [required]" + newLine +
+				"            -i FILE  input file(s) in UCSC Wiggle Fixed format, can be gzipped [required]" + newLine +
+				"            -R FILE  BED file containing regions for filtering" + newLine +
+				"            -o FILE  output file" + newLine +
+				"            -step INT  step used for output the WigFix coverages [1]" + newLine +
 				"            -k/--keep-uncover FLAG  keep 0-covered regions in WigFix file [false]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
@@ -221,8 +230,11 @@ public class FilterWigVar {
 		for(int i = 0; i < args.length; i++) {
 			if(args[i].equals("-g"))
 				chrInFile = args[++i];
-			else if(args[i].equals("-i"))
-				wigInFile = args[++i];
+			else if(args[i].equals("-i")) {
+				wigInFiles = new ArrayList<String>();
+				while(i + 1 < args.length && !args[i+1].startsWith("-"))
+					wigInFiles.add(args[++i]);
+			}
 			else if(args[i].equals("-R"))
 				regionInFile = args[++i];
 			else if(args[i].equals("-o"))
@@ -239,7 +251,7 @@ public class FilterWigVar {
 		// Check required options
 		if(chrInFile == null)
 			throw new IllegalArgumentException("-g must be specified");
-		if(wigInFile == null)
+		if(wigInFiles == null || wigInFiles.isEmpty())
 			throw new IllegalArgumentException("-i must be specified");
 		if(regionInFile == null)
 			throw new IllegalArgumentException("-R must be specified");
@@ -248,7 +260,7 @@ public class FilterWigVar {
 	}
 	
 	private static String chrInFile;
-	private static String wigInFile;
+	private static List<String> wigInFiles;
 	private static String regionInFile;
 	private static String outFile;
 	private static int step = 1; // fixedWig step

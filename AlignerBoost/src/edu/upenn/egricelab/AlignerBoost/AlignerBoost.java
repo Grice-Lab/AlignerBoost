@@ -287,8 +287,8 @@ public class AlignerBoost {
 				"                  utils    classifySAM   quick classify SAM/BAM file given genomic annotations in GFF file(s)" + newLine +
 				"                  utils    classifyVCF   quick classify VCF variation file given genomic annotations in GFF file(s)" + newLine +
 				"                  utils    classifyBED   quick classify BED file given genomic annotations in GFF file(s)" + newLine +
-				"                  utils    filterWigFix  filter UCSC Wiggle fixed format file with given regions in BED file" + newLine +
-				"                  utils    filterWigVar  filter UCSC Wiggle variable format file with given regions in BED file" + newLine +
+				"                  utils    filterWigFix  filter UCSC Wiggle fixed format file(s) with given regions in BED file" + newLine +
+				"                  utils    filterWigVar  filter UCSC Wiggle variable format file(s) with given regions in BED file" + newLine +
 				"                  utils    wig2RelCover  convert UCSC Wiggle fixed format file to tax-delimited coverage file in given region" + newLine +
                 "                  run      fastqQC       get NGS read QC from FASTQ files" + newLine +
 				"                  run      NR            collapse NGS FASTQ reads/pairs to NR-tags/NR-pairs" + newLine +
