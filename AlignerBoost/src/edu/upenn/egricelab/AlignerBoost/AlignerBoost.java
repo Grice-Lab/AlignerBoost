@@ -182,15 +182,6 @@ public class AlignerBoost {
 		case "filterSamById":
 			FilterSamById.main(opts);
 			break;
-/*		case "bed2Loc":
-			Bed2Loc.main(opts);
-			break;
-		case "bed2Cover":
-			Bed2Cover.main(opts);
-			break;
-		case "bed2Wig":
-			Bed2Wig.main(opts);
-			break;*/
 		case "classifySAM":
 			ClassifySAM.main(opts);
 			break;
@@ -206,8 +197,11 @@ public class AlignerBoost {
 		case "filterWigVar":
 			FilterWigVar.main(opts);
 			break;
-		case "wig2RelCover":
-			WigToRegionRelCover.main(opts);
+		case "wigFix2RelCover":
+			WigFixToRegionRelCover.main(opts);
+			break;
+		case "wigVar2RelCover":
+			WigVarToRegionRelCover.main(opts);
 			break;
 		default:
 			System.err.println("Unknown utils command '" + cmd + "'");
@@ -335,5 +329,7 @@ public class AlignerBoost {
 			"                  utils    classifyBED   quick classify BED file given genomic annotations in GFF file(s)" + newLine +
 			"                  utils    filterWigFix  filter UCSC Wiggle fixed format file(s) with given regions in BED file" + newLine +
 			"                  utils    filterWigVar  filter UCSC Wiggle variable format file(s) with given regions in BED file" + newLine +
-			"                  utils    wig2RelCover  convert UCSC Wiggle fixed format file to tax-delimited coverage file in given region";
+			"                  utils    wigFix2RelCover  convert UCSC Wiggle fixed format file to tax-delimited coverage file in given region" + newLine +
+			"                  utils    wigVar2RelCover  convert UCSC Wiggle fixed format file to tax-delimited coverage file in given region";
+; 
 }

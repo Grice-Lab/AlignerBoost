@@ -138,7 +138,7 @@ public class FilterWigVar {
 						int start = Integer.parseInt(fields[0]);
 						float value = Float.parseFloat(fields[1]);
 						for(int i = start; i < start + span; i++)
-							idx[i]= value;
+							idx[i] = value;
 
 						if(verbose > 0)
 							statusTask.updateStatus(); // Update status
@@ -217,10 +217,10 @@ public class FilterWigVar {
 				"<-g CHR-SIZE-FILE> <-i WIG-INFILE1 [WIG-INFILE2 ...]> <-R REGION-BEDFILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -g FILE  tab-delimited chrom-size file [required]" + newLine +
 				"            -i FILE  input file(s) in UCSC Wiggle Fixed format, can be gzipped [required]" + newLine +
-				"            -R FILE  BED file containing regions for filtering" + newLine +
-				"            -o FILE  output file" + newLine +
-				"            -step INT  step used for output the WigFix coverages [1]" + newLine +
-				"            -k/--keep-uncover FLAG  keep 0-covered regions in WigFix file [false]" + newLine +
+				"            -R FILE  BED file containing regions for filtering [required]" + newLine +
+				"            -o FILE  output file [required]" + newLine +
+				"            -step INT  step used for output the WigFix coverages [" + step + "]" + newLine +
+				"            -k/--keep-uncover FLAG  keep 0-covered regions in WigFix file [" + keep0 + "]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
