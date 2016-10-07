@@ -71,6 +71,8 @@ Try run `java -jar AlignerBoost.jar stats` for details.
 
 Utility program summaries
 -------------------------
+Utility tools for manipulating common genomic data files, such as SAM/BAM, BED, WIG, VCF/gVCF and more.
+
 * sam2AbsCover   convert a SAM/BAM file to customized tab-delimited coverage file with absolute location coordinates
 * sam2RelCover   convert a SAM/BAM file to customized tab-delimited coverage file with relative position coordinates
 * sam2BinCover   convert a SAM/BAM file to customized tab-delimited coverage file with binned (%) coordinates
@@ -82,3 +84,5 @@ Utility program summaries
 * classifySAM    fast index-based classify of a SAM/BAM file given genomic annotations from GFF file(s)
 * classifyVCF    fast index-based classify of a VCF/gVCF variation file given genomic annotations from GFF file(s)
 * classifyBED    fast index-based classify of a BED file given genomic annotations from GFF file(s)
+
+Try run `java -jar AlignerBoost.jar utils` for details.
