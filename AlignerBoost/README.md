@@ -73,16 +73,20 @@ Utility program summaries
 -------------------------
 Utility tools for manipulating common genomic data files, such as SAM/BAM, BED, WIG, VCF/gVCF and more.
 
-* sam2AbsCover   convert a SAM/BAM file to customized tab-delimited coverage file with absolute location coordinates
-* sam2RelCover   convert a SAM/BAM file to customized tab-delimited coverage file with relative position coordinates
-* sam2BinCover   convert a SAM/BAM file to customized tab-delimited coverage file with binned (%) coordinates
-* sam2RegCount   count reads from a SAM/BAM file in given regions from a BED file
-* sam2Wig        convert a SAM/BAM file to UCSC Wiggle file fixed format
-* bed2Wig        convert a BED6 file to UCSC Wiggle file fixed format
-* bed2AbsCover   convert a BED6 file to customized tab-delimited coverage file with absolute location coordinates 
-* filterSamById  filter a SAM/BAM file with a given ID list
-* classifySAM    fast index-based classify of a SAM/BAM file given genomic annotations from GFF file(s)
-* classifyVCF    fast index-based classify of a VCF/gVCF variation file given genomic annotations from GFF file(s)
-* classifyBED    fast index-based classify of a BED file given genomic annotations from GFF file(s)
+* sam2AbsCover     convert a SAM/BAM file to customized tab-delimited coverage file with absolute location coordinates
+* sam2RelCover     convert a SAM/BAM file to customized tab-delimited coverage file with relative position coordinates
+* sam2BinCover     convert a SAM/BAM file to customized tab-delimited coverage file with binned (%) coordinates
+* sam2RegCount     count reads from a SAM/BAM file in given regions from a BED file
+* sam2Wig          convert a SAM/BAM file to UCSC Wiggle file fixed format
+* bed2Wig          convert a BED6 file to UCSC Wiggle file fixed format
+* bed2AbsCover     convert a BED6 file to customized tab-delimited coverage file with absolute location coordinates 
+* filterSamById    filter a SAM/BAM file with a given ID list
+* classifySAM      fast index-based classify of a SAM/BAM file given genomic annotations from GFF file(s)
+* classifyVCF      fast index-based classify of a VCF/gVCF variation file given genomic annotations from GFF file(s)
+* classifyBED      fast index-based classify of a BED file given genomic annotations from GFF file(s)
+* filterWigFix     filter UCSC Wiggle fixed format file(s) with given regions in BED file
+* filterWigVar     filter UCSC Wiggle variable format file(s) with given regions in BED file
+* wigFix2RelCover  convert UCSC Wiggle Fixed format file(s) to tax-delimited coverage file in given regions
+* wigVar2RelCover  convert UCSC Wiggle Variable format file(s) to tax-delimited coverage file in given regions
 
 Try run `java -jar AlignerBoost.jar utils` for details.
