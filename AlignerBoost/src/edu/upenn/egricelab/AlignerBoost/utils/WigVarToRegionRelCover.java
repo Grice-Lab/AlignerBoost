@@ -172,8 +172,8 @@ public class WigVarToRegionRelCover {
 				int rgEnd = Integer.parseInt(fields[2]);
 				String rgName = fields[3];
 
-				int start = rgStart - flank;
-				int end = rgEnd + flank - 1;
+				int start = rgStart - flank - step / 2;
+				int end = rgEnd + flank + step / 2 - 1;
 				if(start < 1)
 					start = 1;
 				if(end >= idx.length)
