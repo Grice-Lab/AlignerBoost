@@ -103,8 +103,10 @@ public class PrepareTrimCmd {
 				default:
 					throw new IllegalArgumentException("Unsupported adapter trimming program found: '" + progName + "'");
 				}
-		
-				if(!(new File(outFn)).exists())
+	
+				if(!outFn.endsWith(".fastq"))
+					outFn += ".fastq"; // re-append the suffix
+				if(!(new File(outFn)).exists() )
 					out.write(cmd + newLine);
 				else {
 					System.err.println("Trimmed output file already exists, won't override");
