@@ -170,6 +170,9 @@ public class AlignerBoost {
 		case "sam2RegCount":
 			SamToRegionCount.main(opts);
 			break;
+		case "sam2CoverSumm":
+			SamToCoverSumm.main(opts);
+			break;
 		case "sam2Wig":
 			SamToWig.main(opts);
 			break;
@@ -321,6 +324,7 @@ public class AlignerBoost {
 			"                  utils    sam2BinCover  convert SAM/BAM file to tab-delimited coverage file w/ binned regions" + newLine +
 			"                  utils    sam2RegCount  count reads from SAM/BAM file in given regions in BED file" + newLine +
 			"                  utils    sam2Wig       convert SAM/BAM files to UCSC Wiggle files" + newLine +
+			"                  utils    sam2CoverSumm generate basewise coverage depth summaries for SAM/BAM file" + newLine +
 			"                  utils    bed2Wig       convert BED6 file to UCSC Wiggle file"+ newLine +
 			"                  utils    bed2AbsCover  convert BED6 file to UCSC tab-delimited coverage file w/ absolute loc" + newLine +
 			"                  utils    filterSamById filter SAM/BAM files with a given ID list" + newLine +

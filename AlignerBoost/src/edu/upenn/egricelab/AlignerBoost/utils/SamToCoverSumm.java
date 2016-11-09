@@ -28,12 +28,12 @@ import java.util.regex.Pattern;
 import htsjdk.samtools.*;
 import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
 
-/** Format SAM/BAM file to simple tsv cover file
+/** Generate base-wise coverage summaries from SAM/BAM file
  * @author Qi Zheng
  * @version 1.1
  * @since 1.1
  */
-public class SamToAbsCover {
+public class SamToCoverSumm {
 	public static void main(String[] args) {
 		if(args.length == 0) {
 			printUsage();
@@ -168,7 +168,6 @@ public class SamToAbsCover {
 						break;
 					}
 				} // end each cigEle
-				totalNum++;
 			} // end each record
 
 			// Terminate the monitor task and monitor
@@ -176,10 +175,10 @@ public class SamToAbsCover {
 			statusTask.finish();
 			processMonitor.cancel();
 
-			// Output
+			// summary
 			if(verbose > 0)
-				System.err.println("Output ...");
-			out.write("chrom\tstart\tend\tcover\n");
+				System.err.println("Checking basewise coverages ...");
+			coverSumm = new HashMap<Integer, Long>();
 			for(Map.Entry<String, List<QueryInterval>> entry : chrSeen.entrySet()) {
 				String chr = entry.getKey();
 				QueryInterval[] intervals = new QueryInterval[entry.getValue().size()]; // array to be dumped
@@ -191,15 +190,30 @@ public class SamToAbsCover {
 					continue; // ignore region without index
 				
 				for(QueryInterval interval : intervals) {
-					for(int start = interval.start; start <= interval.end && start < idx.length; start += step) {
-						int end = start + step <= idx.length ? start + step : idx.length;
-						double val = Stats.mean(idx, start, end);
-						if(normRPM)
-							val /= totalNum * 1e6;
-						if(keep0 || val > 0)
-							out.write(chr + "\t" + start + "\t" + (end - 1) + "\t" + (float) val + "\n");
+					totalLen += interval.end - interval.start + 1;
+					for(int i = interval.start; i <= interval.end && i < idx.length; i++ /* always do coverage in single bp */) {
+						int cover = idx[i];
+						if(!coverSumm.containsKey(cover))
+							coverSumm.put(cover, 0L);
+						coverSumm.put(cover, coverSumm.get(cover) + 1); // increment
+						/* update cover range */
+						if(cover < minCover)
+							minCover = cover;
+						if(cover > maxCover)
+							maxCover = cover;
 					}
 				}
+			}
+			/* output coverage summaries */
+			if(verbose > 0)
+				System.err.println("Output summaries ...");
+			out.write("cover_depth\tcover_length\n");
+			for(int cover = minCover; cover <= maxCover; cover += step) {
+				long coverLen = coverSumm.containsKey(cover) ? coverSumm.get(cover) : 0;
+				if(keep0 || coverLen > 0)
+					out.write(cover + "\t" + coverLen + "\n");
+				if(!noTotal)
+					out.write("-1\t" + totalLen + "\n");
 			}
 		}
 		catch(IOException e) {
@@ -227,12 +241,12 @@ public class SamToAbsCover {
 		System.err.println("java -jar " + progFile + " utils samToAbsCover " +
 				"<-i SAM|BAM-INFILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [" + myStrand + "]" + newLine +
-				"            --norm-rpm FLAG  normalize the coverage to RPM by total mapped read number" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
 				"            -Q/--min-mapQ  INT minimum mapQ cutoff [" + minMapQ + "]" + newLine +
 				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
-				"            -step INT step width for calculating the coverage or average coverages [" + step + "]" + newLine +
-				"            -k/--keep-uncover FLAG keep 0-covered regions [" + keep0 + "]" + newLine +
+				"            -step INT step when reporting the basewise coverage (coverages are ALWAYS calculated at single-bp resolution) [" + step + "1]" + newLine +
+				"            -k/--keep-uncover FLAG keep 0 statistic summaries at certain coverage level [" + keep0 + "]" + newLine +
+				"            --no-total  FLAG do not report the total basepair summary line [" + noTotal + "]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -247,8 +261,6 @@ public class SamToAbsCover {
 				myStrand = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-R"))
 				bedFile = args[++i];
-			else if(args[i].equals("--norm-rpm"))
-				normRPM = true;
 			else if(args[i].equals("--count-soft"))
 				countSoft = true;
 			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
@@ -276,16 +288,19 @@ public class SamToAbsCover {
 	private static String outFile;
 	private static String bedFile;
 	private static int myStrand = 3;
-	private static boolean normRPM;
 	private static boolean countSoft; // whether to count soft-clipped bases
 	private static int minMapQ;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 	private static int step = 1;
 	private static boolean keep0;
+	private static boolean noTotal;
 	private static int verbose;
 
-	private static long totalNum;
+	private static long totalLen;
+	private static int minCover = Integer.MAX_VALUE;
+	private static int maxCover;
 	private static Map<String, int[]> chrIdx;
+	private static Map<Integer, Long> coverSumm;
 
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
