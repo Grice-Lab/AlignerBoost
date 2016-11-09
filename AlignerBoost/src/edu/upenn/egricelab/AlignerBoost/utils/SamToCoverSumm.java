@@ -178,7 +178,7 @@ public class SamToCoverSumm {
 			// summary
 			if(verbose > 0)
 				System.err.println("Checking basewise coverages ...");
-			coverSumm = new HashMap<Integer, Long>();
+			coverSumm = new ArrayList<Long>(Short.MAX_VALUE); /* initiate cover with a considerable capacity */
 			for(Map.Entry<String, List<QueryInterval>> entry : chrSeen.entrySet()) {
 				String chr = entry.getKey();
 				QueryInterval[] intervals = new QueryInterval[entry.getValue().size()]; // array to be dumped
@@ -193,11 +193,19 @@ public class SamToCoverSumm {
 					totalLen += interval.end - interval.start + 1;
 					for(int i = interval.start; i <= interval.end && i < idx.length; i++ /* always do coverage in single bp */) {
 						int cover = idx[i];
-						if(!coverSumm.containsKey(cover))
-							coverSumm.put(cover, 0L);
-						coverSumm.put(cover, coverSumm.get(cover) + 1); // increment
+//						System.err.println("Before resizeing:" + coverSumm.size());
+//						System.err.println("cover:" + cover);
+						if(coverSumm.size() <= cover) { // need add more 0s
+							int n = cover + 1 - coverSumm.size();
+							for(int j = 0; j < n; j++)
+								coverSumm.add(0L);
+						}
+//						System.err.println("After resizeing:" + coverSumm.size());
+//						System.err.println("Cover depth at " + cover + " is: " + coverSumm.get(cover));
+
+						coverSumm.set(cover, coverSumm.get(cover) + 1);
 						/* update cover range */
-						if(cover < minCover)
+						if(cover > 0 && cover < minCover)
 							minCover = cover;
 						if(cover > maxCover)
 							maxCover = cover;
@@ -207,14 +215,18 @@ public class SamToCoverSumm {
 			/* output coverage summaries */
 			if(verbose > 0)
 				System.err.println("Output summaries ...");
-			out.write("cover_depth\tcover_length\n");
-			for(int cover = minCover; cover <= maxCover; cover += step) {
-				long coverLen = coverSumm.containsKey(cover) ? coverSumm.get(cover) : 0;
+			out.write("cover_range_min\tcover_range_max\tcover_length\n");
+			for(int coverMin = minCover; coverMin + step < maxCover; coverMin += step) {
+				int coverMax = coverMin + step;
+				long coverLen = 0;
+				/* calculate aggregated length of this range */
+				for(int cover = coverMin; cover < coverMax; cover++)
+					coverLen += coverSumm.get(cover);
 				if(keep0 || coverLen > 0)
-					out.write(cover + "\t" + coverLen + "\n");
-				if(!noTotal)
-					out.write("-1\t" + totalLen + "\n");
+					out.write(coverMin + "\t" + (coverMax - 1) + "\t" + coverLen + "\n");
 			}
+			if(!noTotal)
+				out.write("-1\t-1\t" + totalLen + "\n");
 		}
 		catch(IOException e) {
 			System.err.println(e.getMessage());
@@ -244,7 +256,7 @@ public class SamToCoverSumm {
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
 				"            -Q/--min-mapQ  INT minimum mapQ cutoff [" + minMapQ + "]" + newLine +
 				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
-				"            -step INT step when reporting the basewise coverage (coverages are ALWAYS calculated at single-bp resolution) [" + step + "1]" + newLine +
+				"            -step INT step when reporting the basewise coverage (coverages are ALWAYS calculated at single-bp resolution) [" + step + "]" + newLine +
 				"            -k/--keep-uncover FLAG keep 0 statistic summaries at certain coverage level [" + keep0 + "]" + newLine +
 				"            --no-total  FLAG do not report the total basepair summary line [" + noTotal + "]" + newLine +
 				"            -v FLAG  show verbose information"
@@ -291,7 +303,7 @@ public class SamToCoverSumm {
 	private static boolean countSoft; // whether to count soft-clipped bases
 	private static int minMapQ;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
-	private static int step = 1;
+	private static int step = 5;
 	private static boolean keep0;
 	private static boolean noTotal;
 	private static int verbose;
@@ -300,7 +312,7 @@ public class SamToCoverSumm {
 	private static int minCover = Integer.MAX_VALUE;
 	private static int maxCover;
 	private static Map<String, int[]> chrIdx;
-	private static Map<Integer, Long> coverSumm;
+	private static ArrayList<Long> coverSumm;
 
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
