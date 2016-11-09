@@ -232,7 +232,7 @@ public class SamToAbsCover {
 				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
-				"            -k/--keep-uncover FLAG keep 0-covered regions in wigFile [false]" + newLine +
+				"            -k/--keep-uncover FLAG keep 0-covered regions [false]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
