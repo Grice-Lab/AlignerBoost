@@ -59,10 +59,9 @@ public class SamToRegionCount {
 			SAMSequenceDictionary samDict = samIn.getFileHeader().getSequenceDictionary();
 
 			// get total alignments, if -norm is set
-			long totalNum = 0;
-			if(doNorm) {
+			if(normRPM) {
 				if(verbose > 0)
-					System.err.println("Determinging total number of alignments ...");
+					System.err.println("Determining total number of alignments ...");
 				SAMRecordIterator allResults = samIn.iterator();
 				while(allResults.hasNext()) {
 					totalNum++;
@@ -131,7 +130,7 @@ public class SamToRegionCount {
 				} // end each record
 				results.close();
 				// output
-				if(!doNorm)
+				if(!normRPM)
 					out.write(chr + "\t" + regionStart + "\t" + regionEnd + "\t" + name + "\t" + count + "\t" + regionStrand + "\n");
 				else
 					out.write(chr + "\t" + regionStart + "\t" + regionEnd + "\t" + name + "\t" + ((float) count / totalNum * 1e6f) + "\t" + regionStrand + "\n");
@@ -201,7 +200,7 @@ public class SamToRegionCount {
 			else if(args[i].equals("-f"))
 				minRate = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--norm-rpm"))
-				doNorm = true;
+				normRPM = true;
 			else if(args[i].equals("-flank"))
 				maxFlank = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
@@ -228,7 +227,8 @@ public class SamToRegionCount {
 	private static String bed6File;
 	private static int myStrand = 3;
 	private static double minRate = 1e-9;
-	private static boolean doNorm;
+	private static boolean normRPM;
+	private static long totalNum;
 	private static int maxFlank;
 	private static int minMapQ;
 	private static int verbose;

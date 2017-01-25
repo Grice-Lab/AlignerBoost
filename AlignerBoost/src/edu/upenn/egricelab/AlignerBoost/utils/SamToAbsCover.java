@@ -58,6 +58,18 @@ public class SamToAbsCover {
 			samIn = factory.open(new File(samInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
 
+			// get total alignments, if -norm is set
+			if(normRPM) {
+				if(verbose > 0)
+					System.err.println("Determining total number of alignments ...");
+				SAMRecordIterator allResults = samIn.iterator();
+				while(allResults.hasNext()) {
+					totalNum++;
+					allResults.next();
+				}
+				allResults.close();
+			}
+			
 			SAMRecordIterator results = null;
 			Map<String, List<QueryInterval>> chrSeen = new HashMap<String, List<QueryInterval>>(); // chromosomes seen so far
 			if(bedFile == null) // no -R specified
@@ -168,7 +180,6 @@ public class SamToAbsCover {
 						break;
 					}
 				} // end each cigEle
-				totalNum++;
 			} // end each record
 
 			// Terminate the monitor task and monitor
@@ -195,7 +206,7 @@ public class SamToAbsCover {
 						int end = start + step <= idx.length ? start + step : idx.length;
 						double val = Stats.mean(idx, start, end);
 						if(normRPM)
-							val /= totalNum * 1e6;
+							val /= totalNum / 1e6;
 						if(keep0 || val > 0)
 							out.write(chr + "\t" + start + "\t" + (end - 1) + "\t" + (float) val + "\n");
 					}

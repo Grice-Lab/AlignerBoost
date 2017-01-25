@@ -53,11 +53,24 @@ public class SamToRelCover {
 		SamReader samIn = null;
 		BufferedWriter out = null;
 		BufferedReader bed6In = null;
+		
 		try {
 			samIn = factory.open(new File(samInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
 			SAMSequenceDictionary samDict = samIn.getFileHeader().getSequenceDictionary();
 
+			// get total alignments, if normRPM true
+			if(normRPM) {
+				if(verbose > 0)
+					System.err.println("Determining total number of alignments ...");
+				SAMRecordIterator allResults = samIn.iterator();
+				while(allResults.hasNext()) {
+					totalNum++;
+					allResults.next();
+				}
+				allResults.close();
+			}
+			
 			// check each region and output
 			bed6In = new BufferedReader(new FileReader(bed6File));
 			if(verbose > 0) {
@@ -173,6 +186,8 @@ public class SamToRelCover {
 						int from = regionEnd - end;
 						int to = regionEnd - start;
 						double val = Stats.mean(scanIdx, start - scanStart, end - scanStart + 1);
+						if(normRPM)
+							val /= totalNum / 1e6;
 						out.write(chr + "\t" + start + "\t" + end + "\t" + name + "\t" +
 								(float) val + "\t" + regionStrand + "\t" + 
 								regionLen + "\t" + from + "\t" + to + "\t" + myStrand + "\n");
@@ -210,6 +225,7 @@ public class SamToRelCover {
 				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            --norm-rpm FLAG  normalize the coverage to RPM by total read number" + newLine +
 				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
 				"            -flank INT max upsteam/downsteam positions to look at [0]" + newLine +
@@ -225,6 +241,8 @@ public class SamToRelCover {
 				outFile = args[++i];
 			else if(args[i].equals("-s"))
 				myStrand = Integer.parseInt(args[++i]);
+			else if(args[i].equals("--norm-rpm"))
+				normRPM = true;
 			else if(args[i].equals("-R"))
 				bed6File = args[++i];
 			else if(args[i].equals("--count-soft"))
@@ -257,6 +275,8 @@ public class SamToRelCover {
 	private static String bed6File;
 	private static int myStrand = 3;
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static boolean normRPM;
+	private static long totalNum;
 	private static int minMapQ;
 	private static int step = 1;
 	private static int maxFlank;

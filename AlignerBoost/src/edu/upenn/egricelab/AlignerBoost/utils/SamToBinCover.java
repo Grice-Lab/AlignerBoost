@@ -58,6 +58,18 @@ public class SamToBinCover {
 			out = new BufferedWriter(new FileWriter(outFile));
 			SAMSequenceDictionary samDict = samIn.getFileHeader().getSequenceDictionary();
 
+			// get total alignments, if normRPM true
+			if(normRPM) {
+				if(verbose > 0)
+					System.err.println("Determining total number of alignments ...");
+				SAMRecordIterator allResults = samIn.iterator();
+				while(allResults.hasNext()) {
+					totalNum++;
+					allResults.next();
+				}
+				allResults.close();
+			}
+			
 			// check each region and output
 			bed6In = new BufferedReader(new FileReader(bed6File));
 			if(verbose > 0) {
@@ -168,6 +180,10 @@ public class SamToBinCover {
 							start = scanStart;
 						if(start > scanEnd)
 							start = scanEnd;
+						if(end < scanStart)
+							end = scanStart;
+						if(end > scanEnd)
+							end = scanEnd;
 						from = start - regionStart;
 						to = end - regionStart;
 					}
@@ -180,11 +196,17 @@ public class SamToBinCover {
 							start = scanStart;
 						if(start > scanEnd)
 							start = scanEnd;
+						if(end < scanStart)
+							end = scanStart;
+						if(end > scanEnd)
+							end = scanEnd;
 						from = regionEnd - end;
 						to = regionEnd - start;
 					}
 
 					double val = Stats.mean(scanIdx, start - scanStart, end - scanStart + 1);
+					if(normRPM)
+						val /= totalNum / 1e6;
 					out.write(chr + "\t" + start + "\t" + end + "\t" + name + "\t" +
 							(float) val + "\t" + regionStrand + "\t" + i + "\t" + from + "\t" + to + "\t" + myStrand + "\n");
 				} // end output
@@ -220,6 +242,7 @@ public class SamToBinCover {
 				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            --norm-rpm FLAG  normalize the coverage to RPM by total read number" + newLine +
 				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            -N INT # of bins for calculating the average coverages [100]" + newLine +
 				"            -flank INT max upsteam/downsteam bins to look at [0]" + newLine +
@@ -239,6 +262,8 @@ public class SamToBinCover {
 				bed6File = args[++i];
 			else if(args[i].equals("--count-soft"))
 				countSoft = true;
+			else if(args[i].equals("--norm-rpm"))
+				normRPM = true;
 			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
 				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-N"))
@@ -267,6 +292,8 @@ public class SamToBinCover {
 	private static String bed6File;
 	private static int myStrand = 3;
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static boolean normRPM;
+	private static long totalNum;
 	private static int minMapQ;
 	private static int nBin = 100;
 	private static int maxFlank;

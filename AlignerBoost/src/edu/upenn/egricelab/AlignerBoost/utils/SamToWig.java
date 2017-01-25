@@ -58,6 +58,18 @@ public class SamToWig {
 			samIn = factory.open(new File(samInFile));
 			out = new BufferedWriter(new FileWriter(outFile));
 
+			// get total alignments, if normRPM true
+			if(normRPM) {
+				if(verbose > 0)
+					System.err.println("Determining total number of alignments ...");
+				SAMRecordIterator allResults = samIn.iterator();
+				while(allResults.hasNext()) {
+					totalNum++;
+					allResults.next();
+				}
+				allResults.close();
+			}
+			
 			SAMRecordIterator results = null;
 			Map<String, List<QueryInterval>> chrSeen = new HashMap<String, List<QueryInterval>>(); // chromosomes seen so far
 			if(bedFile == null) // no -R specified
@@ -169,7 +181,6 @@ public class SamToWig {
 						break;
 					}
 				} // end each cigEle
-				totalNum += clone;
 			} // end each record
 
 			// Terminate the monitor task and monitor
@@ -205,7 +216,7 @@ public class SamToWig {
 
 						double val = Stats.mean(idx, start, end);
 						if(normRPM)
-							val /= totalNum * 1e6;
+							val /= totalNum / 1e6;
 						if(keep0 || val > 0) {
 							if(prevStart == 0 || start - prevStart != step) // write not consecutive loc			
 								out.write("fixedStep chrom=" + chr + " start=" + start + " step=" + step + "\n");
