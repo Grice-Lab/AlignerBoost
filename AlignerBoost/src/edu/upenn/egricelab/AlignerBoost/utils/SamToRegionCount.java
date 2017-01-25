@@ -58,6 +58,18 @@ public class SamToRegionCount {
 			out = new BufferedWriter(new FileWriter(outFile));
 			SAMSequenceDictionary samDict = samIn.getFileHeader().getSequenceDictionary();
 
+			// get total alignments, if -norm is set
+			long totalNum = 0;
+			if(doNorm) {
+				if(verbose > 0)
+					System.err.println("Determinging total number of alignments ...");
+				SAMRecordIterator allResults = samIn.iterator();
+				while(allResults.hasNext()) {
+					totalNum++;
+					allResults.next();
+				}
+				allResults.close();
+			}
 			// check each region and output
 			bed6In = new BufferedReader(new FileReader(bed6File));
 			if(verbose > 0) {
@@ -119,7 +131,10 @@ public class SamToRegionCount {
 				} // end each record
 				results.close();
 				// output
-				out.write(chr + "\t" + regionStart + "\t" + regionEnd + "\t" + name + "\t" + count + "\t" + regionStrand + "\n");
+				if(!doNorm)
+					out.write(chr + "\t" + regionStart + "\t" + regionEnd + "\t" + name + "\t" + count + "\t" + regionStrand + "\n");
+				else
+					out.write(chr + "\t" + regionStart + "\t" + regionEnd + "\t" + name + "\t" + ((float) count / totalNum * 1e6f) + "\t" + regionStrand + "\n");
 			} // end each region
 			// Terminate the monitor task and monitor
 			if(verbose > 0) {
@@ -166,8 +181,9 @@ public class SamToRegionCount {
 				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
 				"            -f FLOAT minimum proportion of overlap to the region [1e-9]" + newLine +
+				"            --norm-rpm FLAG  normalize the coverage to RPM by total read number" + newLine +
 				"            -flank INT max upsteam/downsteam positions to look at [0]" + newLine +
-				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
+				"            -Q/--min-mapQ  INT minimum mapQ cutoff [" + minMapQ + "]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -184,6 +200,8 @@ public class SamToRegionCount {
 				bed6File = args[++i];
 			else if(args[i].equals("-f"))
 				minRate = Double.parseDouble(args[++i]);
+			else if(args[i].equals("--norm-rpm"))
+				doNorm = true;
 			else if(args[i].equals("-flank"))
 				maxFlank = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
@@ -210,6 +228,7 @@ public class SamToRegionCount {
 	private static String bed6File;
 	private static int myStrand = 3;
 	private static double minRate = 1e-9;
+	private static boolean doNorm;
 	private static int maxFlank;
 	private static int minMapQ;
 	private static int verbose;
