@@ -84,6 +84,7 @@ Utility tools for manipulating common genomic data files, such as SAM/BAM, BED, 
 * sam2RelCover     convert a SAM/BAM file to customized tab-delimited coverage file with relative position coordinates
 * sam2BinCover     convert a SAM/BAM file to customized tab-delimited coverage file with binned (%) coordinates
 * sam2RegCount     count reads from a SAM/BAM file in given regions from a BED file
+* sam2CoverSumm    get simple read cover summary table from a SAM/BAM file
 * sam2Wig          convert a SAM/BAM file to UCSC Wiggle file fixed format
 * bed2Wig          convert a BED6 file to UCSC Wiggle file fixed format
 * bed2AbsCover     convert a BED6 file to customized tab-delimited coverage file with absolute location coordinates 
