@@ -61,13 +61,15 @@ public class SamToBinCover {
 			// get total alignments, if normRPM true
 			if(normRPM) {
 				if(verbose > 0)
-					System.err.println("Determining total number of alignments ...");
+					System.err.print("Determining total number of alignments ... ");
 				SAMRecordIterator allResults = samIn.iterator();
 				while(allResults.hasNext()) {
 					totalNum++;
 					allResults.next();
 				}
 				allResults.close();
+				if(verbose > 0)
+					System.err.println(totalNum);
 			}
 			
 			// check each region and output

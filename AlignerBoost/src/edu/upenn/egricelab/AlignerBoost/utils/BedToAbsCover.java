@@ -153,7 +153,7 @@ public class BedToAbsCover {
 						int end = start + step <= idx.length ? start + step : idx.length;
 						double val = Stats.mean(idx, start, end);
 						if(normRPM)
-							val /= totalNum * 1e6;
+							val /= totalNum / 1e6;
 						if(keep0 || val > 0)
 							out.write(chr + "\t" + start + "\t" + (end - 1) + "\t" + (float) val + "\n");
 					}

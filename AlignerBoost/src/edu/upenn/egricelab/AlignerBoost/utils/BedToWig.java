@@ -156,7 +156,7 @@ public class BedToWig {
 						int end = start + step <= idx.length ? start + step : idx.length;
 						double val = Stats.mean(idx, start, end);
 						if(normRPM)
-							val /= totalNum * 1e6;
+							val /= totalNum / 1e6;
 						if(keep0 || val > 0) {
 							if(prevStart == 0 || start - prevStart != step) // write not consecutive loc			
 								out.write("fixedStep chrom=" + chr + " start=" + start + " step=" + step + "\n");
