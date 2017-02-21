@@ -21,6 +21,7 @@
  */
 package edu.upenn.egricelab.AlignerBoost.utils;
 
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -30,7 +31,30 @@ import java.util.Map;
  *
  */
 public class StringUtils {
-
+	/**
+	 * Join a collection of arbitrary type using given separator
+	 * @param sep  separator
+	 * @param col  collction to be joined
+	 * @return  joined String, or null if col is null
+	 */
+	public static <E> String join(String sep, Collection<E> col) {
+		if(col == null)
+			return null;
+		StringBuilder str = new StringBuilder();
+		for(E ele : col)
+			str.append(str.length() == 0 ? ele : sep + ele);
+		return str.toString();
+	}
+	
+	/**
+	 * Join a collection of arbitrary type using space
+	 * @param col  collction to be joined
+	 * @return  joined String, or null if col is null
+	 */
+	public static <E> String join(Collection<E> col) {
+		return join(" ", col);
+	}
+	
 	/**
 	 * Join an array of Strings using given separator
 	 * @param sep  separator
