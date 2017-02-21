@@ -125,8 +125,11 @@ public class SamToRelCover {
 						continue;
 					if(record.getMappingQuality() < minMapQ)
 						continue;
-					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
-					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+					int clone = 1;
+					if(doNR) {
+						Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
+						clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+					}
 					
 					int start = record.getUnclippedStart();
 					Cigar cigar = record.getCigar();
@@ -229,6 +232,7 @@ public class SamToRelCover {
 				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            --nr FLAG  treat read as non-redundant tags, in which their clone information are embedded" + newLine +
 				"            --norm-rpm FLAG  normalize the coverage to RPM by total read number" + newLine +
 				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
@@ -251,6 +255,10 @@ public class SamToRelCover {
 				bed6File = args[++i];
 			else if(args[i].equals("--count-soft"))
 				countSoft = true;
+			else if(args[i].equals("--nr")) {
+				doNR = true;
+				nrPat = Pattern.compile("^(?:tr|un|nr)\\d+:(\\d+):\\d+");
+			}
 			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
 				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-step"))
@@ -279,6 +287,7 @@ public class SamToRelCover {
 	private static String bed6File;
 	private static int myStrand = 3;
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static boolean doNR; // whether treat read as NR-tag
 	private static boolean normRPM;
 	private static long totalNum;
 	private static int minMapQ;
@@ -288,6 +297,6 @@ public class SamToRelCover {
 
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
-	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+	private static Pattern nrPat;
 	private static final int statusFreq = 10000;
 }

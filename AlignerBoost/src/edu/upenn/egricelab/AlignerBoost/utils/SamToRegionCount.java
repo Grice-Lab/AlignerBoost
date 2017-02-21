@@ -120,8 +120,11 @@ public class SamToRegionCount {
 						continue;
 					if(record.getMappingQuality() < minMapQ)
 						continue;
-					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
-					int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+					int clone = 1;
+					if(doNR) {
+						Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
+						clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+					}
 					
 					int start = record.getAlignmentStart();
 					int end = record.getAlignmentEnd();
@@ -179,6 +182,7 @@ public class SamToRegionCount {
 				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            --nr FLAG  treat read as non-redundant tags, in which their clone information are embedded" + newLine +
 				"            -f FLOAT minimum proportion of overlap to the region [1e-9]" + newLine +
 				"            --norm-rpm FLAG  normalize the coverage to RPM by total read number" + newLine +
 				"            -flank INT max upsteam/downsteam positions to look at [0]" + newLine +
@@ -197,6 +201,10 @@ public class SamToRegionCount {
 				myStrand = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-R"))
 				bed6File = args[++i];
+			else if(args[i].equals("--nr")) {
+				doNR = true;
+				nrPat = Pattern.compile("^(?:tr|un|nr)\\d+:(\\d+):\\d+");
+			}
 			else if(args[i].equals("-f"))
 				minRate = Double.parseDouble(args[++i]);
 			else if(args[i].equals("--norm-rpm"))
@@ -226,6 +234,7 @@ public class SamToRegionCount {
 	private static String outFile;
 	private static String bed6File;
 	private static int myStrand = 3;
+	private static boolean doNR; // whether treat read as NR-tag
 	private static double minRate = 1e-9;
 	private static boolean normRPM;
 	private static long totalNum;
@@ -235,6 +244,6 @@ public class SamToRegionCount {
 
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
-	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+	private static Pattern nrPat;
 	private static final int statusFreq = 10000;
 }

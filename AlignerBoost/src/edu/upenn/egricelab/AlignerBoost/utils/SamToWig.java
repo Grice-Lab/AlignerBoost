@@ -147,8 +147,11 @@ public class SamToWig {
 					continue;
 				if(record.getMappingQuality() < minMapQ)
 					continue;
-				Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
-				int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+				int clone = 1;
+				if(doNR) {
+					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
+					clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+				}
 				
 				int[] idx = chrIdx.get(chr);
 				int start = record.getUnclippedStart();
@@ -256,6 +259,7 @@ public class SamToWig {
 				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [3]" + newLine +
 				"            --norm-rpm FLAG  normalize the coverage to RPM by total mapped read number" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            --nr FLAG  treat read as non-redundant tags, in which their clone information are embedded" + newLine +
 				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
 				"            --no-track FLAG  do not include the 'track-line' as the first line of the Wiggle file as the UCSC required [false]" + newLine + 
 				"            -name STRING  the track name used to display in UCSC Genome Browser [OUTFILE]" + newLine +
@@ -287,6 +291,10 @@ public class SamToWig {
 				trackDesc = args[++i];
 			else if(args[i].equals("-count-soft"))
 				countSoft = true;
+			else if(args[i].equals("--nr")) {
+				doNR = true;
+				nrPat = Pattern.compile("^(?:tr|un|nr)\\d+:(\\d+):\\d+");
+			}
 			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
 				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-step"))
@@ -328,6 +336,7 @@ public class SamToWig {
 	private static String trackDesc;
 	private static String trackHeader = "track type=wiggle_0";
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static boolean doNR; // whether treat read as NR-tag
 	private static int minMapQ;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 	private static int verbose;
@@ -337,6 +346,6 @@ public class SamToWig {
 
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
-	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+	private static Pattern nrPat;
 	private static final int statusFreq = 10000;
 }

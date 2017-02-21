@@ -146,8 +146,11 @@ public class SamToAbsCover {
 					continue;
 				if(record.getMappingQuality() < minMapQ)
 					continue;
-				Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
-				int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+				int clone = 1;
+				if(doNR) {
+					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
+					clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+				}
 				
 				int[] idx = chrIdx.get(chr);
 				int start = record.getUnclippedStart();
@@ -242,6 +245,7 @@ public class SamToAbsCover {
 				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [" + myStrand + "]" + newLine +
 				"            --norm-rpm FLAG  normalize the coverage to RPM by total mapped read number" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            --nr FLAG  treat read as non-redundant tags, in which their clone information are embedded" + newLine +
 				"            -Q/--min-mapQ  INT minimum mapQ cutoff [" + minMapQ + "]" + newLine +
 				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -step INT step width for calculating the coverage or average coverages [" + step + "]" + newLine +
@@ -264,6 +268,10 @@ public class SamToAbsCover {
 				normRPM = true;
 			else if(args[i].equals("--count-soft"))
 				countSoft = true;
+			else if(args[i].equals("--nr")) {
+				doNR = true;
+				nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+			}
 			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
 				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-step"))
@@ -291,6 +299,7 @@ public class SamToAbsCover {
 	private static int myStrand = 3;
 	private static boolean normRPM;
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static boolean doNR; // whether treat read as NR-tag
 	private static int minMapQ;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 	private static int step = 1;
@@ -302,6 +311,6 @@ public class SamToAbsCover {
 
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
-	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+	private static Pattern nrPat;
 	private static final int statusFreq = 10000;
 }

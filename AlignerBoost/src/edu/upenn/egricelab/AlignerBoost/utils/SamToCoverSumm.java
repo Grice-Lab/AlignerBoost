@@ -48,6 +48,8 @@ public class SamToCoverSumm {
 			printUsage();
 			return;
 		}
+		
+		/* determine cover breaks */
 
 		chrIdx = new HashMap<String, int[]>();
 		SamReaderFactory factory = SamReaderFactory.makeDefault();
@@ -108,20 +110,23 @@ public class SamToCoverSumm {
 					System.err.println("  " + chr + ": " + len);
 			}
 
-			// Start the processMonitor to monitor the process
-			processMonitor = new Timer();
-			// Start the ProcessStatusTask
-			statusTask = new ProcessStatusTask("alignment(s) processed");
+			if(verbose > 0) {
+				// Start the processMonitor to monitor the process
+				processMonitor = new Timer();
+				// Start the ProcessStatusTask
+				statusTask = new ProcessStatusTask("alignment(s) processed");
 
-			// Schedule to show the status every 1 second
-			processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
+				// Schedule to show the status every 1 second
+				processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
+			}
 			
 			// Scan SAM/BAM file
 			if(verbose > 0)
 				System.err.println("Scan SAM/BAM file ...");
 			while(results.hasNext()) {
 				SAMRecord record = results.next();
-				statusTask.updateStatus(); // Update status
+				if(verbose > 0)
+					statusTask.updateStatus(); // Update status
 				int readLen = record.getReadLength();
 				if(record.getReferenceIndex() == -1 || readLen == 0) // non mapped read or 0-length read
 					continue;
@@ -132,8 +137,11 @@ public class SamToCoverSumm {
 					continue;
 				if(record.getMappingQuality() < minMapQ)
 					continue;
-				Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
-				int clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+				int clone = 1;
+				if(doNR) {
+					Matcher match = nrPat.matcher(record.getReadName()); // whether match interval nrID pattern
+					clone = match.find() ? Integer.parseInt(match.group(1)) : 1;
+				}
 				
 				int[] idx = chrIdx.get(chr);
 				int start = record.getUnclippedStart();
@@ -169,16 +177,50 @@ public class SamToCoverSumm {
 					}
 				} // end each cigEle
 			} // end each record
+			if(verbose > 0)
+				statusTask.finish();
 
+			/* determine cover max */
+			if(verbose > 0) {
+				System.err.println("Determine coverage range ...");
+				statusTask.setInfo("chromosome scanned");
+				statusTask.reset();
+			}
+			for(Map.Entry<String, int[]> entry : chrIdx.entrySet()) {
+				int[] idx = entry.getValue();
+				for(int val : idx)
+					if(maxCover < val)
+						maxCover = val;
+				if(verbose > 0)
+					statusTask.updateStatus();
+			}
 			// Terminate the monitor task and monitor
-			statusTask.cancel();
-			statusTask.finish();
-			processMonitor.cancel();
-
-			// summary
+			if(verbose > 0) {
+				statusTask.cancel();
+				statusTask.finish();
+				processMonitor.cancel();
+			}
+			
+			int minBreak = Integer.MAX_VALUE;
+			int maxBreak = 0;
+			breaks = new ArrayList<Integer>();
+			for(String br : breakStr.split(",")) {
+				int b = Integer.parseInt(br);
+				breaks.add(b);
+				if(b < minBreak)
+					minBreak = b;
+				if(b > maxBreak)
+					maxBreak = b;
+			}
+			if(minBreak > minCover) // additional break need at begin
+				breaks.add(0, 0);
+			if(maxBreak < maxCover) // additional break need at end
+				breaks.add(Integer.MAX_VALUE);
+			binCoverSumm = new long[breaks.size() - 1];
+			
+			// summary coverages
 			if(verbose > 0)
 				System.err.println("Checking basewise coverages ...");
-			coverSumm = new ArrayList<Long>(Short.MAX_VALUE); /* initiate cover with a considerable capacity */
 			for(Map.Entry<String, List<QueryInterval>> entry : chrSeen.entrySet()) {
 				String chr = entry.getKey();
 				QueryInterval[] intervals = new QueryInterval[entry.getValue().size()]; // array to be dumped
@@ -190,43 +232,31 @@ public class SamToCoverSumm {
 					continue; // ignore region without index
 				
 				for(QueryInterval interval : intervals) {
-					totalLen += interval.end - interval.start + 1;
 					for(int i = interval.start; i <= interval.end && i < idx.length; i++ /* always do coverage in single bp */) {
+						totalCover++;
 						int cover = idx[i];
-//						System.err.println("Before resizeing:" + coverSumm.size());
-//						System.err.println("cover:" + cover);
-						if(coverSumm.size() <= cover) { // need add more 0s
-							int n = cover + 1 - coverSumm.size();
-							for(int j = 0; j < n; j++)
-								coverSumm.add(0L);
-						}
-//						System.err.println("After resizeing:" + coverSumm.size());
-//						System.err.println("Cover depth at " + cover + " is: " + coverSumm.get(cover));
-
-						coverSumm.set(cover, coverSumm.get(cover) + 1);
-						/* update cover range */
-						if(cover > 0 && cover < minCover)
-							minCover = cover;
-						if(cover > maxCover)
-							maxCover = cover;
+						if(cover == 0)
+							continue;
+						int k = whichBin(cover, breaks);
+						assert(k < breaks.size() - 1);
+						binCoverSumm[k]++;
 					}
 				}
 			}
 			/* output coverage summaries */
 			if(verbose > 0)
 				System.err.println("Output summaries ...");
-			out.write("cover_range_min\tcover_range_max\tcover_length\n");
-			for(int coverMin = minCover; coverMin + step < maxCover; coverMin += step) {
-				int coverMax = coverMin + step;
-				long coverLen = 0;
-				/* calculate aggregated length of this range */
-				for(int cover = coverMin; cover < coverMax; cover++)
-					coverLen += coverSumm.get(cover);
-				if(keep0 || coverLen > 0)
-					out.write(coverMin + "\t" + (coverMax - 1) + "\t" + coverLen + "\n");
+			out.write("bin_name\tbin_min\tbin_max\tcover_length\n");
+			for(int k = 0; k < breaks.size() - 1; k++) {
+				int bin_min = breaks.get(k);
+				int bin_max = breaks.get(k + 1);
+				String min = Integer.toString(bin_min);
+				String max = bin_max != Integer.MAX_VALUE ? Integer.toString(bin_max) : INF_STR;
+				String name = "(" + min + "," + max + "]";
+				out.write(name + "\t" + min + "\t" + max + "\t" + binCoverSumm[k] + "\n");
 			}
-			if(!noTotal)
-				out.write("-1\t-1\t" + totalLen + "\n");
+			if(doTotal)
+				out.write("total\t0\tInf\t" + totalCover + "\n");
 		}
 		catch(IOException e) {
 			System.err.println(e.getMessage());
@@ -254,11 +284,11 @@ public class SamToCoverSumm {
 				"<-i SAM|BAM-INFILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [" + myStrand + "]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
+				"            --nr FLAG  treat read as non-redundant tags, in which their clone information are embedded" + newLine +
 				"            -Q/--min-mapQ  INT minimum mapQ cutoff [" + minMapQ + "]" + newLine +
 				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
-				"            -step INT step when reporting the basewise coverage (coverages are ALWAYS calculated at single-bp resolution) [" + step + "]" + newLine +
-				"            -k/--keep-uncover FLAG keep 0 statistic summaries at certain coverage level [" + keep0 + "]" + newLine +
-				"            --no-total  FLAG do not report the total basepair summary line [" + noTotal + "]" + newLine +
+				"            -b/--breaks INT1,...,INTN breaks when reporting the basewise coverage [" + DEFAULT_BREAKS + "]" + newLine +
+				"            -n/--no-total FLAG  do not report total coverage at the last line" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -275,12 +305,16 @@ public class SamToCoverSumm {
 				bedFile = args[++i];
 			else if(args[i].equals("--count-soft"))
 				countSoft = true;
+			else if(args[i].equals("--nr")) {
+				doNR = true;
+				nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+			}
 			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
 				minMapQ = Integer.parseInt(args[++i]);
-			else if(args[i].equals("-step"))
-				step = Integer.parseInt(args[++i]);
-			else if(args[i].equals("-k") || args[i].equals("--keep-uncover"))
-				keep0 = true;
+			else if(args[i].equals("-b") || args[i].equals("--breaks")) // customized breaks provided
+				breakStr = args[++i];
+			else if(args[i].equals("-n") || args[i].equals("--no-total"))
+				doTotal = false;
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -295,27 +329,47 @@ public class SamToCoverSumm {
 		if(!(myStrand >= 1 && myStrand <= 3))
 			throw new IllegalArgumentException("Unknown -s option, must be 1, 2 or 3");
 	}
+	
+	/**
+	 * get first index in which a given value belongs to
+	 * @param x  value to check
+	 * @param bins  list of breaks
+	 * @return  first index for which x in (bins[k], bins[k+1]], or bins.length - 1
+	 */
+	public static int whichBin(int x, List<Integer> bins) {
+		int k;
+		for(k = 0; k < bins.size() - 1; k++)
+			if(x > bins.get(k) && x <= bins.get(k + 1))
+				break;
+		return k;
+	}
+
+	public static final String DEFAULT_BREAKS = "0,5,10,20,30,100";
 
 	private static String samInFile;
 	private static String outFile;
 	private static String bedFile;
 	private static int myStrand = 3;
 	private static boolean countSoft; // whether to count soft-clipped bases
+	private static boolean doNR; // whether treat read as NR-tag
 	private static int minMapQ;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
-	private static int step = 5;
-	private static boolean keep0;
-	private static boolean noTotal;
+	private static String breakStr = DEFAULT_BREAKS;
+	private static List<Integer> breaks; // break points, with ( break[i], break[i+1] ] represent the current bin range
+	private static boolean doTotal = true;
 	private static int verbose;
 
-	private static long totalLen;
 	private static int minCover = Integer.MAX_VALUE;
 	private static int maxCover;
 	private static Map<String, int[]> chrIdx;
-	private static ArrayList<Long> coverSumm;
+	private static long[] binCoverSumm;
+	private static long totalCover;
 
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
-	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+	private static Pattern nrPat;
+//	private static Pattern nrPat = Pattern.compile("^(?:tr|un:nr)\\d+:(\\d+):\\d+");
+
 	private static final int statusFreq = 10000;
+	public static final String INF_STR = "Inf";
 }
