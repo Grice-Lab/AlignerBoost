@@ -188,9 +188,14 @@ public class SamToCoverSumm {
 			}
 			for(Map.Entry<String, int[]> entry : chrIdx.entrySet()) {
 				int[] idx = entry.getValue();
-				for(int val : idx)
+				for(int val : idx) {
+					if(val == 0) // not covered
+						continue;
 					if(maxCover < val)
 						maxCover = val;
+					if(minCover > val)
+						minCover = val;
+				}
 				if(verbose > 0)
 					statusTask.updateStatus();
 			}
@@ -213,7 +218,7 @@ public class SamToCoverSumm {
 					maxBreak = b;
 			}
 			if(minBreak > minCover) // additional break need at begin
-				breaks.add(0, 0);
+				breaks.add(0, 1);
 			if(maxBreak < maxCover) // additional break need at end
 				breaks.add(Integer.MAX_VALUE);
 			binCoverSumm = new long[breaks.size() - 1];
@@ -237,7 +242,7 @@ public class SamToCoverSumm {
 						int cover = idx[i];
 						if(cover == 0)
 							continue;
-						int k = whichBin(cover, breaks);
+						int k = whichBin(cover, breaks, useRight);
 						assert(k < breaks.size() - 1);
 						binCoverSumm[k]++;
 					}
@@ -250,10 +255,10 @@ public class SamToCoverSumm {
 			for(int k = 0; k < breaks.size() - 1; k++) {
 				int bin_min = breaks.get(k);
 				int bin_max = breaks.get(k + 1);
-				String min = Integer.toString(bin_min);
-				String max = bin_max != Integer.MAX_VALUE ? Integer.toString(bin_max) : INF_STR;
-				String name = "(" + min + "," + max + "]";
-				out.write(name + "\t" + min + "\t" + max + "\t" + binCoverSumm[k] + "\n");
+				String lbd = Integer.toString(bin_min);
+				String ubd = bin_max != Integer.MAX_VALUE ? Integer.toString(bin_max) : "Inf";
+				String name = getBinName(lbd, ubd, useRight, k == 0, k == breaks.size() - 2);
+				out.write(name + "\t" + lbd + "\t" + ubd + "\t" + binCoverSumm[k] + "\n");
 			}
 			if(doTotal)
 				out.write("total\t0\tInf\t" + totalCover + "\n");
@@ -289,6 +294,7 @@ public class SamToCoverSumm {
 				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -b/--breaks INT1,...,INTN breaks when reporting the basewise coverage [" + DEFAULT_BREAKS + "]" + newLine +
 				"            -n/--no-total FLAG  do not report total coverage at the last line" + newLine +
+				"            -r/--right BOOLEAN  use right-closed (left-open) intervals for all non-first (or left-closed intervals for non-last if false) bins [" + useRight + "]" + newLine +
 				"            -v FLAG  show verbose information"
 				);
 	}
@@ -315,6 +321,8 @@ public class SamToCoverSumm {
 				breakStr = args[++i];
 			else if(args[i].equals("-n") || args[i].equals("--no-total"))
 				doTotal = false;
+			else if(args[i].equals("-r") || args[i].equals("--right"))
+				useRight = Boolean.parseBoolean(args[++i]);
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -336,15 +344,76 @@ public class SamToCoverSumm {
 	 * @param bins  list of breaks
 	 * @return  first index for which x in (bins[k], bins[k+1]], or bins.length - 1
 	 */
-	public static int whichBin(int x, List<Integer> bins) {
+	public static int whichBin(int x, List<Integer> bins, boolean useRight) {
+		return useRight ? whichBinRight(x, bins) : whichBinLeft(x, bins);
+	}
+	
+	/**
+	 * get first index in which a given value belongs to use left-closed (right-open) intervals for non-last bins
+	 * @param x  value to check
+	 * @param bins  list of breaks
+	 * @return  first index for which x in [bins[k], bins[k+1]), or bins.length - 1
+	 */
+	public static int whichBinLeft(int x, List<Integer> bins) {
 		int k;
 		for(k = 0; k < bins.size() - 1; k++)
-			if(x > bins.get(k) && x <= bins.get(k + 1))
+			if(k < bins.size() - 2 && x >= bins.get(k) && x < bins.get(k+1) 
+			|| k == bins.size() - 2 && x >= bins.get(k) && x <= bins.get(k + 1))
 				break;
 		return k;
 	}
 
-	public static final String DEFAULT_BREAKS = "0,5,10,20,30,100";
+	/**
+	 * get first index in which a given value belongs to use right-closed (left-open) intervals for all non-first bins
+	 * @param x  value to check
+	 * @param bins  list of breaks
+	 * @return  first index for which x in (bins[k], bins[k+1]], or bins.length - 1
+	 */
+	public static int whichBinRight(int x, List<Integer> bins) {
+		int k;
+		for(k = 0; k < bins.size() - 1; k++)
+			if(k == 0 && x >= bins.get(k) && x <= bins.get(k+1) 
+			|| k > 0 && x > bins.get(k) && x <= bins.get(k + 1))
+				break;
+		return k;
+	}
+	
+	/**
+	 * get bin_name according to the boundaries
+	 * @param lbd  lower bound
+	 * @param ubd  upper bound
+	 * @param useRight  whether to use right-closed intervals
+	 * @param isFirst  whether this is the first bin
+	 * @param isLast  whether this is the last bin
+	 * @return bin name in the three forms of '[lbd,ubd]', '[lbd,ubd)' or '(lbd,ubd]' according to conditions 
+	 */
+	public static String getBinName(String lbd, String ubd, boolean useRight, boolean isFirst, boolean isLast) {
+		return useRight ? getRightBinName(lbd, ubd, isFirst) : getLeftBinName(lbd, ubd, isLast);
+	}
+	
+	/**
+	 * get left-closed bin_name according to the boundaries
+	 * @param lbd  lower bound
+	 * @param ubd  upper bound
+	 * @param isLast  whether this is the last bin
+	 * @return bin name in the two forms of '[lbd,ubd]', or '[lbd,ubd)' according to conditions 
+	 */
+	public static String getLeftBinName(String lbd, String ubd, boolean isLast) {
+		return isLast ? "[" + lbd + "," + ubd + "]" : "[" + lbd + "," + ubd + ")";
+	}
+	
+	/**
+	 * get right-closed bin_name according to the boundaries
+	 * @param lbd  lower bound
+	 * @param ubd  upper bound
+	 * @param isFirst  whether this is the first bin
+	 * @return bin name in the two forms of '[lbd,ubd]', or '(lbd,ubd]' according to conditions 
+	 */
+	public static String getRightBinName(String lbd, String ubd, boolean isFirst) {
+		return isFirst ? "[" + lbd + "," + ubd + "]" : "(" + lbd + "," + ubd + "]";
+	}
+	
+	public static final String DEFAULT_BREAKS = "1,5,10,20,30,100";
 
 	private static String samInFile;
 	private static String outFile;
@@ -357,6 +426,7 @@ public class SamToCoverSumm {
 	private static String breakStr = DEFAULT_BREAKS;
 	private static List<Integer> breaks; // break points, with ( break[i], break[i+1] ] represent the current bin range
 	private static boolean doTotal = true;
+	private static boolean useRight = true;
 	private static int verbose;
 
 	private static int minCover = Integer.MAX_VALUE;
