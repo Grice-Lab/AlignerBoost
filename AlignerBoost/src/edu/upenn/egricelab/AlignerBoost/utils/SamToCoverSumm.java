@@ -285,7 +285,7 @@ public class SamToCoverSumm {
 	}
 
 	private static void printUsage() {
-		System.err.println("java -jar " + progFile + " utils samToAbsCover " +
+		System.err.println("java -jar " + progFile + " utils sam2CoverSumm " +
 				"<-i SAM|BAM-INFILE> <-o OUTFILE> [options]" + newLine +
 				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [" + myStrand + "]" + newLine +
 				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
