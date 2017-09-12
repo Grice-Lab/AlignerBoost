@@ -48,7 +48,7 @@ public class StringUtils {
 	
 	/**
 	 * Join a collection of arbitrary type using space
-	 * @param col  collction to be joined
+	 * @param col  collection to be joined
 	 * @return  joined String, or null if col is null
 	 */
 	public static <E> String join(Collection<E> col) {
@@ -85,7 +85,7 @@ public class StringUtils {
 	 * @param  sep String separator
 	 * @return  joined string as "key:value[<sep>key:value]", or null if map is null
 	 */
-	public static <K, V> String join(Map<K, V> map, String sep) {
+	public static <K, V> String join(String sep, Map<K, V> map) {
 		if(map == null)
 			return null;
 		StringBuilder str = new StringBuilder();
@@ -100,7 +100,55 @@ public class StringUtils {
 	 * @return  joined string as "key:value[,key:value]", or null if map is null
 	 */
 	public static <K, V> String join(Map<K, V> map) {
-		return join(map, ",");
+		return join(",", map);
+	}
+	
+	/**
+	 * A generic method to join an array of any type using given separator
+	 * @param sep  separator
+	 * @param array  an array of any type
+	 * @return a String in the format of E[0]sepE[1]...
+	 */
+	public static <E> String join(String sep, E[] arr) {
+		if(arr == null)
+			return null;
+		StringBuilder str = new StringBuilder();
+		for(int i = 0; i < arr.length; i++)
+			str.append(i == 0 ? arr[i].toString() : sep + arr[i]);
+		return str.toString();
+	}
+	
+	/**
+	 * A generic method to join an array of any type using given separator
+	 * @param array  an array of any type
+	 * @return a String in the format of E[0] E[1]...
+	 */
+	public static <E> String join(E[] arr) {
+		return join(" ", arr);
+	}
+	
+	/**
+	 * A generic method to join an array of any type using given separator
+	 * @param sep  separator
+	 * @param array  an array of int
+	 * @return a String in the format of E[0]sepE[1]...
+	 */
+	public static String join(String sep, int[] arr) {
+		if(arr == null)
+			return null;
+		StringBuilder str = new StringBuilder();
+		for(int i = 0; i < arr.length; i++)
+			str.append(i == 0 ? Integer.toString(arr[i]) : sep + arr[i]);
+		return str.toString();
+	}
+	
+	/**
+	 * A generic method to join an array of any type using given separator
+	 * @param array  an array of any type
+	 * @return a String in the format of E[0] E[1]...
+	 */
+	public static <E> String join(int[] arr) {
+		return join(" ", arr);
 	}
 	
 	/**
