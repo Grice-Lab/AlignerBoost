@@ -51,7 +51,7 @@ public class ClassifyVCF {
 			return;
 		}
 
-		chrIdx = new HashMap<String, int[]>();
+		gtypeIdx = new GTypeIndex();
 		VCFFileReader vcfIn = new VCFFileReader(new File(vcfInFile), false); // do not require index
 		BufferedReader gffIn = null;
 		VariantContextWriterBuilder outBuilder = (new VariantContextWriterBuilder()).setOutputFile(outFile);
@@ -73,9 +73,9 @@ public class ClassifyVCF {
 				String[] fields = line.split("\t");
 				String chr = fields[0];
 				int len = Integer.parseInt(fields[1]);
-				if(verbose > 0)
-					System.err.println("  " + chr + ": " + len);
-				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
+//				if(verbose > 0)
+//					System.err.println("  " + chr + ": " + len);
+				gtypeIdx.addChr(chr, len);
 			}
 
 			if(verbose > 0) {
@@ -89,8 +89,6 @@ public class ClassifyVCF {
 			}	
 			
 			// Read and index GFF files
-			int initBit = 01;
-			typeMask = new TreeMap<String, Integer>();
 			for(String gffFile : gffFiles) {
 				gffIn = new BufferedReader(new FileReader(gffFile));
 				while((line = gffIn.readLine()) != null) {
@@ -99,26 +97,10 @@ public class ClassifyVCF {
 					String[] fields = line.split("\t");
 					String chr = fields[0];
 					String type = fields[2];
-					int start = Integer.parseInt(fields[3]);
-					int end = Integer.parseInt(fields[4]);
-					// set bitMask
-					int bitMask = 0;
-					if(!typeMask.containsKey(type)) { // a new type encountered
-						if(typeMask.size() >= Integer.SIZE) { // no more free bits available
-							System.err.println("ClassifySAM doesn't support more than " + (Integer.SIZE - 1) + " types");
-							gffIn.close();
-							out.close();
-							chrIn.close();
-							return;
-						}
-						bitMask = initBit;
-						typeMask.put(type, bitMask);
-						initBit <<= 1; // use a higher bit for the next bit
-					}
-					else
-						bitMask = typeMask.get(type);
-					// mask this genome region
-					maskRegion(chrIdx.get(chr), start, end, bitMask);
+					int start = Integer.parseInt(fields[3]); /* GFF start is 1-based */
+					int end = Integer.parseInt(fields[4]);   /* GFF end is 1-based */
+					// mask GFF region
+					gtypeIdx.maskRegion(chr, start - 1, end, type);
 					if(verbose > 0)
 						statusTask.updateStatus();
 				}
@@ -139,13 +121,15 @@ public class ClassifyVCF {
 			// process each VariantContext record
 			for(VariantContext var : vcfIn) {
 				VariantContextBuilder varBuilder = new VariantContextBuilder(var);  // builder derived from old record
-				// get GTYPE
-				int typeBit = 0;
-				int[] idx = chrIdx.get(var.getContig());
-				for(int i = var.getStart(); i <= var.getEnd(); i++)
-					typeBit |= idx[i];
-				String gType = unmask(typeBit);
-				varBuilder.attribute("GTYPE", gType); // add the new attribute to the INFO field
+				// get GTYPE of this variant region
+				Map<String, Integer> typeSum = gtypeIdx.unmaskSum(var.getContig(), var.getStart() - 1, var.getEnd());
+				String typeStr;
+				if(!showSumm)
+					typeStr = typeSum.isEmpty() ? unType : StringUtils.join(",", typeSum.keySet());
+				else
+					typeStr = typeSum.isEmpty() ? unType + ":" + (var.getEnd() - var.getStart() + 1) : StringUtils.join(",", typeSum);
+				varBuilder.attribute("GTYPE", typeStr); // add the new attribute to the INFO field
+				
 				out.add(varBuilder.make());
 				if(verbose > 0)
 					statusTask.updateStatus();
@@ -184,9 +168,11 @@ public class ClassifyVCF {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyVCF " +
 				"<-i VCF-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
-				"Options:    -v          FLAG  show verbose information" + newLine +
-				"            --no-index  FLAG  do not build VCF index on-the-fly" + newLine +
-				"            -d          FILE  SAM reference dictionary file, required unless --no-index"
+				"Options:    -v              FLAG  show verbose information" + newLine +
+				"            --sum           FLAG  show summary of mapped feature types" + newLine +
+				"            --unclassified  STR   name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
+				"            --no-index      FLAG  do not build VCF index on-the-fly" + newLine +
+				"            -d              FILE  SAM reference dictionary file, required unless --no-index"
 				);
 	}
 	
@@ -200,6 +186,10 @@ public class ClassifyVCF {
 				chrLenFile = args[++i];
 			else if(args[i].equals("-gff"))
 				gffFiles.add(args[++i]);
+			else if(args[i].equals("--sum"))
+				showSumm = true;
+			else if(args[i].equals("--unclassified"))
+				unType = args[++i];
 			else if(args[i].equals("-v"))
 				verbose++;
 			else if(args[i].equals("--no-index"))
@@ -222,27 +212,7 @@ public class ClassifyVCF {
 			throw new IllegalArgumentException("-d must be specified unless use --no-index");
 	}
 
-	private static void maskRegion(int[] idx, int start, int end, int bitMask) {
-		if(idx == null) // the region is outside of the alignment
-			return;
-		for(int i = start; i <= end; i++)
-			idx[i] |= bitMask;
-	}
-
-	private static String unmask(int bit, String unkName) {
-		if(bit == 0)
-			return unkName;
-	    StringBuilder seqType = new StringBuilder();
-	    // Test each class
-	    for(String type : typeMask.keySet())
-	      if((bit & typeMask.get(type)) != 0)
-	        seqType.append(seqType.length() == 0 ? type : "," + type);
-	    return seqType.toString();
-	}
-	
-	private static String unmask(int bit) {
-		return unmask(bit, "intergenic");
-	}
+	private static final String DEFAULT_UNCLASSIFIED_GTYPE = "intergenic";
 
 	private static String chrLenFile;
 	private static String vcfInFile;
@@ -251,9 +221,10 @@ public class ClassifyVCF {
 	private static int verbose;
 	private static boolean buildIndex = true;
 	private static File dictFile;
+	private static boolean showSumm;
+	private static String unType = DEFAULT_UNCLASSIFIED_GTYPE;
 
-	private static Map<String, int[]> chrIdx;
-	private static Map<String, Integer> typeMask;
+	private static GTypeIndex gtypeIdx;
 
 	private static final int statusFreq = 10000;
 	private static Timer processMonitor;

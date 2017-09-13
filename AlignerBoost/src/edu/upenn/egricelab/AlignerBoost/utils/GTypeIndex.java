@@ -143,14 +143,16 @@ public class GTypeIndex {
 	/**
 	 * mask a chrom region as a given type
 	 * @param chr  chrom
-	 * @param start  start (inclusive)
-	 * @param end  end (inclusive)
+	 * @param start  0-based start
+	 * @param end  1-based end
 	 * @param gtype  genetic type
 	 */
 	public void maskRegion(String chr, int start, int end, String gtype) {
 		BitMask bitMask = chrIdx.get(chr);
-		bitMask.add(gtype);
-		bitMask.setBit(gtype, start, end);
+		if(bitMask != null && 0 <= start && start <= end && end <= bitMask.getLength()) { /* a valid region */
+			bitMask.add(gtype);
+			bitMask.setBit(gtype, start, end);
+		}
 	}
 
 	/**

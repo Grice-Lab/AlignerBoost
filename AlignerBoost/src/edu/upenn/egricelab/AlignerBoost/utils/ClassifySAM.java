@@ -28,7 +28,7 @@ import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
 
 /** Format SAM/BAM file to simple tsv cover file
  * @author Qi Zheng
- * @version 1.1
+ * @version 1.2
  * @since 1.1
  */
 public class ClassifySAM {
@@ -47,7 +47,7 @@ public class ClassifySAM {
 			return;
 		}
 
-		chrIdx = new HashMap<String, int[]>();
+		gtypeIdx = new GTypeIndex();
 		SamReaderFactory factory = SamReaderFactory.makeDefault();
 		SamReader samIn = null;
 		BufferedReader gffIn = null;
@@ -85,13 +85,15 @@ public class ClassifySAM {
 				if(verbose > 0)
 					System.err.println("Read in " + bedRegions.size() + " regions from BED file");
 				bedIn.close();
+				if(verbose > 0)
+					System.err.println("Optimizing customized searching intervals");
 				QueryInterval[] intervals = new QueryInterval[bedRegions.size()];
 				intervals = bedRegions.toArray(intervals); // dump List to array[]
 				intervals = QueryInterval.optimizeIntervals(intervals); // optimize and sort the query intervals
 				results = samIn.query(intervals, false);
 			}
 			
-			// Initialize chrom-index
+			// Initialize gtype-index
 			if(verbose > 0)
 				System.err.println("Initialize chrom-index ...");
 			for(SAMSequenceRecord headSeq : samIn.getFileHeader().getSequenceDictionary().getSequences()) {
@@ -99,9 +101,9 @@ public class ClassifySAM {
 				if(bedFile != null && !chrSeen.containsKey(chr)) // bed file specified and not in the regions
 					continue;
 				int len = headSeq.getSequenceLength();
-				if(verbose > 0)
-					System.err.println("  " + chr + ": " + len);
-				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
+//				if(verbose > 0)
+//					System.err.println("  " + chr + ": " + len);
+				gtypeIdx.addChr(chr, len);
 			}
 
 			// Start the processMonitor to monitor the process
@@ -115,8 +117,6 @@ public class ClassifySAM {
 			}
 			
 			// Read and index GFF files
-			int initBit = 01;
-			typeMask = new TreeMap<String, Integer>();
 			for(String gffFile : gffFiles) {
 				gffIn = new BufferedReader(new FileReader(gffFile));
 				String line = null;
@@ -126,25 +126,10 @@ public class ClassifySAM {
 					String[] fields = line.split("\t");
 					String chr = fields[0];
 					String type = fields[2];
-					int start = Integer.parseInt(fields[3]);
-					int end = Integer.parseInt(fields[4]);
-					// set bitMask
-					int bitMask = 0;
-					if(!typeMask.containsKey(type)) { // a new type encountered
-						if(typeMask.size() >= Integer.SIZE) { // no more free bits available
-							System.err.println("ClassifySAM doesn't support more than " + (Integer.SIZE - 1) + " types");
-							gffIn.close();
-							out.close();
-							return;
-						}
-						bitMask = initBit;
-						typeMask.put(type, bitMask);
-						initBit <<= 1; // use a higher bit for the next new type
-					}
-					else
-						bitMask = typeMask.get(type);
-					// mask this genome region
-					maskRegion(chrIdx.get(chr), start, end, bitMask);
+					int start = Integer.parseInt(fields[3]); /* GFF start is 1-based */
+					int end = Integer.parseInt(fields[4]);   /* GFF end is 1-based */
+					// mask index
+					gtypeIdx.maskRegion(chr, start - 1, end, type);
 					if(verbose > 0)
 						statusTask.updateStatus();
 				}
@@ -161,7 +146,7 @@ public class ClassifySAM {
 				System.err.println("Scanning SAM/BAM file ...");
 				statusTask.setInfo("alignments scanned");
 			}
-			out.write("name\tchrom\tstrand\tstart\tend\ttype" + newLine);
+			out.write("name\tchrom\tstrand\tstart\tend\talign_length\tgtype" + newLine);
 			while(results.hasNext()) {
 				SAMRecord record = results.next();
 				if(verbose > 0)
@@ -171,23 +156,29 @@ public class ClassifySAM {
 					continue;
 				if(record.getMappingQuality() < minMapQ)
 					continue;
-				int typeBit = 0;
 				String id = record.getReadName();
 				String chr = record.getReferenceName();
 				String strand = record.getReadNegativeStrandFlag() ? "-" : "+";
 				int start = record.getAlignmentStart();
 				int end = record.getAlignmentEnd();
-				int[] idx = chrIdx.get(chr);
+				Map<String, Integer> typeSum = new HashMap<String, Integer>();
+				int alignLen = 0;
 				// check each alignment block
 				for(AlignmentBlock block : record.getAlignmentBlocks()) {
 					int blockStart = block.getReferenceStart();
-					int blockLen = block.getLength();
-					// pad this region
-					for(int j = blockStart; j < blockStart + blockLen; j++)
-						typeBit |= idx[j];
+					int blockLen = block.getLength(); /* SAM start is 1-based */
+					alignLen += blockLen;
+					// add into typeSum
+					for(Map.Entry<String, Integer> pair : gtypeIdx.unmaskSum(chr, blockStart - 1, blockStart + blockLen).entrySet())
+						typeSum.put(pair.getKey(), typeSum.getOrDefault(pair.getKey(), 0) + pair.getValue());
 				}
 				// output
-				out.write(id + "\t" + chr + "\t" + strand + "\t" + start + "\t" + end + "\t" + unmask(typeBit) + newLine);
+				String typeStr;
+				if(!showSumm)
+					typeStr = typeSum.isEmpty() ? unType : StringUtils.join(",", typeSum.keySet());
+				else
+					typeStr = typeSum.isEmpty() ? unType + ":" + alignLen : StringUtils.join(",", typeSum);
+				out.write(id + "\t" + chr + "\t" + strand + "\t" + start + "\t" + end + "\t" + alignLen + "\t" + typeStr + newLine);
 			} // end each record
 			out.close();
 			// Terminate the monitor task and monitor
@@ -223,9 +214,11 @@ public class ClassifySAM {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils ClassifySAM " +
 				"<-i SAM|BAM-INFILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
-				"Options:    -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
-				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
-				"            -v FLAG  show verbose information"
+				"Options:    -R              FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
+				"            -Q/--min-mapQ   INT  minimum mapQ cutoff" + newLine +
+				"            --sum           FLAG  show summary of mapped feature types" + newLine +
+				"            --unclassified  STR   name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
+				"            -v              FLAG  show verbose information"
 				);
 	}
 	
@@ -241,6 +234,10 @@ public class ClassifySAM {
 				bedFile = args[++i];
 			else if(args[i].equals("-Q") || args[i].equals("--min-mapQ"))
 				minMapQ = Integer.parseInt(args[++i]);
+			else if(args[i].equals("--sum"))
+				showSumm = true;
+			else if(args[i].equals("--unclassified"))
+				unType = args[++i];
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -255,38 +252,19 @@ public class ClassifySAM {
 			throw new IllegalArgumentException("-gff must be specified");
 	}
 
-	private static void maskRegion(int[] idx, int start, int end, int bitMask) {
-		if(idx == null) // the region is outside of the alignment
-			return;
-		for(int i = start; i <= end; i++)
-			idx[i] |= bitMask;
-	}
-
-	private static String unmask(int bit, String unkName) {
-		if(bit == 0)
-			return unkName;
-	    StringBuilder seqType = new StringBuilder();
-	    // Test each class
-	    for(String type : typeMask.keySet())
-	      if((bit & typeMask.get(type)) != 0)
-	        seqType.append(seqType.length() == 0 ? type : "," + type);
-	    return seqType.toString();
-	}
+	private static final String DEFAULT_UNCLASSIFIED_GTYPE = "intergenic";
 	
-	private static String unmask(int bit) {
-		return unmask(bit, "intergenic");
-	}
-
 	private static String samInFile;
 	private static String outFile;
 	private static List<String> gffFiles = new ArrayList<String>();
 	private static String bedFile;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 	private static int minMapQ;
+	private static boolean showSumm;
+	private static String unType = DEFAULT_UNCLASSIFIED_GTYPE;
 	private static int verbose;
 
-	private static Map<String, int[]> chrIdx;
-	private static Map<String, Integer> typeMask;
+	private static GTypeIndex gtypeIdx;
 
 	private static final int statusFreq = 10000;
 	private static Timer processMonitor;

@@ -47,7 +47,7 @@ public class ClassifyBED {
 			return;
 		}
 
-		chrIdx = new HashMap<String, int[]>();
+		gtypeIdx = new GTypeIndex();
 		BufferedReader bedIn = null;
 		BufferedReader gffIn = null;
 		BufferedWriter out = null;
@@ -66,9 +66,9 @@ public class ClassifyBED {
 				String[] fields = line.split("\t");
 				String chr = fields[0];
 				int len = Integer.parseInt(fields[1]);
-				if(verbose > 0)
-					System.err.println("  " + chr + ": " + len);
-				chrIdx.put(chr, new int[len + 1]);  // Position 0 is dummy
+//				if(verbose > 0)
+//					System.err.println("  " + chr + ": " + len);
+				gtypeIdx.addChr(chr, len);
 			}
 
 			if(verbose > 0) {
@@ -82,8 +82,6 @@ public class ClassifyBED {
 			}
 			
 			// Read and index GFF files
-			int initBit = 01;
-			typeMask = new TreeMap<String, Integer>();
 			for(String gffFile : gffFiles) {
 				gffIn = new BufferedReader(new FileReader(gffFile));
 				while((line = gffIn.readLine()) != null) {
@@ -94,24 +92,8 @@ public class ClassifyBED {
 					String type = fields[2];
 					int start = Integer.parseInt(fields[3]);
 					int end = Integer.parseInt(fields[4]);
-					// set bitMask
-					int bitMask = 0;
-					if(!typeMask.containsKey(type)) { // a new type encountered
-						if(typeMask.size() >= Integer.SIZE) { // no more free bits available
-							System.err.println("ClassifySAM doesn't support more than " + (Integer.SIZE - 1) + " types");
-							gffIn.close();
-							out.close();
-							chrIn.close();
-							return;
-						}
-						bitMask = initBit;
-						typeMask.put(type, bitMask);
-						initBit <<= 1; // use a higher bit for the next bit
-					}
-					else
-						bitMask = typeMask.get(type);
-					// mask this genome region
-					maskRegion(chrIdx.get(chr), start, end, bitMask);
+					// mask this GFF region
+					gtypeIdx.maskRegion(chr, start, end, type);
 					if(verbose > 0)
 						statusTask.updateStatus();
 				}
@@ -127,7 +109,6 @@ public class ClassifyBED {
 			statusTask.setInfo(" regions read");
 			boolean hasTrackLine = false;
 			boolean isHeader = true;
-			long id = 0;
 			while((line = bedIn.readLine()) != null) {
 				String[] fields = line.split("\t");
 				if(fields.length < MIN_N_FIELDS) { // non-record lines
@@ -146,26 +127,24 @@ public class ClassifyBED {
 				}
 				
 				String chr = fields[0];
-				int start = Integer.parseInt(fields[1]) + 1; // start is 0-based
-				int end = Integer.parseInt(fields[2]);
-
-				// get annotation bit
-				int[] idx = chrIdx.get(chr);
-				if(idx == null) {
-					if(verbose > 0)
-						System.err.println("Ignoring out-of dictionary region: " + line);
-					continue;
-				}
+				int start = Integer.parseInt(fields[1]); // BED start is 0-based
+				int end = Integer.parseInt(fields[2]);   // BED end is 1-based
+				
 				if(fix) {
-					if(start < 1)
-						start = 1;
-					if(end > idx.length)
-						end = idx.length;
+					if(start < 0)
+						start = 0;
+					if(end > gtypeIdx.getChrLen(chr))
+						end = gtypeIdx.getChrLen(chr);
 				}
+				// get typeSum
+				Map<String, Integer> typeSum = gtypeIdx.unmaskSum(chr, start, end);
+				String typeStr;
 				if(!detail)
-					out.write(line + "\t" + (++id) + "\tType=" + unmask(idx, start, end) + "\n");
+					typeStr = typeSum.isEmpty() ? unType : StringUtils.join(",", typeSum.keySet());
 				else
-					out.write(line + "\t" + (++id) + "\tOverlap=" + unmaskDetail(idx, start, end) + "\n");
+					typeStr = typeSum.isEmpty() ? unType + ":" + (end - start) : StringUtils.join(",", typeSum);
+					
+				out.write(line + "\tGType=" + typeStr + "\n");
 				if(verbose > 0)
 					statusTask.updateStatus(); // Update status
 			} // end each record
@@ -203,11 +182,12 @@ public class ClassifyBED {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyBED " +
 				"<-i BED-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o BED-DETAIL-OUTFILE> [options]" + newLine +
-				"Options:    -name STRING name attribute of the track-line, will override the original value [outfile name]" + newLine +
-				"            -desc STRING description attribute of the track-line, will override the original value [-name]" + newLine +
-				"            -detail FLAG write detail type overlapping information [not-enable]" + newLine +
-				"            -v FLAG  show verbose information" + newLine +
-				"            -fix try to fix BED coordinates instead of aborting execution"
+				"Options:    -name           STRING  name attribute of the track-line, will override the original value [outfile name]" + newLine +
+				"            -desc           STRING  description attribute of the track-line, will override the original value [-name]" + newLine +
+				"            -detail         FLAG  write detail type overlapping information [not-enable]" + newLine +
+				"            --unclassified  STR  name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
+				"            -v              FLAG  show verbose information" + newLine +
+				"            -fix            FLAG  try to fix BED coordinates instead of aborting execution"
 				);
 	}
 	
@@ -226,7 +206,9 @@ public class ClassifyBED {
 			else if(args[i].equals("-desc"))
 				trackDesc = args[++i];			
 			else if(args[i].equals("-detail"))
-				detail = true;	
+				detail = true;
+			else if(args[i].equals("--unclassified"))
+				unType = args[++i];
 			else if(args[i].equals("-v"))
 				verbose++;
 			else if(args[i].equals("-fix"))
@@ -249,52 +231,8 @@ public class ClassifyBED {
 		if(trackDesc == null)
 			trackDesc = trackName;
 	}
-
-	private static void maskRegion(int[] idx, int start, int end, int bitMask) {
-		if(idx == null) // the region is outside of the alignment
-			return;
-		for(int i = start; i <= end; i++)
-			idx[i] |= bitMask;
-	}
-
-	private static String unmask(int[] idx, int start, int end, String unkName) {
-		assert start >= 0 && start < idx.length && end >= start && end < idx.length;
-		int bit = 0;
-		for(int i = start; i <= end; i++)
-			bit |= idx[i];
-		if(bit == 0)
-			return unkName;
-	    StringBuilder seqType = new StringBuilder();
-	    // Test each class
-	    for(String type : typeMask.keySet())
-	      if((bit & typeMask.get(type)) != 0)
-	        seqType.append(seqType.length() == 0 ? type : "," + type);
-	    return seqType.toString();
-	}
 	
-	private static String unmask(int[] idx, int start, int end) {
-		return unmask(idx, start, end, "intergenic");
-	}
-
-	private static String unmaskDetail(int[] idx, int start, int end, String unkName) {
-		assert start >= 0 && start < idx.length && end >= start && end < idx.length;
-		Map<String, Integer> overlapDetail = new TreeMap<String, Integer>();
-		for(String type : typeMask.keySet()) {
-			// Initiate
-			int mask = typeMask.get(type);
-			for(int i = start; i <= end; i++)
-				if((idx[i] & mask) != 0) {
-					if(!overlapDetail.containsKey(type))
-						overlapDetail.put(type, 0);
-					overlapDetail.put(type, overlapDetail.get(type) + 1);
-				}
-		}
-	    return overlapDetail.isEmpty() ? unkName + ":" + (end - start + 1) : StringUtils.join(overlapDetail);
-	}
-
-	private static String unmaskDetail(int[] idx, int start, int end) {
-	    return unmaskDetail(idx, start, end, "intergenic");
-	}
+	private static final String DEFAULT_UNCLASSIFIED_GTYPE = "intergenic";
 	
 	private static final int MIN_N_FIELDS = 3; // MIN # of fields for a record line
 	private static String chrLenFile;
@@ -302,11 +240,11 @@ public class ClassifyBED {
 	private static String outFile;
 	private static List<String> gffFiles = new ArrayList<String>();
 	private static boolean detail;
+	private static String unType = DEFAULT_UNCLASSIFIED_GTYPE;
 	private static int verbose;
 	private static boolean fix;
 
-	private static Map<String, int[]> chrIdx;
-	private static Map<String, Integer> typeMask;
+	private static GTypeIndex gtypeIdx;
 
 	private static final int statusFreq = 10000;
 	private static Timer processMonitor;
