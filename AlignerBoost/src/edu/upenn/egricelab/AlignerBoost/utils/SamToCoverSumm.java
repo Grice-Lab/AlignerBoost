@@ -426,7 +426,7 @@ public class SamToCoverSumm {
 	private static String breakStr = DEFAULT_BREAKS;
 	private static List<Integer> breaks; // break points, with ( break[i], break[i+1] ] represent the current bin range
 	private static boolean doTotal = true;
-	private static boolean useRight = true;
+	private static boolean useRight = false;
 	private static int verbose;
 
 	private static int minCover = Integer.MAX_VALUE;
