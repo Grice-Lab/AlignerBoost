@@ -168,11 +168,15 @@ public class ClassifyVCF {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyVCF " +
 				"<-i VCF-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
-				"Options:    -v              FLAG  show verbose information" + newLine +
-				"            --sum           FLAG  show summary of mapped feature types" + newLine +
-				"            --unclassified  STR   name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
-				"            --no-index      FLAG  do not build VCF index on-the-fly" + newLine +
-				"            -d              FILE  SAM reference dictionary file, required unless --no-index"
+				"Options:    -g  FILE                chrom size file with 1st column the chromosome names and 2nd column their sizes, required" + newLine +
+				"            -i  FILE                VCF/GVCF input file, required" + newLine +
+				"            -gff  FILE              GTF/GFF3 annotation file(s) used for classification, required" + newLine +
+				"            -o  FILE                VCF/GVCF output file with added classification information in the INFO field, required" + newLine +
+				"            -v  FLAG                show verbose information" + newLine +
+				"            --sum  FLAG             show summary of mapped feature types" + newLine +
+				"            --unclassified  STRING  name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
+				"            --no-index  FLAG        do not build VCF index on-the-fly" + newLine +
+				"            -d  FILE                SAM reference dictionary file, required unless --no-index"
 				);
 	}
 	

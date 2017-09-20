@@ -184,15 +184,18 @@ public class BedToAbsCover {
 	}
 
 	private static void printUsage() {
-		System.err.println("java -jar " + progFile + " utils samToWig " +
+		System.err.println("java -jar " + progFile + " utils bed2AbsCover " +
 				"<-g CHR-SIZE-FILE> <-i BED6-INFILE> <-o OUTFILE> [options]" + newLine +
-				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [3]" + newLine +
-				"            -c/--clone-value FLAG  use BED file column 5 value as read clone" + newLine +
-				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine+
-				"            --norm-rpm FLAG  normalize the coverage to RPM by total read number" + newLine +
-				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
-				"            -k/--keep-uncover FLAG keep 0-covered regions in wigFile [false]" + newLine +
-				"            -v FLAG  show verbose information"
+				"Options:    -g  FILE                 chrom size file with 1st column the chromosome names and 2nd column their sizes, required" + newLine +
+				"            -i  FILE                 BED6 input file, required" + newLine +
+				"            -o  FILE                 cover output file, required" + newLine +
+				"            -s  INT                  genome strand(s) to look at, 1: plus, 2: minus, 3: both [" + myStrand + "]" + newLine +
+				"            -c/--clone-value  FLAG   use BED file column 5 value as read clone" + newLine +
+				"            -R  FILE                 genome regions to search provided as a BED file" + newLine+
+				"            --norm-rpm  FLAG         normalize the coverage to RPM by total read number" + newLine +
+				"            -step  INT               step width for calculating the coverage or average coverages [" + step + "]" + newLine +
+				"            -k/--keep-uncover  FLAG  keep 0-covered regions in wigFile [false]" + newLine +
+				"            -v  FLAG                 show verbose information"
 				);
 	}
 	

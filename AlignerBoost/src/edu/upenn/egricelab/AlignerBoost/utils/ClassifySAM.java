@@ -214,11 +214,15 @@ public class ClassifySAM {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils ClassifySAM " +
 				"<-i SAM|BAM-INFILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
-				"Options:    -R              FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
-				"            -Q/--min-mapQ   INT  minimum mapQ cutoff" + newLine +
-				"            --sum           FLAG  show summary of mapped feature types" + newLine +
-				"            --unclassified  STR   name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
-				"            -v              FLAG  show verbose information"
+				"Options:    -g  FILE                chrom size file with 1st column the chromosome names and 2nd column their sizes, required" + newLine +
+				"            -i  FILE                SAM/BAM input file, required" + newLine +
+				"            -gff  FILE              GTF/GFF3 annotation file(s) used for classification, required" + newLine +
+				"            -o  FILE                TSV output file, required" + newLine +
+				"            -R  FILE  genome        regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
+				"            -Q/--min-mapQ  INT      minimum mapQ cutoff" + newLine +
+				"            --sum  FLAG             show summary of mapped feature types" + newLine +
+				"            --unclassified  STRING  name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
+				"            -v  FLAG                show verbose information"
 				);
 	}
 	

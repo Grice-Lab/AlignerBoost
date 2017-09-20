@@ -242,15 +242,17 @@ public class SamToAbsCover {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils samToAbsCover " +
 				"<-i SAM|BAM-INFILE> <-o OUTFILE> [options]" + newLine +
-				"Options:    -s INT  genome strand(s) to look at, 1: plus, 2: minus, 3: both [" + myStrand + "]" + newLine +
-				"            --norm-rpm FLAG  normalize the coverage to RPM by total mapped read number" + newLine +
-				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
-				"            --nr FLAG  treat read as non-redundant tags, in which their clone information are embedded" + newLine +
-				"            -Q/--min-mapQ  INT minimum mapQ cutoff [" + minMapQ + "]" + newLine +
-				"            -R FILE  genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
-				"            -step INT step width for calculating the coverage or average coverages [" + step + "]" + newLine +
-				"            -k/--keep-uncover FLAG keep 0-covered regions [" + keep0 + "]" + newLine +
-				"            -v FLAG  show verbose information"
+				"Options:    -i  FILE                 SAM/BAM input, required" + newLine +
+				"            -o  FILE                 TSV coverage output, required" + newLine +
+				"            -s  INT                  genome strand(s) to look at, 1: plus, 2: minus, 3: both [" + myStrand + "]" + newLine +
+				"            --norm-rpm  FLAG         normalize the coverage to RPM by total mapped read number" + newLine +
+				"            --count-soft  FLAG       including soft-masked regions as covered region" + newLine +
+				"            --nr  FLAG               treat read as non-redundant tags, in which their clone information are embedded" + newLine +
+				"            -Q/--min-mapQ  INT       minimum mapQ cutoff [" + minMapQ + "]" + newLine +
+				"            -R  FILE                 genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
+				"            -step  INT               step width for calculating the coverage or average coverages [" + step + "]" + newLine +
+				"            -k/--keep-uncover  FLAG  keep 0-covered regions" + newLine +
+				"            -v  FLAG                 show verbose information"
 				);
 	}
 	

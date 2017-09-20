@@ -182,12 +182,16 @@ public class ClassifyBED {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils classifyBED " +
 				"<-i BED-INFILE> <-g CHR-SIZE-FILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o BED-DETAIL-OUTFILE> [options]" + newLine +
-				"Options:    -name           STRING  name attribute of the track-line, will override the original value [outfile name]" + newLine +
-				"            -desc           STRING  description attribute of the track-line, will override the original value [-name]" + newLine +
-				"            -detail         FLAG  write detail type overlapping information [not-enable]" + newLine +
-				"            --unclassified  STR  name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
-				"            -v              FLAG  show verbose information" + newLine +
-				"            -fix            FLAG  try to fix BED coordinates instead of aborting execution"
+				"Options:    -g  FILE        chrom size file with 1st column the chromosome names and 2nd column their sizes, required" + newLine +
+				"            -i  FILE        BED6 input file, required" + newLine +
+				"            -gff  FILE      GTF/GFF3 annotation file(s) used for classification, required" + newLine +
+				"            -o  FILE        BED output file with added field of genetic-type summary, required" + newLine +
+				"            -name  STRING   name attribute of the track-line, will override the original value [outfile name]" + newLine +
+				"            -desc  STRING   description attribute of the track-line, will override the original value [-name]" + newLine +
+				"            -detail  FLAG   write detail type overlapping information [not-enable]" + newLine +
+				"            --unclassified  STRING  name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
+				"            -v  FLAG        show verbose information" + newLine +
+				"            -fix  FLAG      try to fix BED coordinates instead of aborting execution"
 				);
 	}
 	

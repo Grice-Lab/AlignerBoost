@@ -223,13 +223,13 @@ public class WigFixToRegionRelCover {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils wigFix2RelCover " +
 				"<-g CHR-SIZE-FILE> <-i WIG-INFILE> <-R REGION-BEDFILE> <-o OUTFILE> [options]" + newLine +
-				"Options:    -g FILE  tab-delimited chrom-size file [required]" + newLine +
-				"            -i FILE  input file(s) in UCSC Wiggle Fixed format, can be gzipped [required]" + newLine +
-				"            -R FILE  BED file containing regions and names for reporting the coverage [required]" + newLine +
-				"            -o FILE  output file [required]" + newLine +
-				"            -step INT  step used for output the WigFix coverages [" + step + "]" + newLine +
-				"            -flank INT  up/down stream flanking size for searching [" + flank + "]" + newLine +
-				"            -v FLAG  show verbose information"
+				"Options:    -g  FILE     chrom-size file with 1st column chromosome names and 2nd column their sizes, required" + newLine +
+				"            -i  FILE     input file(s) in UCSC Wiggle Fixed format (support .gz files), required" + newLine +
+				"            -R  FILE     BED4 file containing regions and names for reporting the coverage, required" + newLine +
+				"            -o  FILE     output file, required" + newLine +
+				"            -step  INT   step used for output the WigFix coverages [" + step + "]" + newLine +
+				"            -flank  INT  up/down stream flanking size for searching [" + flank + "]" + newLine +
+				"            -v  FLAG     show verbose information"
 				);
 	}
 	

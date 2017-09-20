@@ -230,14 +230,17 @@ public class SamToRelCover {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils samToRelCover " +
 				"<-i SAM|BAM-INFILE> <-R BED6-FILE> <-o OUTFILE> [options]" + newLine +
-				"Options:    -s INT  relative strand(s) to look at, must be 1: sense, 2: antisense or 3: [3]" + newLine +
-				"            --count-soft FLAG  including soft-masked regions as covered region" + newLine +
-				"            --nr FLAG  treat read as non-redundant tags, in which their clone information are embedded" + newLine +
-				"            --norm-rpm FLAG  normalize the coverage to RPM by total read number" + newLine +
-				"            -Q/--min-mapQ  INT minimum mapQ cutoff" + newLine +
-				"            -step INT step width for calculating the coverage or average coverages [1]" + newLine +
-				"            -flank INT max upsteam/downsteam positions to look at [0]" + newLine +
-				"            -v FLAG  show verbose information"
+				"Options:    -i  FILE            SAM/BAM input, required" + newLine +
+				"            -o  FILE            TSV coverage output, required" + newLine +
+				"            -R  FILE            BED6 input in which binned coverage to be calculated, required" + newLine +
+				"            -s  INT             relative strand(s) to look at, must be 1: sense, 2: antisense or 3: both [" + myStrand + "]" + newLine +
+				"            --count-soft  FLAG  including soft-masked regions as covered region" + newLine +
+				"            --nr  FLAG          treat read as non-redundant tags, in which their clone information are embedded" + newLine +
+				"            --norm-rpm  FLAG    normalize the coverage to RPM by total read number" + newLine +
+				"            -Q/--min-mapQ  INT  minimum mapQ cutoff [" + minMapQ + "]" + newLine +
+				"            -step  INT          step width for calculating the coverage or average coverages [" + step + "]" + newLine +
+				"            -flank  INT         max upsteam/downsteam positions to look at [" + maxFlank + "]" + newLine +
+				"            -v  FLAG            show verbose information"
 				);
 	}
 	

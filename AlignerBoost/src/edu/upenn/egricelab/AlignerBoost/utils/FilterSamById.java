@@ -103,8 +103,11 @@ public class FilterSamById {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils filterSamById " +
 				"<-i SAM|BAM-INFILE> <-l ID-LISTFILE> <-o SAM|BAM-OUTFILE> [options]" + newLine +
-				"Options:    -v FLAG  inverse the filter, only show SAMRecords that is NOT in the ID-list" + newLine +
-				"            --no-desc FLAG  remove description from SAMRecord readname (anything after first white space) before filtering"
+				"Options:    -i  FILE         SAM/BAM input file, required" + newLine +
+				"            -l  FILE         ID list, required" + newLine +
+				"            -o  FILE         filtered SAM/BAM file, required" + newLine +
+				"            -v  FLAG         inverse the filter, only show SAMRecords that is NOT in the ID-list" + newLine +
+				"            --no-desc  FLAG  remove description from SAMRecord readname (anything after first white space) before filtering"
 				);
 	}
 	
