@@ -28,7 +28,7 @@ public class BED implements Comparable<BED> {
 	 * @throws IllegalArgumentException if start or end coordinate is invalid
 	 */
 	public BED(String line)
-			throws IllegalArgumentException, ArrayIndexOutOfBoundsException
+			throws NumberFormatException, ArrayIndexOutOfBoundsException
 	{
 		String[] fields = line.split(sep);
 		init(fields[chromIndex], Integer.parseInt(fields[startIndex]), Integer.parseInt(fields[endIndex]));

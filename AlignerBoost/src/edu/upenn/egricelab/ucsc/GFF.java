@@ -21,8 +21,10 @@ public abstract class GFF implements Comparable<GFF> {
 		String[] fields = line.split(sep);
 		init(fields[seqnameIndex], fields[sourceIndex], fields[typeIndex],
 				Integer.parseInt(fields[startIndex]), Integer.parseInt(fields[endIndex]),
-				Double.parseDouble(fields[scoreIndex]), fields[strandIndex],
-				Integer.parseInt(fields[frameIndex]), fields[attrsIndex]);
+				fields[scoreIndex].equals(".") ? Double.NaN : Double.parseDouble(fields[scoreIndex]), /* score */
+				fields[strandIndex], /* strand */
+				fields[frameIndex].equals(".") ? -1 : Integer.parseInt(fields[frameIndex]), /* frame */
+				fields[attrsIndex]);
 	}
 	
 	/**
@@ -145,15 +147,15 @@ public abstract class GFF implements Comparable<GFF> {
 	}
 	
 	/* member methods */
-	boolean hasAttr(String name) {
+	public boolean hasAttr(String name) {
 		return attrMap.containsKey(name);
 	}
 	
-	String getAttr(String name) {
+	public String getAttr(String name) {
 		return attrMap.get(name);
 	}
 	
-	void setAttr(String name, String value) {
+	public void setAttr(String name, String value) {
 		if(!attrNames.contains(name))
 			attrNames.add(name);
 		attrMap.put(name, value);
@@ -196,8 +198,10 @@ public abstract class GFF implements Comparable<GFF> {
 	@Override
 	public String toString() {
 		return seqname + sep + source + sep + type + sep
-				+ start + sep + end + sep + score + sep
-				+ strand + sep + frame + sep
+				+ start + sep + end + sep
+				+ (Double.isNaN(score) ? "." : Double.toString(score)) + sep
+				+ strand + sep
+				+ (frame >= 0 ? Integer.toString(frame) : ".") + sep
 				+ writeAttributes();
 	}
 	
