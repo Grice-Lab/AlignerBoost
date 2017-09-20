@@ -226,43 +226,45 @@ public class FilterSAMAlignSE {
 	private static void printUsage() { 
 		System.err.println("Usage:   java -jar " + progFile + " run filterSE " +
 				"<-in SAM|BAM-INPUT> <-out SAM|BAM-OUTPUT> [options]" + newLine +
-				"Options:    -r/--min-align-rate DOUBLE  minimum fraction of align length relative to the read length [" + MIN_ALIGN_RATE + "]" + newLine +
-				"            --seed-len INT  seed length for Burrows-Wheeler algorithm dependent aligners [" + SAMAlignFixer.SEED_LEN + "]" + newLine +
-				"            --seed-mis DOUBLE  %mismatches allowed in seed region [" + MAX_SEED_MIS + "]" + newLine +
-				"            --seed-indel DOUBLE  %indels allowed in seed region [" + MAX_SEED_INDEL + "0]" + newLine +
-				"            --all-mis  DOUBLE  %mismatches allowed in the entire insert region (excluding clipped/intron regions) [" + MAX_ALL_MIS + "]" + newLine +
-				"            --all-indel DOUBLE  %in-dels allowed in the entire insert region [" + MAX_ALL_INDEL + "]" + newLine +
-				"            -i/--identity DOUBLE  mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels) [" + MIN_IDENTITY + "]" + newLine +
-				"            --clip-handle STRING  how to treat soft/hard-clipped bases as mismathes, USE for use all, IGNORE for ignore, END5 for only use 5' clipped, END3 for only use 3' clipped [" + SAMAlignFixer.CLIP_MODE + "]" + newLine +
-				"            --1DP FLAG  enable 1-dimentional dymamic programming insert re-assesment, useful for non-local aligners, i.e. bowtie" + newLine +
-				"            --1DP-gap-open-penalty INT  gap open penalty for 1DP [" + SAMAlignFixer.GAP_OPEN_PENALTY_1DP + "]" + newLine +
-				"            --1DP-gap-ext-penalty INT  gap extension penalty for 1DP [" + SAMAlignFixer.GAP_EXT_PENALTY_1DP + "]" + newLine +
-				"            --match-score INT  match score for 1DP and calculating mapQ [" + SAMAlignFixer.MATCH_SCORE + "]" + newLine +
-				"            --mis-score INT  mismatch score for 1DP and calculating mapQ [" + SAMAlignFixer.MIS_SCORE + "]" + newLine +
-				"            --gap-open-penalty INT  gap open penalty for calculating mapQ [" + SAMAlignFixer.GAP_OPEN_PENALTY + "]" + newLine +
-				"            --gap-ext-penalty INT  gap extension penalty for calculating mapQ [" + SAMAlignFixer.GAP_EXT_PENALTY + "]" + newLine +
-				"            -rindel/--relative-indel-penalty FLAG  use relative indel penalty instead of absolute penalty" + newLine +
-				"            --clip-penalty INT  additional penalty for soft or hard clipped bases for calculating mapQ [" + SAMAlignFixer.CLIP_PENALTY + "]" + newLine +
-				"            --ignore-clip-penalty FLAG  ignore clip penalties completley, good for RNA-seq alignment with DNA-seq aligners" + newLine +
-				"            --known-SNP-penalty INT  known SNP penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_SNP_PENALTY + "]" + newLine +
-				"            --known-INDEL-penalty INT  known IN-DEL penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_INDEL_PENALTY + "]" + newLine +
-				"            --known-MULTISUBSTITUTION-penalty INT  known large/multi-substitution penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_MULTISUBSTITUTION_PENALTY + "]" + newLine +
-				"            --out-SAM FLAG  write SAM text output instead of BAM binary output" + newLine +
-				"            --silent FLAG  ignore certain SAM format errors such as empty reads" + newLine +
-				"            -N/--max-hit INT  max-hit value used during the mapping step, 0 for no limit [" + MAX_HIT + "]" + newLine +
-				"            --min-mapQ INT  min mapQ calculated with Bayesian method [" + MIN_MAPQ + "]" + newLine +
-				"            --max-best INT  max allowed best-stratum hits to report for a given read, 0 for no limit [" + MAX_BEST + "]" + newLine +
-				"            --max-report INT  max report valid hits determined by --min-mapQ and --max-best, 0 for no limit [" + MAX_REPORT + "]" + newLine +
-				"            --no-update-bit FLAG  do not update the secondary alignment bit flag (0x100) after filtering" + newLine +
-				"            --best-only FLAG  only report unique best hit, equivelant to --max-best 1 --max-report 1" + newLine +
-				"            --best FLAG  report the best hit, ignore any secondary hit, equivelant to --max-best 0 --max-report 1" + newLine +
-				"            --max-sensitivity FLAG  maximaze sensitivity by ignoring the mismatch, indel options" + newLine +
-				"            --sort-method STRING  sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\" [none]" + newLine +
-				"            --chrom-list FILE  pre-filtering file containing one chromosome name per-line" + newLine +
-				"            --known-SNP FILE  known SNP file in vcf/gvcf format (v4.0+, .gz supported), used for calculating mapQ" + newLine +
-				"            --AF-tag STRING  Allele Frequency Tag in VCF file to check/use for determining penaltyScores for known SNPs, use NULL to disable [AF]" + newLine +
-				"            --fix-MD FLAG  try to fix the MD:Z string format for certain NGS aligners that generate invalid tags" + newLine +
-				"            -v FLAG  show verbose information"
+				"Options:    -in  FILE                               SAM/BAM input, required" + newLine +
+				"            -out  FILE                              SAM/BAM output, required" + newLine +
+				"            -r/--min-align-rate  DOUBLE             minimum fraction of align length relative to the read length [" + MIN_ALIGN_RATE + "]" + newLine +
+				"            --seed-len  INT                         seed length for Burrows-Wheeler algorithm dependent aligners [" + SAMAlignFixer.SEED_LEN + "]" + newLine +
+				"            --seed-mis  DOUBLE                      %mismatches allowed in seed region [" + MAX_SEED_MIS + "]" + newLine +
+				"            --seed-indel  DOUBLE                    %indels allowed in seed region [" + MAX_SEED_INDEL + "0]" + newLine +
+				"            --all-mis  DOUBLE                       %mismatches allowed in the entire insert region (excluding clipped/intron regions) [" + MAX_ALL_MIS + "]" + newLine +
+				"            --all-indel  DOUBLE                     %in-dels allowed in the entire insert region [" + MAX_ALL_INDEL + "]" + newLine +
+				"            -i/--identity  DOUBLE                   mimimum %identity allowd for the alignment as 100 - (%mismatches+%in-dels) [" + MIN_IDENTITY + "]" + newLine +
+				"            --clip-handle  STRING                   how to treat soft/hard-clipped bases as mismathes, USE for use all, IGNORE for ignore, END5 for only use 5' clipped, END3 for only use 3' clipped [" + SAMAlignFixer.CLIP_MODE + "]" + newLine +
+				"            --1DP  FLAG                             enable 1-dimentional dymamic programming insert re-assesment, useful for non-local aligners, i.e. bowtie" + newLine +
+				"            --1DP-gap-open-penalty  INT             gap open penalty for 1DP [" + SAMAlignFixer.GAP_OPEN_PENALTY_1DP + "]" + newLine +
+				"            --1DP-gap-ext-penalty  INT              gap extension penalty for 1DP [" + SAMAlignFixer.GAP_EXT_PENALTY_1DP + "]" + newLine +
+				"            --match-score  INT                      match score for 1DP and calculating mapQ [" + SAMAlignFixer.MATCH_SCORE + "]" + newLine +
+				"            --mis-score  INT                        mismatch score for 1DP and calculating mapQ [" + SAMAlignFixer.MIS_SCORE + "]" + newLine +
+				"            --gap-open-penalty  INT                 gap open penalty for calculating mapQ [" + SAMAlignFixer.GAP_OPEN_PENALTY + "]" + newLine +
+				"            --gap-ext-penalty  INT                  gap extension penalty for calculating mapQ [" + SAMAlignFixer.GAP_EXT_PENALTY + "]" + newLine +
+				"            --relative-indel-penalty  FLAG          use relative indel penalty instead of absolute penalty" + newLine +
+				"            --clip-penalty  INT                     additional penalty for soft or hard clipped bases for calculating mapQ [" + SAMAlignFixer.CLIP_PENALTY + "]" + newLine +
+				"            --ignore-clip-penalty  FLAG             ignore clip penalties completley, good for RNA-seq alignment with DNA-seq aligners" + newLine +
+				"            --known-SNP-penalty  INT                known SNP penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_SNP_PENALTY + "]" + newLine +
+				"            --known-INDEL-penalty  INT              known IN-DEL penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_INDEL_PENALTY + "]" + newLine +
+				"            --known-MULTISUBSTITUTION-penalty  INT  known large/multi-substitution penalty for calculating mapQ [" + SAMAlignFixer.KNOWN_MULTISUBSTITUTION_PENALTY + "]" + newLine +
+				"            --out-SAM  FLAG                         write SAM text output instead of BAM binary output" + newLine +
+				"            --silent  FLAG                          ignore certain SAM format errors such as empty reads" + newLine +
+				"            -N/--max-hit  INT                       max-hit value used during the mapping step, 0 for no limit [" + MAX_HIT + "]" + newLine +
+				"            --min-mapQ  INT                         min mapQ calculated with Bayesian method [" + MIN_MAPQ + "]" + newLine +
+				"            --max-best  INT                         max allowed best-stratum hits to report for a given read, 0 for no limit [" + MAX_BEST + "]" + newLine +
+				"            --max-report  INT                       max report valid hits determined by --min-mapQ and --max-best, 0 for no limit [" + MAX_REPORT + "]" + newLine +
+				"            --no-update-bit  FLAG                   do not update the secondary alignment bit flag (0x100) after filtering" + newLine +
+				"            --best-only  FLAG                       only report unique best hit, equivelant to --max-best 1 --max-report 1" + newLine +
+				"            --best  FLAG                            report the best hit, ignore any secondary hit, equivelant to --max-best 0 --max-report 1" + newLine +
+				"            --max-sensitivity  FLAG                 maximaze sensitivity by ignoring the mismatch, indel options" + newLine +
+				"            --sort-method  STRING                   sorting method for output SAM/BAM file, must be \"none\", \"name\" or \"coordinate\" [none]" + newLine +
+				"            --chrom-list  FILE                      pre-filtering file containing one chromosome name per-line" + newLine +
+				"            --known-SNP  FILE                       known SNP file in vcf/gvcf format (v4.0+, .gz supported), used for calculating mapQ" + newLine +
+				"            --AF-tag  STRING                        Allele Frequency Tag in VCF file to check/use for determining penaltyScores for known SNPs, use NULL to disable [AF]" + newLine +
+				"            --fix-MD  FLAG                          try to fix the MD:Z string format for certain NGS aligners that generate invalid tags" + newLine +
+				"            -v  FLAG                                show verbose information"
 				);
 	}
 
@@ -302,7 +304,7 @@ public class FilterSAMAlignSE {
 				SAMAlignFixer.setGAP_OPEN_PENALTY(Integer.parseInt(args[++i]));
 			else if(args[i].equals("--gap-ext-penalty"))
 				SAMAlignFixer.setGAP_EXT_PENALTY(Integer.parseInt(args[++i]));
-			else if(args[i].equals("-rindel") || args[i].equals("--relative-indel-penalty"))
+			else if(args[i].equals("--relative-indel-penalty"))
 				SAMAlignFixer.INDEL_MODE = SAMAlignFixer.IndelPenaltyMode.RELATIVE;
 			else if(args[i].equals("--clip-penalty"))
 				SAMAlignFixer.setCLIP_PENALTY(Integer.parseInt(args[++i]));

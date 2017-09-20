@@ -270,17 +270,16 @@ public class FastqReadQC {
 
 	private static void printUsage() {
 		System.err.println(
-				"Usage:    java -jar " + progFile + " run fastqQC <-in FASTQ-INFILE [FASTQ-INFILE2 ...]>" +
-						" [-mate <MATE-INFILE> [MATE-INFILE2 ...]] -<-out OUTFILE>" +
-						" [-Sanger] [-Illumina] [-qBase <int>] [-readLen <int>] [-mateLen <int>]" + newLine +
-						"Options:    -in REQUIRED FILE  FASTQ files for single-end or forward paired-end reads, multiple files should be separated by space (support .gz compressed files)" + newLine +
-						"            -mate FASTQ FILE  files for reverse paired-end reads, multiple files should be separated by space (support .gz compressed files)" + newLine +
-						"            -out REQUIRED FILE  OUTPUT file" + newLine + 
-						"            -Sanger FLAG  use Sanger ascii offset, equivilent to set qBase=33; default is to auto-detect" + newLine +
-						"            -Illumina FLAG  use Illumina 1.5x ascii offset, equivilent to set qBase=64; default is to auto-detect" + newLine +
-						"            -qBase INT  ascii offset, override -Sanger or -Illumina [auto-detect]" + newLine +
-						"            -readLen INT  read length, REQUIRED if reads are of variable length (i.e. from Illumina MiSeq or PacBio)" + newLine +
-						"            -mateLen INT  mate length, default is to use mateLen"
+				"Usage:    java -jar " + progFile + " run fastqQC " +
+				"<-in FASTQ-INFILE [FASTQ-INFILE2 ...]> <-out OUTFILE> [options]" + newLine +
+				"Options:    -in  FILE        FASTQ input file(s) for single/forward reads, required (support .gz compressed files)" + newLine +
+				"            -out  FILE       output file, required" + newLine +
+				"            -mate  FILE      FASTQ input file(s) for reverse reads (support .gz compressed files)" + newLine +
+				"            -Sanger  FLAG    use Sanger ascii offset, same as -qBase 33); auto-detect by default" + newLine +
+				"            -Illumina  FLAG  use Illumina 1.5x ascii offset, same as -qBase 64; auto-detect by default" + newLine +
+				"            -qBase  INT      ascii offset, override -Sanger or -Illumina [auto-detect]" + newLine +
+				"            -readLen  INT    read length, REQUIRED if reads are of variable length (i.e. from Illumina MiSeq or PacBio)" + newLine +
+				"            -mateLen  INT    mate length, using mateLen by default"
 				);
 	}
 
