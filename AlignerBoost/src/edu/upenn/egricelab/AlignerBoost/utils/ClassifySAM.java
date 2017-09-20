@@ -25,6 +25,7 @@ import java.util.*;
 
 import htsjdk.samtools.*;
 import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
+import edu.upenn.egricelab.ucsc.*;
 
 /** Format SAM/BAM file to simple tsv cover file
  * @author Qi Zheng
@@ -118,16 +119,26 @@ public class ClassifySAM {
 			
 			// Read and index GFF files
 			for(String gffFile : gffFiles) {
+				/* guess GFF specification */
+				int gffSpecs = 0;
+				if(gffFile.endsWith(".gtf"))
+					gffSpecs = 2;
+				else if(gffFile.endsWith(".gff") || gffFile.endsWith(".gff3"))
+					gffSpecs = 3;
+				else
+					throw new IOException("Unrecognized GFF file extension" + gffFile);
 				gffIn = new BufferedReader(new FileReader(gffFile));
 				String line = null;
 				while((line = gffIn.readLine()) != null) {
 					if(line.startsWith("#")) // comment line
 						continue;
-					String[] fields = line.split("\t");
-					String chr = fields[0];
-					String type = fields[2];
-					int start = Integer.parseInt(fields[3]); /* GFF start is 1-based */
-					int end = Integer.parseInt(fields[4]);   /* GFF end is 1-based */
+					GFF record = gffSpecs == 2 ? new GTF(line) : new GFF3(line);
+					String chr = record.getSeqname();
+					String type = record.getType();
+					int start = record.getStart(); /* GFF start is 1-based */
+					int end = record.getEnd();   /* GFF end is 1-based */
+					if(tagName != null && !tagName.isEmpty() && record.hasAttr(tagName))
+						type = record.getAttr(tagName);
 					// mask index
 					gtypeIdx.maskRegion(chr, start - 1, end, type);
 					if(verbose > 0)
@@ -214,14 +225,14 @@ public class ClassifySAM {
 	private static void printUsage() {
 		System.err.println("java -jar " + progFile + " utils ClassifySAM " +
 				"<-i SAM|BAM-INFILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
-				"Options:    -g  FILE                chrom size file with 1st column the chromosome names and 2nd column their sizes, required" + newLine +
-				"            -i  FILE                SAM/BAM input file, required" + newLine +
+				"Options:    -i  FILE                SAM/BAM input file, required" + newLine +
 				"            -gff  FILE              GTF/GFF3 annotation file(s) used for classification, required" + newLine +
 				"            -o  FILE                TSV output file, required" + newLine +
 				"            -R  FILE  genome        regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -Q/--min-mapQ  INT      minimum mapQ cutoff" + newLine +
 				"            --sum  FLAG             show summary of mapped feature types" + newLine +
 				"            --unclassified  STRING  name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
+				"            --tag       STRING      use value of given tag in the attrubute field (9th) instead of type field (3rd) as the genetic type, if available" + newLine +
 				"            -v  FLAG                show verbose information"
 				);
 	}
@@ -242,6 +253,8 @@ public class ClassifySAM {
 				showSumm = true;
 			else if(args[i].equals("--unclassified"))
 				unType = args[++i];
+			else if(args[i].equals("--tag"))
+				tagName = args[++i];
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -266,6 +279,7 @@ public class ClassifySAM {
 	private static int minMapQ;
 	private static boolean showSumm;
 	private static String unType = DEFAULT_UNCLASSIFIED_GTYPE;
+	private static String tagName;
 	private static int verbose;
 
 	private static GTypeIndex gtypeIdx;
