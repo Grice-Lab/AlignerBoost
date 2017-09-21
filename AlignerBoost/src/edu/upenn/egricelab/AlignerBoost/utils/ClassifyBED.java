@@ -105,6 +105,8 @@ public class ClassifyBED {
 					GFF record = gffSpecs == 2 ? new GTF(line) : new GFF3(line);
 					// mask this GFF region
 					String chr = record.getSeqname();
+					if(!gtypeIdx.hasChr(chr)) /* this chromosome doesn't exist */
+						continue;
 					String type = record.getType();
 					int start = record.getStart(); /* GFF start is 1-based */
 					int end = record.getEnd();   /* GFF end is 1-based */

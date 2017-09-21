@@ -126,6 +126,10 @@ public class GTypeIndex {
 	}
 	
 	/* member methods */
+	public boolean hasChr(String chr) {
+		return chrIdx.containsKey(chr);
+	}
+	
 	public int getChrLen(String chr) {
 		return chrIdx.get(chr).getLength();
 	}
