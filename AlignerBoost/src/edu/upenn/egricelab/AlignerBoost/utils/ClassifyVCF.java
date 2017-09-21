@@ -23,6 +23,10 @@ package edu.upenn.egricelab.AlignerBoost.utils;
 import java.io.*;
 import java.util.*;
 
+import edu.upenn.egricelab.ucsc.GFF;
+import edu.upenn.egricelab.ucsc.GFF3;
+import edu.upenn.egricelab.ucsc.GTF;
+
 import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
 import htsjdk.variant.utils.SAMSequenceDictionaryExtractor;
 import htsjdk.variant.vcf.*;
@@ -79,6 +83,7 @@ public class ClassifyVCF {
 			}
 
 			if(verbose > 0) {
+				System.err.println("Reading GFF annotation files");
 				// Start the processMonitor to monitor the process
 				processMonitor = new Timer();
 				// Start the ProcessStatusTask
@@ -87,19 +92,28 @@ public class ClassifyVCF {
 				// Schedule to show the status every 1 second
 				processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
 			}	
-			
 			// Read and index GFF files
 			for(String gffFile : gffFiles) {
+				/* guess GFF specification */
+				int gffSpecs = 0;
+				if(gffFile.endsWith(".gtf"))
+					gffSpecs = 2;
+				else if(gffFile.endsWith(".gff") || gffFile.endsWith(".gff3"))
+					gffSpecs = 3;
+				else
+					throw new IOException("Unrecognized GFF file extension" + gffFile);
 				gffIn = new BufferedReader(new FileReader(gffFile));
 				while((line = gffIn.readLine()) != null) {
 					if(line.startsWith("#")) // comment line
 						continue;
-					String[] fields = line.split("\t");
-					String chr = fields[0];
-					String type = fields[2];
-					int start = Integer.parseInt(fields[3]); /* GFF start is 1-based */
-					int end = Integer.parseInt(fields[4]);   /* GFF end is 1-based */
-					// mask GFF region
+					GFF record = gffSpecs == 2 ? new GTF(line) : new GFF3(line);
+					String chr = record.getSeqname();
+					String type = record.getType();
+					int start = record.getStart(); /* GFF start is 1-based */
+					int end = record.getEnd();   /* GFF end is 1-based */
+					if(tagName != null && !tagName.isEmpty() && record.hasAttr(tagName))
+						type = record.getAttr(tagName);
+					// mask index
 					gtypeIdx.maskRegion(chr, start - 1, end, type);
 					if(verbose > 0)
 						statusTask.updateStatus();
@@ -175,6 +189,7 @@ public class ClassifyVCF {
 				"            -v  FLAG                show verbose information" + newLine +
 				"            --sum  FLAG             show summary of mapped feature types" + newLine +
 				"            --unclassified  STRING  name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
+				"            --tag  STRING           use value of given tag in the attrubute field (9th) instead of type field (3rd) as the genetic type, if available" + newLine +
 				"            --no-index  FLAG        do not build VCF index on-the-fly" + newLine +
 				"            -d  FILE                SAM reference dictionary file, required unless --no-index"
 				);
@@ -194,6 +209,8 @@ public class ClassifyVCF {
 				showSumm = true;
 			else if(args[i].equals("--unclassified"))
 				unType = args[++i];
+			else if(args[i].equals("--tag"))
+				tagName = args[++i];
 			else if(args[i].equals("-v"))
 				verbose++;
 			else if(args[i].equals("--no-index"))
@@ -227,6 +244,7 @@ public class ClassifyVCF {
 	private static File dictFile;
 	private static boolean showSumm;
 	private static String unType = DEFAULT_UNCLASSIFIED_GTYPE;
+	private static String tagName;
 
 	private static GTypeIndex gtypeIdx;
 

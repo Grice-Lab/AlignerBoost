@@ -109,6 +109,7 @@ public class ClassifySAM {
 
 			// Start the processMonitor to monitor the process
 			if(verbose > 0) {
+				System.err.println("Reading GFF annotation files");
 				processMonitor = new Timer();
 				// Start the ProcessStatusTask
 				statusTask = new ProcessStatusTask("GFF features read");
@@ -116,7 +117,6 @@ public class ClassifySAM {
 				// Schedule to show the status every 1 second
 				processMonitor.scheduleAtFixedRate(statusTask, 0, statusFreq);
 			}
-			
 			// Read and index GFF files
 			for(String gffFile : gffFiles) {
 				/* guess GFF specification */
@@ -128,6 +128,7 @@ public class ClassifySAM {
 				else
 					throw new IOException("Unrecognized GFF file extension" + gffFile);
 				gffIn = new BufferedReader(new FileReader(gffFile));
+				
 				String line = null;
 				while((line = gffIn.readLine()) != null) {
 					if(line.startsWith("#")) // comment line
@@ -232,7 +233,7 @@ public class ClassifySAM {
 				"            -Q/--min-mapQ  INT      minimum mapQ cutoff" + newLine +
 				"            --sum  FLAG             show summary of mapped feature types" + newLine +
 				"            --unclassified  STRING  name for unclassified alignments [" + DEFAULT_UNCLASSIFIED_GTYPE + "]" + newLine +
-				"            --tag       STRING      use value of given tag in the attrubute field (9th) instead of type field (3rd) as the genetic type, if available" + newLine +
+				"            --tag  STRING           use value of given tag in the attrubute field (9th) instead of type field (3rd) as the genetic type, if available" + newLine +
 				"            -v  FLAG                show verbose information"
 				);
 	}
