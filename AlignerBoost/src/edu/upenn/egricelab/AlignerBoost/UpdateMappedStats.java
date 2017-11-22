@@ -99,8 +99,8 @@ public class UpdateMappedStats {
 					continue;
 				}
 				// check alignments
-				int totalMapped = 0;
-				int maxHit = conf.getMaxReport(); // max hit possible in the alignment file
+				long totalMapped = 0;
+				int maxReport = conf.getMaxReport(); // max reported hits possible in the alignment file
 				
 				String prevID = "";
 				Map<String, Integer> readHit = null;
@@ -108,10 +108,10 @@ public class UpdateMappedStats {
 				readerFac.validationStringency(ValidationStringency.SILENT); // set validation level to silent
 				samIn = readerFac.open(new File(conf.getAlignFilteredFileName()));
 				GroupOrder inOrder = samIn.getFileHeader().getGroupOrder();
-				if(inOrder != GroupOrder.query) {
-					System.err.println("Warning: none-query ordered SAM/BAM file may take large RAM for finding mapped stats");
+				boolean isUniq = maxReport == 1 && !conf.isPaired; /* Single-end, uniquely reported alignments */
+				
+				if(!isUniq && inOrder != GroupOrder.query)
 					readHit = new HashMap<String, Integer>();
-				}
 				for(SAMRecord record : samIn) {
 					String id = record.getReadName();
 					int clone = 1; // default is for read
@@ -120,9 +120,9 @@ public class UpdateMappedStats {
 						if(match.find())
 							clone = Integer.parseInt(match.group(1));
 					}
-					if(inOrder == GroupOrder.query && !id.equals(prevID)) // query-ordered, new ID found
+					if(isUniq || inOrder == GroupOrder.query && !id.equals(prevID)) // query-ordered, new ID found
 						totalMapped += clone;
-					else { // not query-ordered, need recording found reads
+					else { // non-unique and not query-ordered, need recording found reads
 						// first make sure it is AlignerBoost filtered reads
 						if(record.getStringAttribute("XH") == null)
 							throw new RuntimeException("Cannot get mapped read summary for non-query sorted non-AlignerBoost processed BAM file");
@@ -131,8 +131,8 @@ public class UpdateMappedStats {
 							readHit.put(id, 0);
 						}
 						readHit.put(id, readHit.get(id) + 1); // increment hit
-						if(!record.getReadPairedFlag() && readHit.get(id) >= maxHit /* this read is SE and won't be found */
-								|| record.getReadPairedFlag() && readHit.get(id) >= 2 * maxHit) /* this read is PE won't be found */
+						if(!record.getReadPairedFlag() && readHit.get(id) >= maxReport /* this read is SE and won't be found */
+								|| record.getReadPairedFlag() && readHit.get(id) >= 2 * maxReport) /* this read is PE won't be found */
 							readHit.remove(id);
 					}
 					prevID = id;
