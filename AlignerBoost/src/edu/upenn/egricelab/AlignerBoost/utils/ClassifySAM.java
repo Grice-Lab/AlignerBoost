@@ -28,6 +28,8 @@ import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
 import edu.upenn.egricelab.ucsc.*;
 
 /** Format SAM/BAM file to simple tsv cover file
+ * New Tag introduced to SAM/BAM file
+ * XT  Z  GTYPE(s), separated by ','
  * @author Qi Zheng
  * @version 1.2
  * @since 1.1
@@ -49,15 +51,25 @@ public class ClassifySAM {
 		}
 
 		gtypeIdx = new GTypeIndex();
-		SamReaderFactory factory = SamReaderFactory.makeDefault();
+		SamReaderFactory inFactory = SamReaderFactory.makeDefault();
+		SAMFileWriterFactory outFactory = new SAMFileWriterFactory();
 		SamReader samIn = null;
 		BufferedReader gffIn = null;
-		BufferedWriter out = null;
+		SAMFileWriter samOut = null;
 		BufferedReader bedIn = null;
 		try {
-			// open all required files
-			samIn = factory.open(new File(samInFile));
-			out = new BufferedWriter(new FileWriter(outFile));
+			// open input
+			samIn = inFactory.open(new File(samInFile));
+			// clone and modify the header
+			SAMFileHeader header = samIn.getFileHeader().clone(); // copy the inFile header as outFile header
+			// Add new programHeader
+			SAMProgramRecord progRec = new SAMProgramRecord(progName);
+			progRec.setProgramName(progName);
+			progRec.setProgramVersion(progVer);
+			progRec.setCommandLine(StringUtils.join(" ", args));
+			header.addProgramRecord(progRec);
+			
+			samOut = outFactory.makeSAMOrBAMWriter(header, true, new File(outFile));
 
 			SAMRecordIterator results = null;
 			Map<String, List<QueryInterval>> chrSeen = new HashMap<String, List<QueryInterval>>(); // chromosomes seen so far
@@ -160,7 +172,6 @@ public class ClassifySAM {
 				System.err.println("Scanning SAM/BAM file ...");
 				statusTask.setInfo("alignments scanned");
 			}
-			out.write("name\tchrom\tstrand\tstart\tend\talign_length\tgtype" + newLine);
 			while(results.hasNext()) {
 				SAMRecord record = results.next();
 				if(verbose > 0)
@@ -170,11 +181,7 @@ public class ClassifySAM {
 					continue;
 				if(record.getMappingQuality() < minMapQ)
 					continue;
-				String id = record.getReadName();
 				String chr = record.getReferenceName();
-				String strand = record.getReadNegativeStrandFlag() ? "-" : "+";
-				int start = record.getAlignmentStart();
-				int end = record.getAlignmentEnd();
 				Map<String, Integer> typeSum = new HashMap<String, Integer>();
 				int alignLen = 0;
 				// check each alignment block
@@ -192,9 +199,9 @@ public class ClassifySAM {
 					typeStr = typeSum.isEmpty() ? unType : StringUtils.join(",", typeSum.keySet());
 				else
 					typeStr = typeSum.isEmpty() ? unType + ":" + alignLen : StringUtils.join(",", typeSum);
-				out.write(id + "\t" + chr + "\t" + strand + "\t" + start + "\t" + end + "\t" + alignLen + "\t" + typeStr + newLine);
+				record.setAttribute(GTYPE_TAG, typeStr);
+				samOut.addAlignment(record);
 			} // end each record
-			out.close();
 			// Terminate the monitor task and monitor
 			if(verbose > 0) {
 				statusTask.cancel();
@@ -214,8 +221,8 @@ public class ClassifySAM {
 					samIn.close();
 				if(gffIn != null)
 					gffIn.close();
-				if(out != null)
-					out.close();
+				if(samOut != null)
+					samOut.close();
 				if(bedIn != null)
 					bedIn.close();
 			}
@@ -230,7 +237,7 @@ public class ClassifySAM {
 				"<-i SAM|BAM-INFILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
 				"Options:    -i  FILE                SAM/BAM input file, required" + newLine +
 				"            -gff  FILE              GTF/GFF3 annotation file(s) used for classification, required" + newLine +
-				"            -o  FILE                TSV output file, required" + newLine +
+				"            -o  FILE                SAM/BAM output file, required" + newLine +
 				"            -R  FILE  genome        regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -Q/--min-mapQ  INT      minimum mapQ cutoff" + newLine +
 				"            --sum  FLAG             show summary of mapped feature types" + newLine +
@@ -273,6 +280,7 @@ public class ClassifySAM {
 	}
 
 	private static final String DEFAULT_UNCLASSIFIED_GTYPE = "intergenic";
+	private static final String GTYPE_TAG = "XT";
 	
 	private static String samInFile;
 	private static String outFile;
