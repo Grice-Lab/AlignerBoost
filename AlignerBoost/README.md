@@ -55,8 +55,7 @@ Tag  Type  Description
 Best practice
 -------------
 To fully utilize AlignerBoost to increase your mapping precision and sensitivity, it is recommended to use our
-** Best Practice Pipeline **. Just download our [Best Practice Example README and Configuration file]
-(https://github.com/Grice-Lab/AlignerBoost/tree/master/AlignerBoost/examples/), edit the config file using your favorite
+** Best Practice Pipeline **. Just download our [Best Practice Example README and Configuration file](https://github.com/Grice-Lab/AlignerBoost/tree/master/AlignerBoost/examples/), edit the config file using your favorite
 text/spread-sheet editor, and start your analysis!
 
 QC and pre-processing tools
