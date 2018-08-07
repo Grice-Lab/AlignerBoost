@@ -105,8 +105,8 @@ public class FilterSAMAlignPE {
 
 		SAMFileHeader header = inHeader.clone(); // copy the inFile header as outFile header
 		// Add new programHeader
-		SAMProgramRecord progRec = new SAMProgramRecord(progName);
-		progRec.setProgramName(progName);
+		SAMProgramRecord progRec = new SAMProgramRecord(progName + " run filterPE");
+		progRec.setProgramName(progName + " run filterPE");
 		progRec.setProgramVersion(progVer);
 		progRec.setCommandLine(StringUtils.join(" ", args));
 		header.addProgramRecord(progRec);

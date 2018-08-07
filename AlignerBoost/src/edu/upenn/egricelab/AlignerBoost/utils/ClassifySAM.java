@@ -63,8 +63,8 @@ public class ClassifySAM {
 			// clone and modify the header
 			SAMFileHeader header = samIn.getFileHeader().clone(); // copy the inFile header as outFile header
 			// Add new programHeader
-			SAMProgramRecord progRec = new SAMProgramRecord(progName);
-			progRec.setProgramName(progName);
+			SAMProgramRecord progRec = new SAMProgramRecord(progName + " utils classifySAM");
+			progRec.setProgramName(progName + " utils classifySAM");
 			progRec.setProgramVersion(progVer);
 			progRec.setCommandLine(StringUtils.join(" ", args));
 			header.addProgramRecord(progRec);

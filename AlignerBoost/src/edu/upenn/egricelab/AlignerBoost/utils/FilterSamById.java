@@ -56,7 +56,16 @@ public class FilterSamById {
 		idFilter = new HashSet<String>();
 		try {
 			samIn = inFactory.open(new File(inFile));
-			samOut = outFactory.makeSAMOrBAMWriter(samIn.getFileHeader().clone(), true, new File(outFile));
+			// clone and modify the header
+			SAMFileHeader header = samIn.getFileHeader().clone(); // copy the inFile header as outFile header
+			// Add new programHeader
+			SAMProgramRecord progRec = new SAMProgramRecord(progName + " utils filterSamById");
+			progRec.setProgramName(progName + " utils filterSamById");
+			progRec.setProgramVersion(progVer);
+			progRec.setCommandLine(StringUtils.join(" ", args));
+			header.addProgramRecord(progRec);
+			
+			samOut = outFactory.makeSAMOrBAMWriter(header, true, new File(outFile));
 			idIn = new BufferedReader(new FileReader(idFile));
 			
 			// Read in ID list
