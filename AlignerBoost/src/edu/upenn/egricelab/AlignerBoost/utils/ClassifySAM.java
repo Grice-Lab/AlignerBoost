@@ -27,7 +27,8 @@ import htsjdk.samtools.*;
 import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
 import edu.upenn.egricelab.ucsc.*;
 
-/** Format SAM/BAM file to simple tsv cover file
+/** Classify SAM/BAM files using fast per-bp indices
+ * generate new SAM/BAM outputs with added aux tags
  * New Tag introduced to SAM/BAM file
  * XT  Z  GTYPE(s), separated by ','
  * @author Qi Zheng

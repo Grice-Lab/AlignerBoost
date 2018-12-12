@@ -34,7 +34,8 @@ import htsjdk.variant.variantcontext.*;
 import htsjdk.variant.variantcontext.writer.*;
 
 
-/** Format SAM/BAM file to simple tsv cover file
+/** Classify VCF files using fast per-bp indices
+ * generate new VCF outputs with added 'GTYPE' attribute
  * @author Qi Zheng
  * @version 1.2
  * @since 1.1

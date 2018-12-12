@@ -30,7 +30,8 @@ import edu.upenn.egricelab.ucsc.GTF;
 
 import static edu.upenn.egricelab.AlignerBoost.EnvConstants.*;
 
-/** Format SAM/BAM file to simple tsv cover file
+/** Classify UCSC BED files using fast per-bp indices
+ * generate new BED outputs with additional 'GTYPE' field at the last field of each line
  * @author Qi Zheng
  * @version 1.1
  * @since 1.1
