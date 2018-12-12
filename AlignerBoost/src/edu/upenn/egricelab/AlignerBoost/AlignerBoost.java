@@ -194,6 +194,9 @@ public class AlignerBoost {
 		case "classifyBED":
 			ClassifyBED.main(opts);
 			break;
+		case "classSummSAM":
+			ClassSummSAM.main(opts);
+			break;
 		case "filterWigFix":
 			FilterWigFix.main(opts);
 			break;
@@ -331,6 +334,7 @@ public class AlignerBoost {
 			"                  utils    classifySAM   quick classify SAM/BAM file given genomic annotations in GFF file(s)" + newLine +
 			"                  utils    classifyVCF   quick classify VCF variation file given genomic annotations in GFF file(s)" + newLine +
 			"                  utils    classifyBED   quick classify BED file given genomic annotations in GFF file(s)" + newLine +
+			"                  utils    classSummSAM  quick classify and summarize SAM/BAM file given genomic annotations in GFF file(s)" + newLine +
 			"                  utils    filterWigFix  filter UCSC Wiggle Fixed format file(s) with given regions in BED file" + newLine +
 			"                  utils    filterWigVar  filter UCSC Wiggle Variable format file(s) with given regions in BED file" + newLine +
 			"                  utils    wigFix2RelCover  convert UCSC Wiggle Fixed format file to tax-delimited coverage file in given regions" + newLine +
