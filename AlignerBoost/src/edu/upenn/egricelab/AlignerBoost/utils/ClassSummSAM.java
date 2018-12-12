@@ -278,7 +278,7 @@ public class ClassSummSAM {
 	}
 
 	private static final String DEFAULT_UNCLASSIFIED_GTYPE = "intergenic";
-	private static final String TSV_HEADER = "GTYPE\tcount\n";
+	private static final String TSV_HEADER = "GTYPE\tcount";
 	
 	private static String samInFile;
 	private static String outFile;
