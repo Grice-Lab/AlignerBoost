@@ -232,7 +232,7 @@ public class ClassifySAM {
 	}
 
 	private static void printUsage() {
-		System.err.println("java -jar " + progFile + " utils ClassifySAM " +
+		System.err.println("java -jar " + progFile + " utils classifySAM " +
 				"<-i SAM|BAM-INFILE> <-gff GFF-FILE> [-gff GFF-FILE2 -gff ...] <-o OUT-FILE> [options]" + newLine +
 				"Options:    -i  FILE                SAM/BAM input file, required" + newLine +
 				"            -gff  FILE              GTF/GFF3 annotation file(s) used for classification, required" + newLine +
