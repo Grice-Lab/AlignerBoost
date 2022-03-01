@@ -119,13 +119,16 @@ public class ClassifyBED {
 				gffIn.close();
 			}
 			// reset statusTask
-			statusTask.finish();
-			statusTask.reset();
+			if(verbose > 0) {
+				statusTask.finish();
+				statusTask.reset();
+			}
 			
 			// Scan BED file and write BED-DETAIL file
-			if(verbose > 0)
+			if(verbose > 0) {
 				System.err.println("Scanning BED file ...");
-			statusTask.setInfo(" regions read");
+				statusTask.setInfo(" regions read");
+			}
 			boolean hasTrackLine = false;
 			boolean isHeader = true;
 			while((line = bedIn.readLine()) != null) {

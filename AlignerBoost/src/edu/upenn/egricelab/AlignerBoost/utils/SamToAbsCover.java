@@ -206,14 +206,28 @@ public class SamToAbsCover {
 				if(idx == null)
 					continue; // ignore region without index
 				
-				for(QueryInterval interval : intervals) {
-					for(int start = interval.start; start <= interval.end && start < idx.length; start += step) {
-						int end = start + step <= idx.length ? start + step : idx.length;
-						double val = Stats.mean(idx, start, end);
-						if(normRPM)
-							val /= totalNum / 1e6;
-						if(keep0 || val > 0)
-							out.write(chr + "\t" + start + "\t" + (end - 1) + "\t" + (float) val + "\n");
+				if(step == 1) { // no mean required
+					for(QueryInterval interval : intervals) {
+						for(int i = interval.start; i <= interval.end && i < idx.length; i++) {
+							int val = idx[i];
+							if(val >= minCover) {
+								out.write(chr + "\t" + i + "\t" + (i + 1) + "\t" +
+										(!normRPM ? val : (float) (1e6 * val / totalNum)) + "\n");
+							}
+						}
+					}
+				}
+				else {
+					for(QueryInterval interval : intervals) {
+						for(int start = interval.start; start <= interval.end && start < idx.length; start += step) {
+							int end = Math.min(start + step, idx.length);
+							double val = Stats.mean(idx, start, end);
+							if(val >= minCover) {
+								if(normRPM)
+									val /= totalNum / 1e6;
+								out.write(chr + "\t" + start + "\t" + (end - 1) + "\t" + (float) val + "\n");
+							}
+						}
 					}
 				}
 			}
@@ -251,7 +265,8 @@ public class SamToAbsCover {
 				"            -Q/--min-mapQ  INT       minimum mapQ cutoff [" + minMapQ + "]" + newLine +
 				"            -R  FILE                 genome regions to search provided as a BED file; if provided the -i file must be a sorted BAM file with pre-built index" + newLine +
 				"            -step  INT               step width for calculating the coverage or average coverages [" + step + "]" + newLine +
-				"            -k/--keep-uncover  FLAG  keep 0-covered regions" + newLine +
+				"            --min-cover  INT         mimimum cover value to report [" + minCover + "]" + newLine +
+//				"            -k/--keep-uncover  FLAG  keep 0-covered regions" + newLine +
 				"            -v  FLAG                 show verbose information"
 				);
 	}
@@ -278,8 +293,8 @@ public class SamToAbsCover {
 				minMapQ = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-step"))
 				step = Integer.parseInt(args[++i]);
-			else if(args[i].equals("-k") || args[i].equals("--keep-uncover"))
-				keep0 = true;
+			else if(args[i].equals("--min-cover"))
+				minCover = Integer.parseInt(args[++i]);
 			else if(args[i].equals("-v"))
 				verbose++;
 			else
@@ -293,6 +308,8 @@ public class SamToAbsCover {
 		// Reformat myStrand
 		if(!(myStrand >= 1 && myStrand <= 3))
 			throw new IllegalArgumentException("Unknown -s option, must be 1, 2 or 3");
+		if(minCover >= 0)
+			throw new IllegalArgumentException("--min-cover must be non-negative");
 	}
 
 	private static String samInFile;
@@ -305,7 +322,8 @@ public class SamToAbsCover {
 	private static int minMapQ;
 	private static List<QueryInterval> bedRegions; // bed file regions as the query intervals
 	private static int step = 1;
-	private static boolean keep0;
+	private static int minCover = 1;
+//	private static boolean keep0;
 	private static int verbose;
 
 	private static long totalNum;

@@ -238,13 +238,13 @@ public class SamToCoverSumm {
 				
 				for(QueryInterval interval : intervals) {
 					for(int i = interval.start; i <= interval.end && i < idx.length; i++ /* always do coverage in single bp */) {
-						totalCover++;
 						int cover = idx[i];
-						if(cover == 0)
-							continue;
-						int k = whichBin(cover, breaks, useRight);
-						assert(k < breaks.size() - 1);
-						binCoverSumm[k]++;
+						if(cover > 0) {
+							totalCover++;
+							int k = whichBin(cover, breaks, useRight);
+							assert(k < breaks.size() - 1);
+							binCoverSumm[k]++;
+						}
 					}
 				}
 			}

@@ -122,13 +122,16 @@ public class ClassifyVCF {
 				gffIn.close();
 			}
 			// reset statusTask
-			statusTask.finish();
-			statusTask.reset();
+			if(verbose > 0) {
+				statusTask.finish();
+				statusTask.reset();
+			}
 			
 			// Scan VCF file and output
-			if(verbose > 0)
+			if(verbose > 0) {
 				System.err.println("Scanning VCF file ...");
-			statusTask.setInfo("variants scanned");	
+				statusTask.setInfo("variants scanned");
+			}
 			VCFHeader outHeader = new VCFHeader(vcfIn.getFileHeader()); // use a deep copy of the vcfInFile header
 			// Add a new Info field
 			outHeader.addMetaDataLine(new VCFInfoHeaderLine("GTYPE", VCFHeaderLineCount.UNBOUNDED, VCFHeaderLineType.String, "Genetic Type"));

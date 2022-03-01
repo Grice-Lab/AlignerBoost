@@ -54,7 +54,10 @@ public class ClassSummSAM {
 		BufferedReader gffIn = null;
 		BufferedWriter out = null;
 		BufferedReader bedIn = null;
-		Map<String, Double> gtype2Count = null;
+		Map<String, Long> gtype2AbsCount = null;
+		Map<String, Double> gtype2RelCount = null;
+		long totalAbsCount = 0;
+		double totalRelCount = 0;
 		try {
 			// open input
 			samIn = inFactory.open(new File(samInFile));
@@ -157,7 +160,10 @@ public class ClassSummSAM {
 			}
 			
 			// init count
-			gtype2Count = new HashMap<String, Double>();
+			if(!relCount)
+				gtype2AbsCount = new HashMap<String, Long>();
+			else
+				gtype2RelCount = new HashMap<String, Double>();
 
 			// Scan SAM/BAM file
 			if(verbose > 0) {
@@ -188,17 +194,34 @@ public class ClassSummSAM {
 				// add this alnSumm to overall summary
 				for(Map.Entry<String, Integer> pair : alnSumm.entrySet()) {
 					if(!relCount)
-						gtype2Count.put(pair.getKey(), gtype2Count.getOrDefault(pair.getKey(), 0.0) + 1); // any match as 1
+						gtype2AbsCount.put(pair.getKey(), gtype2AbsCount.getOrDefault(pair.getKey(), 0L) + 1); // any match as 1
 					else
-						gtype2Count.put(pair.getKey(), gtype2Count.getOrDefault(pair.getKey(), 0.0) + pair.getValue() / (double) alignLen);
+						gtype2RelCount.put(pair.getKey(), gtype2RelCount.getOrDefault(pair.getKey(), 0.0) + pair.getValue() / (double) alignLen);
 				}
-				if(alnSumm.isEmpty()) // an intergenic one
-					gtype2Count.put(unType, gtype2Count.getOrDefault(unType, 0.0) + 1);
+				if(alnSumm.isEmpty()) { // an intergenic one
+					if(!relCount)
+						gtype2AbsCount.put(unType, gtype2AbsCount.getOrDefault(unType, 0L) + 1);
+					else
+						gtype2RelCount.put(unType, gtype2RelCount.getOrDefault(unType, 0.0) + 1);
+				}
+				/* add total count */
+				if(!relCount)
+					totalAbsCount++;
+				else
+					totalRelCount++;
 			} // end each record
 			/* output */
 			out.write(TSV_HEADER + newLine);
-			for(Map.Entry<String, Double> entry : gtype2Count.entrySet())
-				out.write(entry.getKey() + "\t" + entry.getValue() + newLine);
+			if(!relCount) {
+				for(Map.Entry<String, Long> entry : gtype2AbsCount.entrySet())
+					out.write(entry.getKey() + "\t" + entry.getValue() + newLine);
+				out.write(DEFAULT_TOTAL_GTYPE + "\t" + totalAbsCount + newLine); 
+			}
+			else {
+				for(Map.Entry<String, Double> entry : gtype2RelCount.entrySet())
+					out.write(entry.getKey() + "\t" + entry.getValue() + newLine);
+				out.write(DEFAULT_TOTAL_GTYPE + "\t" + totalRelCount + newLine); 
+			}
 			
 			// Terminate the monitor task and monitor
 			if(verbose > 0) {
@@ -278,6 +301,7 @@ public class ClassSummSAM {
 	}
 
 	private static final String DEFAULT_UNCLASSIFIED_GTYPE = "intergenic";
+	private static final String DEFAULT_TOTAL_GTYPE = "total";
 	private static final String TSV_HEADER = "GTYPE\tcount";
 	
 	private static String samInFile;
