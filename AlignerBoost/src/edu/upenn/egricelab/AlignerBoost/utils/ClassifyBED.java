@@ -129,47 +129,49 @@ public class ClassifyBED {
 				System.err.println("Scanning BED file ...");
 				statusTask.setInfo(" regions read");
 			}
-			boolean hasTrackLine = false;
+			
 			boolean isHeader = true;
+			String trackLine;
 			while((line = bedIn.readLine()) != null) {
-				String[] fields = line.split("\t");
-				if(fields.length < MIN_N_FIELDS) { // non-record lines
-					if(line.startsWith("track")) { // track line exists
-						line = line.replaceFirst("name=(?:\\\"[^\"=]+\\\"|\\S+)", "name=\"" + trackName + "\"");
-						line = line.replaceFirst("description=(?:\\\"[^\"=]+\\\"|\\S+)", "description=\"" + trackDesc + "\"");
-						line = line.replaceFirst("type=\\w+", "type=" + trackType);
-						hasTrackLine = true;
+				if(isHeader) { // first line
+					if(line.startsWith("track")) { // is track line
+						trackLine = line;
+						trackLine = trackLine.replaceFirst("name=(?:\\\"[^\"=]+\\\"|\\S+)", "name=\"" + trackName + "\"");
+						trackLine = line.replaceFirst("description=(?:\\\"[^\"=]+\\\"|\\S+)", "description=\"" + trackDesc + "\"");
+						trackLine = line.replaceFirst("type=\\w+", "type=" + trackType);
 					}
-					out.write(line + "\n");
-					continue;
-				}
-				if(isHeader && !hasTrackLine) { // no track-line found
-					out.write("track name=\"" + trackName + "\" type=" + trackType + " description=\"" + trackDesc + "\"" + "\n");
+					else {
+						trackLine = "track name=\"" + trackName + "\" type=" + trackType + " description=\"" + trackDesc + "\"" ;
+					}
+					if(keepTrack)
+						out.write(trackLine + "\n");
 					isHeader = false;
 				}
-				
-				String chr = fields[0];
-				int start = Integer.parseInt(fields[1]); // BED start is 0-based
-				int end = Integer.parseInt(fields[2]);   // BED end is 1-based
-				
-				if(fix) {
-					if(start < 0)
-						start = 0;
-					if(end > gtypeIdx.getChrLen(chr))
-						end = gtypeIdx.getChrLen(chr);
-				}
-				// get typeSum
-				Map<String, Integer> typeSum = gtypeIdx.unmaskSum(chr, start, end);
-				String typeStr;
-				if(!detail)
-					typeStr = typeSum.isEmpty() ? unType : StringUtils.join(",", typeSum.keySet());
-				else
-					typeStr = typeSum.isEmpty() ? unType + ":" + (end - start) : StringUtils.join(",", typeSum);
-					
-				out.write(line + "\tGType=" + typeStr + "\n");
-				if(verbose > 0)
-					statusTask.updateStatus(); // Update status
-			} // end each record
+				else { // record line
+					String[] fields = line.split("\t");
+					assert(fields.length >= MIN_N_FIELDS);
+
+					String chr = fields[0];
+					int start = Integer.parseInt(fields[1]); // BED start is 0-based
+					int end = Integer.parseInt(fields[2]);   // BED end is 1-based
+
+					if(fix) {
+						if(start < 0)
+							start = 0;
+						if(end > gtypeIdx.getChrLen(chr))
+							end = gtypeIdx.getChrLen(chr);
+					}
+					// get typeSum
+					Map<String, Integer> typeSum = gtypeIdx.unmaskSum(chr, start, end);
+					String typeStr;
+					if(!detail)
+						typeStr = typeSum.isEmpty() ? unType : StringUtils.join(",", typeSum.keySet());
+					else
+						typeStr = typeSum.isEmpty() ? unType + ":" + (end - start) : StringUtils.join(",", typeSum);
+
+					out.write(line + "\tGType=" + typeStr + "\n");
+				} // end record line
+			} // while
 			out.close();
 			// Terminate the monitor task and monitor
 			if(verbose > 0) {
@@ -208,6 +210,7 @@ public class ClassifyBED {
 				"            -i  FILE                BED6 input file, required" + newLine +
 				"            -gff  FILE              GTF/GFF3 annotation file(s) used for classification, required" + newLine +
 				"            -o  FILE                BED output file with added field of genetic-type summary, required" + newLine +
+				"            --keep-track  FLAG      keep track-line (and update) if exists, otherwise no track-line will be kept" + newLine +
 				"            --name  STRING          name attribute of the track-line, will override the original value [outfile name]" + newLine +
 				"            --desc  STRING          description attribute of the track-line, will override the original value [-name]" + newLine +
 				"            --detail  FLAG          show summary of mapped feature types" + newLine +
@@ -228,6 +231,8 @@ public class ClassifyBED {
 				chrLenFile = args[++i];
 			else if(args[i].equals("-gff"))
 				gffFiles.add(args[++i]);
+			else if(args[i].equals("--keep-track"))
+				keepTrack = true;
 			else if(args[i].equals("--name"))
 				trackName = args[++i];	
 			else if(args[i].equals("--desc"))
@@ -280,6 +285,7 @@ public class ClassifyBED {
 	private static Timer processMonitor;
 	private static ProcessStatusTask statusTask;
 	private static final String trackType = "bedDetail"; // required track line info
+	private static boolean keepTrack;
 	private static String trackName;
 	private static String trackDesc;
 }
